@@ -12,7 +12,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:90_name",
-            "name": "艾瑪"
+            "name": "Emma"
         },
         "element_id": {
             "value": [
@@ -50,7 +50,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:170_name",
-            "name": "普麗瓦蒂"
+            "name": "Privaty"
         },
         "element_id": {
             "value": [
@@ -88,7 +88,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:22_name",
-            "name": "西格娜"
+            "name": "Signal"
         },
         "element_id": {
             "value": [
@@ -126,7 +126,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:30_name",
-            "name": "波莉"
+            "name": "Poli"
         },
         "element_id": {
             "value": [
@@ -164,7 +164,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:32_name",
-            "name": "米蘭達"
+            "name": "Miranda"
         },
         "element_id": {
             "value": [
@@ -202,7 +202,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:70_name",
-            "name": "布麗德"
+            "name": "Brid"
         },
         "element_id": {
             "value": [
@@ -240,7 +240,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:71_name",
-            "name": "索林"
+            "name": "Soline"
         },
         "element_id": {
             "value": [
@@ -278,7 +278,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:72_name",
-            "name": "迪塞爾"
+            "name": "Diesel"
         },
         "element_id": {
             "value": [
@@ -316,7 +316,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:91_name",
-            "name": "貝斯蒂"
+            "name": "Vesti"
         },
         "element_id": {
             "value": [
@@ -354,7 +354,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:92_name",
-            "name": "銀華"
+            "name": "Eunhwa"
         },
         "element_id": {
             "value": [
@@ -392,7 +392,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:180_name",
-            "name": "吉蘿婷"
+            "name": "Guillotine"
         },
         "element_id": {
             "value": [
@@ -430,7 +430,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:181_name",
-            "name": "梅登"
+            "name": "Maiden"
         },
         "element_id": {
             "value": [
@@ -506,7 +506,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:352_name",
-            "name": "海倫"
+            "name": "Helm"
         },
         "element_id": {
             "value": [
@@ -544,7 +544,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:14_name",
-            "name": "尼恩：藍色海洋"
+            "name": "Neon: Blue Ocean"
         },
         "element_id": {
             "value": [
@@ -582,7 +582,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:350_name",
-            "name": "馬斯特"
+            "name": "Mast"
         },
         "element_id": {
             "value": [
@@ -620,7 +620,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:353_name",
-            "name": "海倫：海藍寶石"
+            "name": "Helm: Aquamarine"
         },
         "element_id": {
             "value": [
@@ -658,7 +658,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:321_name",
-            "name": "瑪律恰那"
+            "name": "Marciana"
         },
         "element_id": {
             "value": [
@@ -696,7 +696,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:33_name",
-            "name": "基里"
+            "name": "Quiry"
         },
         "element_id": {
             "value": [
@@ -734,7 +734,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:313_name",
-            "name": "普麗瓦蒂：不友善的女僕"
+            "name": "Privaty: Unkind Maid"
         },
         "element_id": {
             "value": [
@@ -772,7 +772,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:43_name",
-            "name": "D：殺手妻子"
+            "name": "D: Killer Wife"
         },
         "element_id": {
             "value": [
@@ -810,7 +810,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:390_name",
-            "name": "茨瓦伊"
+            "name": "Zwei"
         },
         "element_id": {
             "value": [
@@ -848,7 +848,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:580_name",
-            "name": "潘托姆"
+            "name": "Phantom"
         },
         "element_id": {
             "value": [
@@ -886,7 +886,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:183_name",
-            "name": "梅登：冰玫瑰"
+            "name": "Maiden: Ice Rose"
         },
         "element_id": {
             "value": [
@@ -924,7 +924,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:182_name",
-            "name": "吉蘿婷：寒冬殺手"
+            "name": "Guillotine: Winter Slayer"
         },
         "element_id": {
             "value": [
@@ -962,7 +962,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:16_name",
-            "name": "拉毗：小紅帽"
+            "name": "Rapi: Red Hood"
         },
         "element_id": {
             "value": [
@@ -1000,7 +1000,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:354_name",
-            "name": "馬斯特：浪漫的女僕"
+            "name": "Mast: Romantic Maid"
         },
         "element_id": {
             "value": [
@@ -1038,7 +1038,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:355_name",
-            "name": "安克：天真的女僕"
+            "name": "Anchor: Innocent Maid"
         },
         "element_id": {
             "value": [
@@ -1076,7 +1076,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:102_name",
-            "name": "麥斯威爾"
+            "name": "Maxwell"
         },
         "element_id": {
             "value": [
@@ -1114,7 +1114,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:160_name",
-            "name": "尤妮"
+            "name": "Yuni"
         },
         "element_id": {
             "value": [
@@ -1152,7 +1152,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:82_name",
-            "name": "麗塔"
+            "name": "Liter"
         },
         "element_id": {
             "value": [
@@ -1190,7 +1190,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:150_name",
-            "name": "尤莉亞"
+            "name": "Julia"
         },
         "element_id": {
             "value": [
@@ -1228,7 +1228,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:80_name",
-            "name": "桑迪"
+            "name": "Centi"
         },
         "element_id": {
             "value": [
@@ -1266,7 +1266,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:101_name",
-            "name": "德雷克"
+            "name": "Drake"
         },
         "element_id": {
             "value": [
@@ -1304,7 +1304,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:110_name",
-            "name": "克拉烏"
+            "name": "Crow"
         },
         "element_id": {
             "value": [
@@ -1342,7 +1342,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:131_name",
-            "name": "佩珀"
+            "name": "Pepper"
         },
         "element_id": {
             "value": [
@@ -1380,7 +1380,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:172_name",
-            "name": "艾德米"
+            "name": "Admi"
         },
         "element_id": {
             "value": [
@@ -1418,7 +1418,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:111_name",
-            "name": "豺狼"
+            "name": "Jackal"
         },
         "element_id": {
             "value": [
@@ -1456,7 +1456,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:100_name",
-            "name": "拉普拉斯"
+            "name": "Laplace"
         },
         "element_id": {
             "value": [
@@ -1494,7 +1494,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:400_name",
-            "name": "吉爾提"
+            "name": "Guilty"
         },
         "element_id": {
             "value": [
@@ -1532,7 +1532,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:401_name",
-            "name": "森"
+            "name": "Sin"
         },
         "element_id": {
             "value": [
@@ -1570,7 +1570,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:402_name",
-            "name": "坎西"
+            "name": "Quency"
         },
         "element_id": {
             "value": [
@@ -1608,7 +1608,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:121_name",
-            "name": "安妮：奇蹟仙女"
+            "name": "Anne: Miracle Fairy"
         },
         "element_id": {
             "value": [
@@ -1646,7 +1646,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:241_name",
-            "name": "艾菲涅爾"
+            "name": "Epinel"
         },
         "element_id": {
             "value": [
@@ -1684,7 +1684,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:450_name",
-            "name": "娜嘉"
+            "name": "Naga"
         },
         "element_id": {
             "value": [
@@ -1722,7 +1722,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:451_name",
-            "name": "蒂亞"
+            "name": "Tia"
         },
         "element_id": {
             "value": [
@@ -1760,7 +1760,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:192_name",
-            "name": "托比"
+            "name": "Tove"
         },
         "element_id": {
             "value": [
@@ -1798,7 +1798,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:500_name",
-            "name": "伊萊格"
+            "name": "Elegg"
         },
         "element_id": {
             "value": [
@@ -1836,7 +1836,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:361_name",
-            "name": "吉洛"
+            "name": "Kilo"
         },
         "element_id": {
             "value": [
@@ -1874,7 +1874,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:501_name",
-            "name": "特羅尼"
+            "name": "Trony"
         },
         "element_id": {
             "value": [
@@ -1912,7 +1912,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:391_name",
-            "name": "愛因"
+            "name": "Ein"
         },
         "element_id": {
             "value": [
@@ -1950,7 +1950,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:403_name",
-            "name": "坎西：逃生女王"
+            "name": "Quency: Escape Queen"
         },
         "element_id": {
             "value": [
@@ -1988,7 +1988,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:411_name",
-            "name": "芙羅拉"
+            "name": "Flora"
         },
         "element_id": {
             "value": [
@@ -2026,7 +2026,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:290_name",
-            "name": "瑪娜"
+            "name": "Mana"
         },
         "element_id": {
             "value": [
@@ -2064,7 +2064,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:412_name",
-            "name": "特蕾娜"
+            "name": "Trina"
         },
         "element_id": {
             "value": [
@@ -2102,7 +2102,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:140_name",
-            "name": "舒格"
+            "name": "Sugar"
         },
         "element_id": {
             "value": [
@@ -2140,7 +2140,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:210_name",
-            "name": "艾可希雅"
+            "name": "Exia"
         },
         "element_id": {
             "value": [
@@ -2178,7 +2178,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:191_name",
-            "name": "愛麗絲"
+            "name": "Alice"
         },
         "element_id": {
             "value": [
@@ -2216,7 +2216,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:270_name",
-            "name": "布蘭兒"
+            "name": "Blanc"
         },
         "element_id": {
             "value": [
@@ -2254,7 +2254,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:271_name",
-            "name": "諾亞爾"
+            "name": "Noir"
         },
         "element_id": {
             "value": [
@@ -2292,7 +2292,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:142_name",
-            "name": "普琳瑪"
+            "name": "Frima"
         },
         "element_id": {
             "value": [
@@ -2330,7 +2330,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:130_name",
-            "name": "梅里"
+            "name": "Mary"
         },
         "element_id": {
             "value": [
@@ -2368,7 +2368,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:141_name",
-            "name": "米爾克"
+            "name": "Milk"
         },
         "element_id": {
             "value": [
@@ -2406,7 +2406,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:171_name",
-            "name": "尤爾夏"
+            "name": "Yulha"
         },
         "element_id": {
             "value": [
@@ -2444,7 +2444,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:190_name",
-            "name": "魯德米拉"
+            "name": "Ludmilla"
         },
         "element_id": {
             "value": [
@@ -2482,7 +2482,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:200_name",
-            "name": "露菲"
+            "name": "Rupee"
         },
         "element_id": {
             "value": [
@@ -2520,7 +2520,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:201_name",
-            "name": "楊"
+            "name": "Yan"
         },
         "element_id": {
             "value": [
@@ -2558,7 +2558,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:202_name",
-            "name": "朵拉"
+            "name": "Dolla"
         },
         "element_id": {
             "value": [
@@ -2596,7 +2596,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:212_name",
-            "name": "諾薇兒"
+            "name": "Novel"
         },
         "element_id": {
             "value": [
@@ -2634,7 +2634,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:242_name",
-            "name": "富克旺"
+            "name": "Folkwang"
         },
         "element_id": {
             "value": [
@@ -2672,7 +2672,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:282_name",
-            "name": "櫻花"
+            "name": "Sakura"
         },
         "element_id": {
             "value": [
@@ -2710,7 +2710,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:112_name",
-            "name": "毒蛇"
+            "name": "Viper"
         },
         "element_id": {
             "value": [
@@ -2748,7 +2748,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:311_name",
-            "name": "可可"
+            "name": "Cocoa"
         },
         "element_id": {
             "value": [
@@ -2786,7 +2786,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:312_name",
-            "name": "索達"
+            "name": "Soda"
         },
         "element_id": {
             "value": [
@@ -2824,7 +2824,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:381_name",
-            "name": "餅乾"
+            "name": "Biscuit"
         },
         "element_id": {
             "value": [
@@ -2862,7 +2862,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:392_name",
-            "name": "萊伊"
+            "name": "Rei"
         },
         "element_id": {
             "value": [
@@ -2900,7 +2900,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:432_name",
-            "name": "阿莉亞"
+            "name": "Aria"
         },
         "element_id": {
             "value": [
@@ -2938,7 +2938,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:430_name",
-            "name": "諾伊斯"
+            "name": "Noise"
         },
         "element_id": {
             "value": [
@@ -2976,7 +2976,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:431_name",
-            "name": "沃綸姆"
+            "name": "Volume"
         },
         "element_id": {
             "value": [
@@ -3014,7 +3014,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:203_name",
-            "name": "露菲：冬日購物狂"
+            "name": "Rupee: Winter Shopper"
         },
         "element_id": {
             "value": [
@@ -3052,7 +3052,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:280_name",
-            "name": "羅珊娜"
+            "name": "Rosanna"
         },
         "element_id": {
             "value": [
@@ -3090,7 +3090,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:132_name",
-            "name": "梅里：海灣女神"
+            "name": "Mary: Bay Goddess"
         },
         "element_id": {
             "value": [
@@ -3128,7 +3128,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:380_name",
-            "name": "尼羅"
+            "name": "Nero"
         },
         "element_id": {
             "value": [
@@ -3166,7 +3166,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:15_name",
-            "name": "阿妮斯：閃耀夏日"
+            "name": "Anis: Sparkling Summer"
         },
         "element_id": {
             "value": [
@@ -3204,7 +3204,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:194_name",
-            "name": "魯德米拉：冬日之主"
+            "name": "Ludmilla: Winter Owner"
         },
         "element_id": {
             "value": [
@@ -3242,7 +3242,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:62_name",
-            "name": "米卡：雪地夥伴"
+            "name": "Mica: Snow Buddy"
         },
         "element_id": {
             "value": [
@@ -3280,7 +3280,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:382_name",
-            "name": "萊昂納"
+            "name": "Leona"
         },
         "element_id": {
             "value": [
@@ -3318,7 +3318,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:281_name",
-            "name": "牡丹"
+            "name": "Moran"
         },
         "element_id": {
             "value": [
@@ -3356,7 +3356,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:310_name",
-            "name": "愛德"
+            "name": "Ade"
         },
         "element_id": {
             "value": [
@@ -3394,7 +3394,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:550_name",
-            "name": "貝伊"
+            "name": "Bay"
         },
         "element_id": {
             "value": [
@@ -3432,7 +3432,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:314_name",
-            "name": "索達：閃亮兔女郎"
+            "name": "Soda: Twinkling Bunny"
         },
         "element_id": {
             "value": [
@@ -3470,7 +3470,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:195_name",
-            "name": "愛麗絲：仙境兔女郎"
+            "name": "Alice: Wonderland Bunny"
         },
         "element_id": {
             "value": [
@@ -3508,7 +3508,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:551_name",
-            "name": "克雷伊"
+            "name": "Clay"
         },
         "element_id": {
             "value": [
@@ -3546,7 +3546,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:283_name",
-            "name": "羅珊娜：高雅海洋"
+            "name": "Rosanna: Chic Ocean"
         },
         "element_id": {
             "value": [
@@ -3584,7 +3584,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:284_name",
-            "name": "櫻花：夏日綻放"
+            "name": "Sakura: Bloom in Summer"
         },
         "element_id": {
             "value": [
@@ -3622,7 +3622,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:272_name",
-            "name": "露姬"
+            "name": "Rouge"
         },
         "element_id": {
             "value": [
@@ -3660,7 +3660,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:240_name",
-            "name": "魯瑪妮"
+            "name": "Rumani"
         },
         "element_id": {
             "value": [
@@ -3698,7 +3698,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:220_name",
-            "name": "白雪公主"
+            "name": "Snow White"
         },
         "element_id": {
             "value": [
@@ -3736,7 +3736,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:231_name",
-            "name": "伊莎貝爾"
+            "name": "Isabel"
         },
         "element_id": {
             "value": [
@@ -3774,7 +3774,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:221_name",
-            "name": "長髮公主"
+            "name": "Rapunzel"
         },
         "element_id": {
             "value": [
@@ -3812,7 +3812,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:222_name",
-            "name": "紅蓮"
+            "name": "Scarlet"
         },
         "element_id": {
             "value": [
@@ -3850,7 +3850,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:230_name",
-            "name": "哈蘭"
+            "name": "Harran"
         },
         "element_id": {
             "value": [
@@ -3888,7 +3888,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:232_name",
-            "name": "諾雅"
+            "name": "Noah"
         },
         "element_id": {
             "value": [
@@ -3926,7 +3926,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:260_name",
-            "name": "神罰"
+            "name": "Modernia"
         },
         "element_id": {
             "value": [
@@ -3964,7 +3964,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:261_name",
-            "name": "尼希利斯塔"
+            "name": "Nihilister"
         },
         "element_id": {
             "value": [
@@ -4002,7 +4002,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:233_name",
-            "name": "桃樂絲"
+            "name": "Dorothy"
         },
         "element_id": {
             "value": [
@@ -4040,7 +4040,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:470_name",
-            "name": "小紅帽"
+            "name": "Red Hood"
         },
         "element_id": {
             "value": [
@@ -4078,7 +4078,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:224_name",
-            "name": "白雪公主：純真年代"
+            "name": "Snow White: Innocent Days"
         },
         "element_id": {
             "value": [
@@ -4116,7 +4116,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:225_name",
-            "name": "紅蓮：暗影"
+            "name": "Scarlet: Black Shadow"
         },
         "element_id": {
             "value": [
@@ -4154,7 +4154,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:330_name",
-            "name": "皇冠"
+            "name": "Crown"
         },
         "element_id": {
             "value": [
@@ -4192,7 +4192,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:226_name",
-            "name": "長髮公主：純潔恩典"
+            "name": "Rapunzel: Pure Grace"
         },
         "element_id": {
             "value": [
@@ -4230,7 +4230,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:511_name",
-            "name": "灰姑娘"
+            "name": "Cinderella"
         },
         "element_id": {
             "value": [
@@ -4268,7 +4268,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:514_name",
-            "name": "格拉維"
+            "name": "Grave"
         },
         "element_id": {
             "value": [
@@ -4306,7 +4306,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:800_name",
-            "name": "真紀真"
+            "name": "Makima"
         },
         "element_id": {
             "value": [
@@ -4344,7 +4344,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:801_name",
-            "name": "帕瓦"
+            "name": "Power"
         },
         "element_id": {
             "value": [
@@ -4458,7 +4458,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:820_name",
-            "name": "雷姆"
+            "name": "Rem"
         },
         "element_id": {
             "value": [
@@ -4496,7 +4496,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:821_name",
-            "name": "愛蜜莉雅"
+            "name": "Emilia"
         },
         "element_id": {
             "value": [
@@ -4534,7 +4534,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:830_name",
-            "name": "明日香"
+            "name": "Asuka"
         },
         "element_id": {
             "value": [
@@ -4572,7 +4572,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:831_name",
-            "name": "零"
+            "name": "Rei"
         },
         "element_id": {
             "value": [
@@ -4610,7 +4610,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:832_name",
-            "name": "真理"
+            "name": "Mari"
         },
         "element_id": {
             "value": [
@@ -4648,7 +4648,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:835_name",
-            "name": "明日香：WILLE"
+            "name": "Asuka: WILLE"
         },
         "element_id": {
             "value": [
@@ -4686,7 +4686,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:834_name",
-            "name": "零（暫稱）"
+            "name": "Rei (Tentative Name)"
         },
         "element_id": {
             "value": [
@@ -4724,7 +4724,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:10_name",
-            "name": "拉毗"
+            "name": "Rapi"
         },
         "element_id": {
             "value": [
@@ -4762,7 +4762,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:11_name",
-            "name": "尼恩"
+            "name": "Neon"
         },
         "element_id": {
             "value": [
@@ -4800,7 +4800,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:20_name",
-            "name": "德爾塔"
+            "name": "Delta"
         },
         "element_id": {
             "value": [
@@ -4838,7 +4838,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:351_name",
-            "name": "安克"
+            "name": "Anchor"
         },
         "element_id": {
             "value": [
@@ -4876,7 +4876,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:161_name",
-            "name": "米哈拉"
+            "name": "Mihara"
         },
         "element_id": {
             "value": [
@@ -4952,7 +4952,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:291_name",
-            "name": "艾瑟兒"
+            "name": "Ether"
         },
         "element_id": {
             "value": [
@@ -4990,7 +4990,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:12_name",
-            "name": "阿妮斯"
+            "name": "Anis"
         },
         "element_id": {
             "value": [
@@ -5028,7 +5028,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:60_name",
-            "name": "貝洛塔"
+            "name": "Belorta"
         },
         "element_id": {
             "value": [
@@ -5066,7 +5066,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:61_name",
-            "name": "米卡"
+            "name": "Mica"
         },
         "element_id": {
             "value": [
@@ -5104,7 +5104,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:193_name",
-            "name": "尼夫"
+            "name": "Neve"
         },
         "element_id": {
             "value": [
@@ -5142,7 +5142,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:802_name",
-            "name": "姬野"
+            "name": "Himeno"
         },
         "element_id": {
             "value": [
@@ -5180,7 +5180,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:812_name",
-            "name": "帕斯卡"
+            "name": "Pascal"
         },
         "element_id": {
             "value": [
@@ -5218,7 +5218,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:822_name",
-            "name": "拉姆"
+            "name": "Ram"
         },
         "element_id": {
             "value": [
@@ -5256,7 +5256,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:833_name",
-            "name": "美里"
+            "name": "Misato"
         },
         "element_id": {
             "value": [
@@ -5294,7 +5294,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:836_name",
-            "name": "櫻"
+            "name": "Sakura"
         },
         "element_id": {
             "value": [
@@ -5332,7 +5332,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:300_name",
-            "name": "士兵E.G."
+            "name": "Soldier EG"
         },
         "element_id": {
             "value": [
@@ -5370,7 +5370,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:301_name",
-            "name": "士兵F.A."
+            "name": "Soldier FA"
         },
         "element_id": {
             "value": [
@@ -5408,7 +5408,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:306_name",
-            "name": "士兵O.W."
+            "name": "Soldier OW"
         },
         "element_id": {
             "value": [
@@ -5446,7 +5446,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:302_name",
-            "name": "產品08"
+            "name": "Product 08"
         },
         "element_id": {
             "value": [
@@ -5484,7 +5484,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:303_name",
-            "name": "產品12"
+            "name": "Product 12"
         },
         "element_id": {
             "value": [
@@ -5522,7 +5522,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:307_name",
-            "name": "產品23"
+            "name": "Product 23"
         },
         "element_id": {
             "value": [
@@ -5560,7 +5560,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:304_name",
-            "name": "iDoll花"
+            "name": "iDoll Flower"
         },
         "element_id": {
             "value": [
@@ -5598,7 +5598,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:305_name",
-            "name": "iDoll海"
+            "name": "iDoll Ocean"
         },
         "element_id": {
             "value": [
@@ -5636,7 +5636,7 @@
         "is_visible": true,
         "name_localkey": {
             "value": "Locale_Character:308_name",
-            "name": "iDoll太陽"
+            "name": "iDoll Sun"
         },
         "element_id": {
             "value": [
