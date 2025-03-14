@@ -60,11 +60,13 @@ headers = {
 }
 
 response = requests.post(playerNikkeUrl, headers=headers, json={})
+print("请求成功，正在保存数据...")
 
 
 filename = f"{game_user_name}.json"
 with open(filename, "w", encoding="utf-8") as f:
     json.dump(response.json(), f, ensure_ascii=False, indent=4)
+
 
 print(f"数据已保存到 {filename}")
 print("若未自动关闭，可关闭此窗口与浏览器")
