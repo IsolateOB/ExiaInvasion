@@ -3,12 +3,14 @@ import json
 import requests
 import sys
 
+print("Please accept all cookies and log in with your account and password, do not use third-party login methods")
+print("请同意所有cookie并用账号密码完成登录, 不要用第三方登录方式")
 
 driver = webdriver.Edge()
 driver.get("https://www.blablalink.com/login")
 
 print()
-input("请同意所有cookie并手动完成登录，登录后按回车键继续...")
+input("After logging in, press Enter to continue...\n 登录后按回车键继续...")
 
 all_cookies = driver.get_cookies()
 
@@ -29,7 +31,8 @@ game_user_name = filtered_cookies["game_user_name"]
 
 for key, value in filtered_cookies.items():
     if value is None:
-        print("cookie获取失败，请关闭该窗口重新运行此程序")
+        print("Failed to get cookie, please close this window and run this program again")
+        print("Cookie获取失败，请关闭该窗口重新运行此程序")
         sys.exit(1)
 
 cookie_str = "; ".join([f"{key}={value}" for key, value in filtered_cookies.items()])
@@ -60,7 +63,6 @@ headers = {
 }
 
 response = requests.post(playerNikkeUrl, headers=headers, json={})
-print("请求成功，正在保存数据...")
 
 
 filename = f"{game_user_name}.json"
@@ -68,8 +70,8 @@ with open(filename, "w", encoding="utf-8") as f:
     json.dump(response.json(), f, ensure_ascii=False, indent=4)
 
 
+print("Data has been saved to", filename)
 print(f"数据已保存到 {filename}")
+print("If it does not close automatically, you can close this window and the browser")
 print("若未自动关闭，可关闭此窗口与浏览器")
 sys.exit(0)
-
-
