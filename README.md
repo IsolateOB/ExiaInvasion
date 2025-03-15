@@ -16,6 +16,8 @@
 - An error may be reported when running for the first time, please close it and run again.
 
   第一次运行可能会报错，请关闭后重新运行
+  
+- 目前支持输出简体中文表格
 
 
 

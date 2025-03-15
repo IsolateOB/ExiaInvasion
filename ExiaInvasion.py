@@ -20,7 +20,8 @@ class ExiaInvasion:
         ExiaInvasion.saveTableToExcel(self)
 
 
-    def getCookies(self):
+    @staticmethod
+    def getCookies():
         important_keys = ["OptanonAlertBoxClosed",
                           "game_login_game",
                           "game_openid",
@@ -37,6 +38,9 @@ class ExiaInvasion:
 
         print()
         input("After logging in, press Enter to continue...\n 登录后按回车键继续...")
+
+        print("Retrieving cookies...")
+        print("正在获取cookie...")
 
         all_cookies = driver.get_cookies()
 
@@ -246,7 +250,7 @@ class ExiaInvasion:
         elif v == 3:
             return "SSR"
         else:
-            return str(v)
+            return ""
 
     @staticmethod
     def get_fill_by_level(level):
@@ -285,15 +289,16 @@ class ExiaInvasion:
             "skill_burst_level",  # 2
             "item_rare",  # 3
             "item_level",  # 4
-            "IncElementDmg",  # 5
-            "StatAtk",  # 6
-            "StatAmmoLoad",  # 7
-            "StatChargeTime",  # 8
-            "StatChargeDamage",  # 9
-            "StatDef",  # 10
-            "StatCritical",  # 11
-            "StatCriticalDamage",  # 12
-            "StatAccuracyCircle"  # 13
+            None,  # 5
+            "IncElementDmg",    # 6
+            "StatAtk",  # 7
+            "StatAmmoLoad", # 8
+            "StatChargeTime",   #9
+            "StatChargeDamage",  # 10
+            "StatDef",  # 11
+            "StatCritical",  # 12
+            "StatCriticalDamage",  # 13
+            "StatAccuracyCircle"  # 14
         ]
         property_labels = [
             "技能1",
@@ -301,6 +306,7 @@ class ExiaInvasion:
             "爆裂",
             "珍藏品",  # 会合并到下一列
             None,  # 跳过
+            "T10",
             "优越",
             "攻击",
             "弹夹",
@@ -314,7 +320,7 @@ class ExiaInvasion:
 
         wb = Workbook()
         ws = wb.active
-        ws.title = "角色装备表"
+        ws.title = "成员信息"
 
         ws.row_dimensions[1].height = 25
         ws.row_dimensions[2].height = 25
@@ -328,10 +334,10 @@ class ExiaInvasion:
         ws.merge_cells(start_row=1, start_column=2, end_row=3, end_column=2)
 
         start_col = 3
+        width_per_char = 15
 
         for element_name, chars_dict in elements_data.items():
             num_chars = len(chars_dict)
-            width_per_char = 14
             total_width = num_chars * width_per_char
 
             ws.merge_cells(start_row=1, start_column=start_col, end_row=1, end_column=start_col + total_width - 1)
@@ -346,6 +352,9 @@ class ExiaInvasion:
                                end_column=col_cursor + width_per_char - 1)
                 c_char = ws.cell(row=2, column=col_cursor, value=char_name)
                 c_char.alignment = Alignment(horizontal="center", vertical="center")
+                self.set_horizontal_border(ws, 2, col_cursor, col_cursor + width_per_char - 1,
+                                           border_side=Side(border_style="thin", color="000000"), side_pos="bottom")
+
                 priority = char_info.get("priority", "")
                 if priority == "black":
                     c_char.fill = PatternFill("solid", fgColor="000000")
@@ -382,16 +391,27 @@ class ExiaInvasion:
                         start_row=4, start_column=col_cursor + i,
                         end_row=8, end_column=col_cursor + i
                     )
-                ws.cell(row=4, column=col_cursor + 0, value=skill1).alignment = Alignment(horizontal="center",
+                ws.cell(row=4, column=col_cursor + 0, value=skill1 if skill1 > 0 else "").alignment = Alignment(horizontal="center", vertical="center")
+
+                ws.cell(row=4, column=col_cursor + 1, value=skill2 if skill2 > 0 else "").alignment = Alignment(horizontal="center", vertical="center")
+
+                ws.cell(row=4, column=col_cursor + 2, value=skill_burst if skill_burst > 0 else "").alignment = Alignment(horizontal="center", vertical="center")
+
+                ws.cell(row=4, column=col_cursor + 3, value=item_rare).alignment = Alignment(horizontal="center", vertical="center")
+
+                ws.cell(row=4, column=col_cursor + 4, value=item_level if item_level > 0 else "").alignment = Alignment(horizontal="center", vertical="center")
+
+
+                ws.cell(row=4, column=col_cursor + 5, value="头").alignment = Alignment(horizontal="center",
+                                                                                        vertical="center")
+                ws.cell(row=5, column=col_cursor + 5, value="身").alignment = Alignment(horizontal="center",
+                                                                                        vertical="center")
+                ws.cell(row=6, column=col_cursor + 5, value="手").alignment = Alignment(horizontal="center",
+                                                                                        vertical="center")
+                ws.cell(row=7, column=col_cursor + 5, value="足").alignment = Alignment(horizontal="center",
+                                                                                        vertical="center")
+                ws.cell(row=8, column=col_cursor + 5, value="合计").alignment = Alignment(horizontal="center",
                                                                                           vertical="center")
-                ws.cell(row=4, column=col_cursor + 1, value=skill2).alignment = Alignment(horizontal="center",
-                                                                                          vertical="center")
-                ws.cell(row=4, column=col_cursor + 2, value=skill_burst).alignment = Alignment(horizontal="center",
-                                                                                               vertical="center")
-                ws.cell(row=4, column=col_cursor + 3, value=item_rare).alignment = Alignment(horizontal="center",
-                                                                                             vertical="center")
-                ws.cell(row=4, column=col_cursor + 4, value=item_level).alignment = Alignment(horizontal="center",
-                                                                                              vertical="center")
 
                 equipments = char_info.get("equipments", {})
                 sum_stats = {
@@ -408,7 +428,7 @@ class ExiaInvasion:
                 for eq_idx in range(4):
                     row_idx = 4 + eq_idx
                     eq_list = equipments.get(eq_idx, [])
-                    for i in range(5, 14):
+                    for i in range(6, 15):
                         c = ws.cell(row=row_idx, column=col_cursor + i)
                         c.value = ""
                         c.alignment = Alignment(horizontal="center", vertical="center")
@@ -419,10 +439,11 @@ class ExiaInvasion:
                         lvl = f.get("level", 0)
                         if ftype in sum_stats:
                             sum_stats[ftype] += fval
-                        if ftype in property_keys[5:]:
+                        if ftype in property_keys[6:]:
                             i_prop = property_keys.index(ftype)  # 5..13
                             cell_eq = ws.cell(row=row_idx, column=col_cursor + i_prop)
-                            cell_eq.value = f"{fval:.2f}%"
+                            cell_eq.value = fval/100
+                            cell_eq.number_format = "0.00%"
                             # 上色
                             fill = self.get_fill_by_level(lvl)
                             font = self.get_font_by_level(lvl)
@@ -430,18 +451,20 @@ class ExiaInvasion:
                             if font: cell_eq.font = font
                             cell_eq.alignment = Alignment(horizontal="center", vertical="center")
 
-                for i in range(5, 14):
+                for i in range(6, 15):
                     pkey = property_keys[i]
                     c_sum = ws.cell(row=8, column=col_cursor + i)
                     if pkey in sum_stats:
                         val_sum = sum_stats[pkey]
-                        c_sum.value = f"{val_sum:.2f}%"
+                        c_sum.value = val_sum/100
+                        c_sum.number_format = "0.00%"
                     c_sum.alignment = Alignment(horizontal="center", vertical="center")
 
                 self.set_outer_border(ws, 4, col_cursor, 8, col_cursor + width_per_char - 1, medium_side)
 
                 self.set_vertical_border(ws, 3, 8, col_cursor + 3, border_side=thin_side, side_pos="left")
                 self.set_vertical_border(ws, 3, 8, col_cursor + 4, border_side=thin_side, side_pos="right")
+                self.set_vertical_border(ws, 3, 8, col_cursor + 5, border_side=thin_side, side_pos="right")
 
                 self.set_vertical_border(ws, 1, 8, 1, border_side=medium_side, side_pos="left")
                 self.set_vertical_border(ws, 1, 8, 1, border_side=medium_side, side_pos="right")
@@ -457,7 +480,7 @@ class ExiaInvasion:
                 ws.cell(row=4, column=2, value=synchro_level).alignment = Alignment(horizontal="center",
                                                                                     vertical="center")
 
-                col_cursor += width_per_char  # 下一个角色，往右偏移14列
+                col_cursor += width_per_char  # 下一个角色
 
             start_col += total_width
 
@@ -465,12 +488,13 @@ class ExiaInvasion:
         ws.column_dimensions[get_column_letter(2)].width = 10
 
         for col in range(3, ws.max_column + 1):
-            offset = (col - 3) % 14
+            offset = (col - 3) % width_per_char
             if offset < 5:
                 ws.column_dimensions[get_column_letter(col)].width = 6
+            elif offset == 5:
+                ws.column_dimensions[get_column_letter(col)].width = 5
             else:
                 ws.column_dimensions[get_column_letter(col)].width = 8
-
 
         filename = f"{self.role_name}.xlsx"
         wb.save(filename)
