@@ -1,6 +1,7 @@
 ExiaInvasion v1.11  by 灵乌未默
+https://github.com/IsolateOB/ExiaInvasion
 
-确保已安装`Edge`浏览器（Windows系统默认安装）
+确保已安装Edge浏览器（Windows系统默认安装）
 
 第一次运行可能会报错，请关闭后重新运行
 
