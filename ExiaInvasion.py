@@ -327,7 +327,7 @@ class ExiaInvasion:
         ws.row_dimensions[2].height = 25
         ws.row_dimensions[3].height = 25
 
-        cell_alliance = ws.cell(row=1, column=1, value="联盟成员")
+        cell_alliance = ws.cell(row=1, column=1, value="角色名称")
         cell_synchro = ws.cell(row=1, column=2, value="同步等级")
         cell_alliance.alignment = Alignment(horizontal="center", vertical="center")
         cell_synchro.alignment = Alignment(horizontal="center", vertical="center")
@@ -519,7 +519,7 @@ if __name__ == "__main__":
     print("第一次运行可能会报错，请关闭后重新运行")
     print()
 
-    time.sleep(1)
+    time.sleep(3)
 
     print("Launching Edge browser")
     print("正在启动Edge浏览器")
