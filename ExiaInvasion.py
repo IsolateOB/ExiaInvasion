@@ -5,6 +5,7 @@ import sys
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+import time
 
 
 class ExiaInvasion:
@@ -399,7 +400,7 @@ class ExiaInvasion:
 
                 ws.cell(row=4, column=col_cursor + 3, value=item_rare).alignment = Alignment(horizontal="center", vertical="center")
 
-                ws.cell(row=4, column=col_cursor + 4, value=item_level if item_level > 0 else "").alignment = Alignment(horizontal="center", vertical="center")
+                ws.cell(row=4, column=col_cursor + 4, value=item_level if item_level >= 0 else "").alignment = Alignment(horizontal="center", vertical="center")
 
 
                 ws.cell(row=4, column=col_cursor + 5, value="头").alignment = Alignment(horizontal="center",
@@ -494,7 +495,12 @@ class ExiaInvasion:
             elif offset == 5:
                 ws.column_dimensions[get_column_letter(col)].width = 5
             else:
-                ws.column_dimensions[get_column_letter(col)].width = 8
+                ws.column_dimensions[get_column_letter(col)].width = 10
+
+        default_font = Font(name="微软雅黑", size=11, bold=False)
+        for row in ws.iter_rows():
+            for cell in row:
+                cell.font = default_font
 
         filename = f"{self.role_name}.xlsx"
         wb.save(filename)
@@ -503,11 +509,21 @@ class ExiaInvasion:
         print("数据已保存到", f"{self.role_name}.xlsx")
 
 
-
-
 if __name__ == "__main__":
+    print("ExiaInvasion v1.1  by 灵乌未默")
+    print("GitHub:")
+    print("github.com/IsolateOB/ExiaInvasion")
+    print()
+
+    print("An error may be reported when running for the first time, please close it and run again.")
+    print("第一次运行可能会报错，请关闭后重新运行")
+    print()
+
+    time.sleep(1)
+
     print("Launching Edge browser")
     print("正在启动Edge浏览器")
+
     print()
     print("Please agree to all cookies and log in with your account and password. Do not use third-party login methods.")
     print("请同意所有cookie并用账号密码完成登录, 不要用第三方登录方式")
