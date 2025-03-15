@@ -45,13 +45,13 @@
 
 4. Equipment Effects have 15 levels. Levels 1-5 are marked in red, levels 6-10 are marked in yellow, levels 11-14 are marked in blue, and level 15 are marked in black.
 
-  装备词条有15级，1-5级为红色，6-10级标记为黄色，11-14级标记为蓝色，15级标记为黑色
+	装备词条有15级，1-5级为红色，6-10级标记为黄色，11-14级标记为蓝色，15级标记为黑色
 
   
 
 5. `merge` can merge all tables in the same directory
 
-  `merge`将合并同目录中的所有表格
+	`merge`将合并同目录中的所有表格
 
 
 
