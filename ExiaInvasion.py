@@ -5,7 +5,6 @@ import sys
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
-import time
 
 
 class ExiaInvasion:
@@ -23,6 +22,14 @@ class ExiaInvasion:
 
     @staticmethod
     def getCookies():
+        print("Please agree to all cookies and log in with your account and password. Do not use third-party login methods.")
+        print("请同意所有cookie并用账号密码完成登录, 不要用第三方登录方式")
+        print()
+
+        print("Launching Edge browser")
+        print("正在启动Edge浏览器")
+        print()
+
         important_keys = ["OptanonAlertBoxClosed",
                           "game_login_game",
                           "game_openid",
@@ -37,11 +44,13 @@ class ExiaInvasion:
         driver = webdriver.Edge()
         driver.get("https://www.blablalink.com/login")
 
-        print()
+
         input("After logging in, press Enter to continue...\n 登录后按回车键继续...")
+        print()
 
         print("Retrieving cookies...")
         print("正在获取cookie...")
+        print()
 
         all_cookies = driver.get_cookies()
 
@@ -106,6 +115,7 @@ class ExiaInvasion:
     def addNikkesDetailsToTable(self):
         print("Fetching Nikke details...")
         print("正在获取Nikke详情...")
+        print()
         self.synchroLevel = 1
         for element, characters in self.table["elements"].items():
             for character_name, details in characters.items():
@@ -158,6 +168,7 @@ class ExiaInvasion:
     def addEquipmentsToTable(self):
         print("Fetching equipment data...")
         print("正在获取装备数据...")
+        print()
         for element, characters in self.table["elements"].items():
             for character_name, details in characters.items():
                 details["equipments"] = self.getEquipments(details["character_ids"])
@@ -277,6 +288,7 @@ class ExiaInvasion:
     def saveTableToExcel(self):
         print("Saving data to Excel...")
         print("正在保存数据到Excel...")
+        print()
 
         medium_side = Side(border_style="medium", color="000000")
         thin_side = Side(border_style="thin", color="000000")
@@ -362,8 +374,12 @@ class ExiaInvasion:
                     c_char.font = Font(color="FFFFFF", bold=True)
                 elif priority == "blue":
                     c_char.fill = PatternFill("solid", fgColor="99CCFF")
+                    c_char.font = Font(bold=True)
                 elif priority == "yellow":
                     c_char.fill = PatternFill("solid", fgColor="FFFF88")
+                    c_char.font = Font(bold=True)
+
+
 
                 for i, label in enumerate(property_labels):
                     # 跳过 None
@@ -500,6 +516,20 @@ class ExiaInvasion:
             else:
                 ws.column_dimensions[get_column_letter(col)].width = 10
 
+        new_font_name = "微软雅黑"
+        for row in ws.iter_rows():
+            for cell in row:
+                if cell.font:
+                    old_font = cell.font
+                    cell.font = Font(name=new_font_name,
+                                     size=old_font.size,
+                                     bold=old_font.bold,
+                                     italic=old_font.italic,
+                                     vertAlign=old_font.vertAlign,
+                                     underline=old_font.underline,
+                                     strike=old_font.strike,
+                                     color=old_font.color)
+
 
         filename = f"{self.role_name}.xlsx"
         wb.save(filename)
@@ -519,12 +549,4 @@ if __name__ == "__main__":
     print("第一次运行可能会报错，请关闭后重新运行")
     print()
 
-    time.sleep(3)
-
-    print("Launching Edge browser")
-    print("正在启动Edge浏览器")
-
-    print()
-    print("Please agree to all cookies and log in with your account and password. Do not use third-party login methods.")
-    print("请同意所有cookie并用账号密码完成登录, 不要用第三方登录方式")
     exia = ExiaInvasion()
