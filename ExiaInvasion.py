@@ -2,6 +2,9 @@ from selenium import webdriver
 import json
 import requests
 import sys
+from openpyxl import Workbook
+from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 
 
 class ExiaInvasion:
@@ -14,7 +17,7 @@ class ExiaInvasion:
         ExiaInvasion.addNikkesDetailsToTable(self)
         self.table["synchroLevel"] = self.synchroLevel
         self.table["name"] = self.role_name
-        ExiaInvasion.saveTableToJson(self)
+        ExiaInvasion.saveTableToExcel(self)
 
 
     def getCookies(self):
@@ -154,14 +157,328 @@ class ExiaInvasion:
             for character_name, details in characters.items():
                 details["equipments"] = self.getEquipments(details["character_ids"])
 
+    @staticmethod
+    def set_outer_border(ws, start_row, start_col, end_row, end_col, side=Side(border_style="medium", color="000000")):
+        for col in range(start_col, end_col + 1):
+            top_cell = ws.cell(row=start_row, column=col)
+            tborder = top_cell.border
+            top_cell.border = Border(
+                left=tborder.left,
+                right=tborder.right,
+                top=side,
+                bottom=tborder.bottom
+            )
 
-    def saveTableToJson(self):
-        filename = f"{self.role_name}.json"
-        with open(filename, "w", encoding="utf-8") as f:
-            json.dump(self.table, f, ensure_ascii=False, indent=4)
+            bottom_cell = ws.cell(row=end_row, column=col)
+            bborder = bottom_cell.border
+            bottom_cell.border = Border(
+                left=bborder.left,
+                right=bborder.right,
+                top=bborder.top,
+                bottom=side
+            )
+
+        for row in range(start_row, end_row + 1):
+            left_cell = ws.cell(row=row, column=start_col)
+            lborder = left_cell.border
+            left_cell.border = Border(
+                left=side,
+                right=lborder.right,
+                top=lborder.top,
+                bottom=lborder.bottom
+            )
+
+            right_cell = ws.cell(row=row, column=end_col)
+            rborder = right_cell.border
+            right_cell.border = Border(
+                left=rborder.left,
+                right=side,
+                top=rborder.top,
+                bottom=rborder.bottom
+            )
+
+    @staticmethod
+    def set_vertical_border(ws, start_row, end_row, col, border_side=Side(border_style="medium", color="000000"), side_pos="right"):
+        for r in range(start_row, end_row + 1):
+            cell = ws.cell(row=r, column=col)
+            old_border = cell.border
+            if side_pos == "right":
+                cell.border = Border(
+                    left=old_border.left,
+                    right=border_side,
+                    top=old_border.top,
+                    bottom=old_border.bottom
+                )
+            else:
+                cell.border = Border(
+                    left=border_side,
+                    right=old_border.right,
+                    top=old_border.top,
+                    bottom=old_border.bottom
+                )
+
+    @staticmethod
+    def set_horizontal_border(ws, row, start_col, end_col, border_side=Side(border_style="medium", color="000000"), side_pos="bottom"):
+        for c in range(start_col, end_col + 1):
+            cell = ws.cell(row=row, column=c)
+            old_border = cell.border
+            if side_pos == "bottom":
+                cell.border = Border(
+                    left=old_border.left,
+                    right=old_border.right,
+                    top=old_border.top,
+                    bottom=border_side
+                )
+            else:
+                cell.border = Border(
+                    left=old_border.left,
+                    right=old_border.right,
+                    top=border_side,
+                    bottom=old_border.bottom
+                )
+
+    @staticmethod
+    def item_rare_to_str(v):
+        if v == 1:
+            return "R"
+        elif v == 2:
+            return "SR"
+        elif v == 3:
+            return "SSR"
+        else:
+            return str(v)
+
+    @staticmethod
+    def get_fill_by_level(level):
+        if 1 <= level <= 5:
+            return PatternFill("solid", fgColor="FF7777")  # 红
+        elif 6 <= level <= 10:
+            return PatternFill("solid", fgColor="FFFF77")  # 黄
+        elif 11 <= level <= 14:
+            return PatternFill("solid", fgColor="77AAFF")  # 蓝
+        elif level == 15:
+            return PatternFill("solid", fgColor="000000")  # 黑
+        else:
+            return None
+
+    @staticmethod
+    def get_font_by_level(level):
+        if level == 15:
+            return Font(color="FFFFFF")
+        else:
+            return Font(color="000000")
+
+
+    def saveTableToExcel(self):
+        print("Saving data to Excel...")
+        print("正在保存数据到Excel...")
+
+        medium_side = Side(border_style="medium", color="000000")
+        thin_side = Side(border_style="thin", color="000000")
+        alliance_name = self.table.get("name", "")
+        synchro_level = self.table.get("synchroLevel", 0)
+        elements_data = self.table["elements"]  # dict
+
+        property_keys = [
+            "skill1_level",  # 0
+            "skill2_level",  # 1
+            "skill_burst_level",  # 2
+            "item_rare",  # 3
+            "item_level",  # 4
+            "IncElementDmg",  # 5
+            "StatAtk",  # 6
+            "StatAmmoLoad",  # 7
+            "StatChargeTime",  # 8
+            "StatChargeDamage",  # 9
+            "StatDef",  # 10
+            "StatCritical",  # 11
+            "StatCriticalDamage",  # 12
+            "StatAccuracyCircle"  # 13
+        ]
+        property_labels = [
+            "技能1",
+            "技能2",
+            "爆裂",
+            "珍藏品",  # 会合并到下一列
+            None,  # 跳过
+            "优越",
+            "攻击",
+            "弹夹",
+            "蓄速",
+            "蓄伤",
+            "防御",
+            "暴击",
+            "暴伤",
+            "命中",
+        ]
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "角色装备表"
+
+        ws.row_dimensions[1].height = 25
+        ws.row_dimensions[2].height = 25
+        ws.row_dimensions[3].height = 25
+
+        cell_alliance = ws.cell(row=1, column=1, value="联盟成员")
+        cell_synchro = ws.cell(row=1, column=2, value="同步等级")
+        cell_alliance.alignment = Alignment(horizontal="center", vertical="center")
+        cell_synchro.alignment = Alignment(horizontal="center", vertical="center")
+        ws.merge_cells(start_row=1, start_column=1, end_row=3, end_column=1)
+        ws.merge_cells(start_row=1, start_column=2, end_row=3, end_column=2)
+
+        start_col = 3
+
+        for element_name, chars_dict in elements_data.items():
+            num_chars = len(chars_dict)
+            width_per_char = 14
+            total_width = num_chars * width_per_char
+
+            ws.merge_cells(start_row=1, start_column=start_col, end_row=1, end_column=start_col + total_width - 1)
+            c_elem = ws.cell(row=1, column=start_col, value=element_name)
+            c_elem.alignment = Alignment(horizontal="center", vertical="center")
+            c_elem.font = Font(bold=True)
+            self.set_outer_border(ws, 1, start_col, 1, start_col + total_width - 1, medium_side)
+
+            col_cursor = start_col
+            for char_name, char_info in chars_dict.items():
+                ws.merge_cells(start_row=2, start_column=col_cursor, end_row=2,
+                               end_column=col_cursor + width_per_char - 1)
+                c_char = ws.cell(row=2, column=col_cursor, value=char_name)
+                c_char.alignment = Alignment(horizontal="center", vertical="center")
+                priority = char_info.get("priority", "")
+                if priority == "black":
+                    c_char.fill = PatternFill("solid", fgColor="000000")
+                    c_char.font = Font(color="FFFFFF", bold=True)
+                elif priority == "blue":
+                    c_char.fill = PatternFill("solid", fgColor="99CCFF")
+                elif priority == "yellow":
+                    c_char.fill = PatternFill("solid", fgColor="FFFF88")
+
+                for i, label in enumerate(property_labels):
+                    # 跳过 None
+                    if label is None:
+                        continue
+                    col_index = col_cursor + i
+                    if i == 3:
+                        # 合并 i=3,4
+                        ws.merge_cells(start_row=3, start_column=col_index, end_row=3, end_column=col_index + 1)
+                        cell_head = ws.cell(row=3, column=col_index, value=label)
+                        cell_head.alignment = Alignment(horizontal="center", vertical="center")
+                    else:
+                        cell_head = ws.cell(row=3, column=col_index, value=label)
+                        cell_head.alignment = Alignment(horizontal="center", vertical="center")
+
+                self.set_outer_border(ws, 2, col_cursor, 3, col_cursor + width_per_char - 1, medium_side)
+
+                skill1 = char_info.get("skill1_level", 0)
+                skill2 = char_info.get("skill2_level", 0)
+                skill_burst = char_info.get("skill_burst_level", 0)
+                item_rare = self.item_rare_to_str(char_info.get("item_rare", 0))
+                item_level = char_info.get("item_level", 0)
+
+                for i in range(5):
+                    ws.merge_cells(
+                        start_row=4, start_column=col_cursor + i,
+                        end_row=8, end_column=col_cursor + i
+                    )
+                ws.cell(row=4, column=col_cursor + 0, value=skill1).alignment = Alignment(horizontal="center",
+                                                                                          vertical="center")
+                ws.cell(row=4, column=col_cursor + 1, value=skill2).alignment = Alignment(horizontal="center",
+                                                                                          vertical="center")
+                ws.cell(row=4, column=col_cursor + 2, value=skill_burst).alignment = Alignment(horizontal="center",
+                                                                                               vertical="center")
+                ws.cell(row=4, column=col_cursor + 3, value=item_rare).alignment = Alignment(horizontal="center",
+                                                                                             vertical="center")
+                ws.cell(row=4, column=col_cursor + 4, value=item_level).alignment = Alignment(horizontal="center",
+                                                                                              vertical="center")
+
+                equipments = char_info.get("equipments", {})
+                sum_stats = {
+                    "IncElementDmg": 0.0,
+                    "StatAtk": 0.0,
+                    "StatAmmoLoad": 0.0,
+                    "StatChargeTime": 0.0,
+                    "StatChargeDamage": 0.0,
+                    "StatDef": 0.0,
+                    "StatCritical": 0.0,
+                    "StatCriticalDamage": 0.0,
+                    "StatAccuracyCircle": 0.0,
+                }
+                for eq_idx in range(4):
+                    row_idx = 4 + eq_idx
+                    eq_list = equipments.get(eq_idx, [])
+                    for i in range(5, 14):
+                        c = ws.cell(row=row_idx, column=col_cursor + i)
+                        c.value = ""
+                        c.alignment = Alignment(horizontal="center", vertical="center")
+
+                    for f in eq_list:
+                        ftype = f.get("function_type", "")
+                        fval = f.get("function_value", 0.0)
+                        lvl = f.get("level", 0)
+                        if ftype in sum_stats:
+                            sum_stats[ftype] += fval
+                        if ftype in property_keys[5:]:
+                            i_prop = property_keys.index(ftype)  # 5..13
+                            cell_eq = ws.cell(row=row_idx, column=col_cursor + i_prop)
+                            cell_eq.value = f"{fval:.2f}%"
+                            # 上色
+                            fill = self.get_fill_by_level(lvl)
+                            font = self.get_font_by_level(lvl)
+                            if fill: cell_eq.fill = fill
+                            if font: cell_eq.font = font
+                            cell_eq.alignment = Alignment(horizontal="center", vertical="center")
+
+                for i in range(5, 14):
+                    pkey = property_keys[i]
+                    c_sum = ws.cell(row=8, column=col_cursor + i)
+                    if pkey in sum_stats:
+                        val_sum = sum_stats[pkey]
+                        c_sum.value = f"{val_sum:.2f}%"
+                    c_sum.alignment = Alignment(horizontal="center", vertical="center")
+
+                self.set_outer_border(ws, 4, col_cursor, 8, col_cursor + width_per_char - 1, medium_side)
+
+                self.set_vertical_border(ws, 3, 8, col_cursor + 3, border_side=thin_side, side_pos="left")
+                self.set_vertical_border(ws, 3, 8, col_cursor + 4, border_side=thin_side, side_pos="right")
+
+                self.set_vertical_border(ws, 1, 8, 1, border_side=medium_side, side_pos="left")
+                self.set_vertical_border(ws, 1, 8, 1, border_side=medium_side, side_pos="right")
+
+                self.set_horizontal_border(ws, 3, 1, 2, side_pos="bottom")
+                self.set_horizontal_border(ws, 8, 1, 2, side_pos="bottom")
+
+                ws.merge_cells(start_row=4, start_column=1, end_row=8, end_column=1)  # 联盟成员
+                ws.merge_cells(start_row=4, start_column=2, end_row=8, end_column=2)  # 同步等级
+                # 并在 row=4 写入
+                ws.cell(row=4, column=1, value=alliance_name).alignment = Alignment(horizontal="center",
+                                                                                    vertical="center")
+                ws.cell(row=4, column=2, value=synchro_level).alignment = Alignment(horizontal="center",
+                                                                                    vertical="center")
+
+                col_cursor += width_per_char  # 下一个角色，往右偏移14列
+
+            start_col += total_width
+
+        ws.column_dimensions[get_column_letter(1)].width = 16
+        ws.column_dimensions[get_column_letter(2)].width = 10
+
+        for col in range(3, ws.max_column + 1):
+            offset = (col - 3) % 14
+            if offset < 5:
+                ws.column_dimensions[get_column_letter(col)].width = 6
+            else:
+                ws.column_dimensions[get_column_letter(col)].width = 8
+
+
+        filename = f"{self.role_name}.xlsx"
+        wb.save(filename)
 
         print(f"Data saved to {filename}")
-        print("数据已保存到", f"{self.role_name}.json")
+        print("数据已保存到", f"{self.role_name}.xlsx")
+
+
 
 
 if __name__ == "__main__":
