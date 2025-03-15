@@ -473,6 +473,9 @@ class ExiaInvasion:
                 self.set_horizontal_border(ws, 3, 1, 2, side_pos="bottom")
                 self.set_horizontal_border(ws, 8, 1, 2, side_pos="bottom")
 
+                self.set_horizontal_border(ws, 8, col_cursor + 5, col_cursor + 14,
+                                           border_side=Side(border_style="thin", color="000000"), side_pos="top")
+
                 ws.merge_cells(start_row=4, start_column=1, end_row=8, end_column=1)  # 联盟成员
                 ws.merge_cells(start_row=4, start_column=2, end_row=8, end_column=2)  # 同步等级
                 # 并在 row=4 写入
@@ -497,10 +500,6 @@ class ExiaInvasion:
             else:
                 ws.column_dimensions[get_column_letter(col)].width = 10
 
-        default_font = Font(name="微软雅黑", size=11, bold=False)
-        for row in ws.iter_rows():
-            for cell in row:
-                cell.font = default_font
 
         filename = f"{self.role_name}.xlsx"
         wb.save(filename)
