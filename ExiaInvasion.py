@@ -6,13 +6,16 @@ import sys
 
 class ExiaInvasion:
     def __init__(self):
-        print("Launching Edge browser")
-        print("正在启动Edge浏览器")
-        print()
-        print("请同意所有cookie并用账号密码完成登录, 不要用第三方登录方式")
-
         self.cookie_str = self.getCookies()
-        self.getPlayerNikkes_response = self.getPlayerNikkes()
+        self.role_name = self.getRoleName()
+        self.table = json.loads(open("SearchIndex.json", "r", encoding="utf-8").read())
+        self.playerNikkes = ExiaInvasion.getPlayerNikkes(self)
+        ExiaInvasion.addEquipmentsToTable(self)
+        ExiaInvasion.addNikkesDetailsToTable(self)
+        self.table["synchroLevel"] = self.synchroLevel
+        self.table["name"] = self.role_name
+        ExiaInvasion.saveTableToJson(self)
+
 
     def getCookies(self):
         important_keys = ["OptanonAlertBoxClosed",
@@ -43,8 +46,6 @@ class ExiaInvasion:
                 print("Cookie获取失败，请关闭该窗口重新运行此程序")
                 sys.exit(1)
 
-        self.game_user_name = filtered_cookies["game_user_name"]
-
         cookie_str = "; ".join([f"{key}={value}" for key, value in filtered_cookies.items()])
 
         return cookie_str
@@ -73,20 +74,100 @@ class ExiaInvasion:
             "x-common-params": '{"game_id":"16","area_id":"global","source":"pc_web","intl_game_id":"29080","language":"zh-TW","env":"prod","data_statistics_scene":"outer","data_statistics_page_id":"https://www.blablalink.com/","data_statistics_client_type":"pc_web","data_statistics_lang":"zh-TW"}',
             "x-language": "zh-TW"
         }
+
         return headers
 
 
+    def getRoleName(self):
+        headers = self.getHeader("2")
+        url = "https://api.blablalink.com/api/ugc/direct/standalonesite/User/GetUserGamePlayerInfo"
+        response = requests.post(url, headers=headers, json={}).json()
+
+        role_name = response["data"]["role_name"]
+
+        return role_name
+
+
     def getPlayerNikkes(self):
-        headers = self.getHeader(self.cookie_str, "2")
+        headers = self.getHeader("2")
         url = "https://api.blablalink.com/api/game/proxy/Tools/GetPlayerNikkes"
-        response = requests.post(url, headers=headers, json={})
+        response = requests.post(url, headers=headers, json={}).json()
+
         return response
 
-    def writeJson(self, response):
-        game_user_name = self.game_user_name
-        filename = f"{game_user_name}.json"
-        with open(filename, "w", encoding="utf-8") as f:
-            json.dump(response.json(), f, ensure_ascii=False, indent=4)
+    def addNikkesDetailsToTable(self):
+        print("Fetching Nikke details...")
+        print("正在获取Nikke详情...")
+        self.synchroLevel = 1
+        for element, characters in self.table["elements"].items():
+            for character_name, details in characters.items():
+                for nikke_details in self.playerNikkes["data"]["player_nikkes"]:
+                    if details["name_code"] == nikke_details["name_code"]:
+                        details["skill1_level"] = nikke_details["skill1_level"]
+                        details["skill2_level"] = nikke_details["skill2_level"]
+                        details["skill_burst_level"] = nikke_details["skill_burst_level"]
+                        details["item_rare"] = nikke_details["item_rare"]
+                        details["item_level"] = nikke_details["item_level"]
+                    if nikke_details["level"] > self.synchroLevel:
+                        self.synchroLevel = nikke_details["level"]
 
-        print(f"Data has been saved to {filename}")
-        print(f"数据已保存到 {filename}")
+
+    def getEquipments(self, character_ids):
+        headers = self.getHeader("96")
+        url = "https://api.blablalink.com/api/game/proxy/Tools/GetPlayerEquipContents"
+        json_data = requests.post(url, headers=headers, json={"character_ids": character_ids}).json()
+        player_equip_contents = json_data["data"]["player_equip_contents"]
+
+        final_slots = [None, None, None, None]
+
+        for record in reversed(player_equip_contents):
+            equip_contents = record["equip_contents"]
+            for i in range(4):
+                if final_slots[i] is None:
+                    slot_data = equip_contents[i]
+                    if slot_data["equip_id"] != -99 or slot_data["equip_effects"]:
+                        final_slots[i] = slot_data
+
+        result = {}
+        for slot_index, slot_data in enumerate(final_slots):
+            if slot_data is None:
+                result[slot_index] = []
+                continue
+
+            details_list = []
+            for effect in slot_data["equip_effects"]:
+                for func in effect["function_details"]:
+                    details_list.append({
+                        "function_type": func["function_type"],
+                        "function_value": abs(func["function_value"]) / 100.0,
+                        "level": func["level"]
+                    })
+
+            result[slot_index] = details_list
+
+        return result
+
+    def addEquipmentsToTable(self):
+        print("Fetching equipment data...")
+        print("正在获取装备数据...")
+        for element, characters in self.table["elements"].items():
+            for character_name, details in characters.items():
+                details["equipments"] = self.getEquipments(details["character_ids"])
+
+
+    def saveTableToJson(self):
+        filename = f"{self.role_name}.json"
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump(self.table, f, ensure_ascii=False, indent=4)
+
+        print(f"Data saved to {filename}")
+        print("数据已保存到", f"{self.role_name}.json")
+
+
+if __name__ == "__main__":
+    print("Launching Edge browser")
+    print("正在启动Edge浏览器")
+    print()
+    print("Please agree to all cookies and log in with your account and password. Do not use third-party login methods.")
+    print("请同意所有cookie并用账号密码完成登录, 不要用第三方登录方式")
+    exia = ExiaInvasion()
