@@ -6,6 +6,12 @@
 
 
 
+Can be used for personal progression assistance, union member recruitment, union member progression statistics
+
+可用于个人育成辅助，联盟成员招募，联盟成员育成统计
+
+
+
 ## Example output 示例输出
 
 

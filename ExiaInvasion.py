@@ -1,15 +1,19 @@
 from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import json
 import requests
-import sys
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+import pandas as pd
+
 
 
 class ExiaInvasion:
-    def __init__(self):
-        self.cookie_str = self.getCookies()
+    def __init__(self, server, account, password):
+        self.cookie_str = self.getCookies(server, account, password)
         self.role_name = self.getRoleName()
         self.table = json.loads(open("SearchIndex.json", "r", encoding="utf-8").read())
         self.playerNikkes = ExiaInvasion.getPlayerNikkes(self)
@@ -21,14 +25,11 @@ class ExiaInvasion:
 
 
     @staticmethod
-    def getCookies():
-        print("Please agree to all cookies and log in with your account and password. Do not use third-party login methods.")
-        print("请同意所有cookie并用账号密码完成登录, 不要用第三方登录方式")
+    def getCookies(server, account, password):
+        print("Please do not operate the browser unless a human verification or error occurs")
+        print("请不要对浏览器进行任何操作，除非出现人机验证或报错")
         print()
 
-        print("Launching Edge browser")
-        print("正在启动Edge浏览器")
-        print()
 
         important_keys = ["OptanonAlertBoxClosed",
                           "game_login_game",
@@ -44,28 +45,48 @@ class ExiaInvasion:
         driver = webdriver.Edge()
         driver.get("https://www.blablalink.com/login")
 
+        # 接受cookie政策
+        WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.ID, "onetrust-accept-btn-handler"))).click()
 
-        input("After logging in, press Enter to continue...\n 登录后按回车键继续...")
-        print()
+        # 选择服务器
+        if server == "0":
+            WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, '/html/body/div[4]/div[3]/ul/li[1]'))).click()
+        else:
+            WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, '/html/body/div[4]/div[3]/ul/li[2]'))).click()
+
+        WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, '//*[@id="login"]/div[2]/button'))).click()
+
+        account_input = WebDriverWait(driver, 10).until(
+            EC.visibility_of_element_located((By.ID, "loginPwdForm_account")))
+        account_input.send_keys(account)
+
+        password_input = WebDriverWait(driver, 10).until(
+            EC.visibility_of_element_located((By.ID, "loginPwdForm_password")))
+        password_input.send_keys(password)
+
+        loginbutton = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable(
+                (By.XPATH, '//*[@id="loginPwdForm"]/div[3]/div/div/div/div/button')))
+
+        driver.execute_script("arguments[0].click();", loginbutton)
 
         print("Retrieving cookies...")
         print("正在获取cookie...")
         print()
 
-        all_cookies = driver.get_cookies()
+        while True:
+            all_cookies = driver.get_cookies()
+            filtered_cookies = {cookie["name"]: cookie["value"] for cookie in all_cookies if
+                                cookie["name"] in important_keys}
 
-        filtered_cookies = {cookie["name"]: cookie["value"] for cookie in all_cookies if
-                            cookie["name"] in important_keys}
+            if all(key in filtered_cookies for key in important_keys):
+                cookie_str = "; ".join([f"{key}={value}" for key, value in filtered_cookies.items()])
+                return cookie_str
 
-        for key, value in filtered_cookies.items():
-            if value is None:
-                print("Failed to retrieve cookies. Please close this window and rerun the program.")
-                print("Cookie获取失败，请关闭该窗口重新运行此程序")
-                sys.exit(1)
-
-        cookie_str = "; ".join([f"{key}={value}" for key, value in filtered_cookies.items()])
-
-        return cookie_str
 
 
     def getHeader(self, contentLength):
@@ -134,6 +155,8 @@ class ExiaInvasion:
         headers = self.getHeader("96")
         url = "https://api.blablalink.com/api/game/proxy/Tools/GetPlayerEquipContents"
         json_data = requests.post(url, headers=headers, json={"character_ids": character_ids}).json()
+        if json_data == None:
+            json_data = requests.post(url, headers=headers, json={"character_ids": character_ids}).json()
         player_equip_contents = json_data["data"]["player_equip_contents"]
 
         final_slots = [None, None, None, None]
@@ -539,7 +562,7 @@ class ExiaInvasion:
 
 
 if __name__ == "__main__":
-    print("ExiaInvasion v1.11  by 灵乌未默")
+    print("ExiaInvasion v1.2  by 灵乌未默")
     print()
     print("GitHub:")
     print("github.com/IsolateOB/ExiaInvasion")
@@ -549,4 +572,36 @@ if __name__ == "__main__":
     print("第一次运行可能会报错，请关闭后重新运行")
     print()
 
-    exia = ExiaInvasion()
+    print("0: HK香港/MC澳门/TW台湾")
+    print("1: JP日本/KR韩国/NA北美/SEA东南亚/Global全球")
+    print()
+
+    print("Please enter the server number:")
+    print("请输入服务器编号：")
+    print()
+
+    server = input()
+    print()
+    loginIndex = pd.read_csv("LoginIndex.csv", encoding="utf-8")
+
+
+    error_count = 0
+    for index, row in loginIndex.iterrows():
+        name = row["Name"]
+        account = row["E-mail"]
+        password = row["Password"]
+        print(f"Logging in with account {index + 1}: {name}")
+        print(f"正在登录账号 {index + 1}: {name}")
+        print()
+        try:
+            ExiaInvasion(server, account, password)
+        except Exception as e:
+            print(f"Error occurred while processing account {index + 1}: {name}")
+            print(f"处理账号 {index + 1} 时发生错误: {name}")
+            error_count += 1
+            print(e)
+            print()
+
+
+    print(f"All accounts processed. Total errors: {error_count}")
+    print(f"所有账号处理完成。总错误数: {error_count}")

@@ -44,6 +44,8 @@ def copy_sheet(ws_source, ws_target, start_row_target, min_row=1):
 
     return max_row_source - min_row + 1
 
+print("Merging...")
+print("正在合并...")
 
 files = sorted(glob.glob(os.path.join(os.getcwd(), "*.xlsx")))
 if not files:
