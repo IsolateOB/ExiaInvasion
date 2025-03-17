@@ -1,8 +1,8 @@
 # ExiaInvasion
 
-`ExiaInvasion` is a crawler program that obtains Nikke character data in personal accounts from `blablalink.com` and generates tables
+`ExiaInvasion` is an open source crawler program that obtains Nikke character data in personal accounts from `blablalink` and generates tables
 
-`ExiaInvasion`是一个从`blablalink`获取个人账号中的Nikke人物数据并生成表格的爬虫程序
+`ExiaInvasion`是一个从`blablalink`获取个人账号中的Nikke人物数据并生成表格的开源爬虫程序
 
 
 
