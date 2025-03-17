@@ -3,7 +3,7 @@ https://github.com/IsolateOB/ExiaInvasion
 
 确保已安装Edge浏览器（Windows系统默认安装）
 
-请将所有账号密码填入同文件夹的LoginIndex.csv
+请将所有账号信息填入同文件夹的LoginIndex.csv
 
 第一次运行可能会报错，请关闭后重新运行
 

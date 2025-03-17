@@ -25,6 +25,10 @@ Can be used for personal progression assistance, union member recruitment, union
 - Make sure you have the `Edge` browser (installed by default on Windows systems)
 
 	确保已安装`Edge`浏览器（Windows系统默认安装）
+	
+- Please fill in the account information into LoginIndex.csv in the same folder
+
+  请将账号信息填入同文件夹的LoginIndex.csv
 
 
 - An error may be reported when running for the first time, please close it and run again.
