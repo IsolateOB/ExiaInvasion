@@ -44,7 +44,7 @@ def copy_sheet(ws_source, ws_target, start_row_target, min_row=1):
 
     return max_row_source - min_row + 1
 
-# 获取当前目录下所有 .xlsx 文件（排除合并后生成的文件）
+
 files = sorted(glob.glob(os.path.join(os.getcwd(), "*.xlsx")))
 if not files:
     print("未找到 .xlsx 文件！")
@@ -67,4 +67,5 @@ else:
 
 
     merged_wb.save("merged.xlsx")
+    print("Merged finished, saved to: merged.xlsx")
     print("合并完成，生成文件：merged.xlsx")
