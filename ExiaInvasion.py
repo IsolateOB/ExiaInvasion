@@ -634,8 +634,7 @@ if __name__ == "__main__":
 
         with open("ErrorList.txt", "w", encoding="utf-8") as f:
             for error in errorList:
-                f.write(f"Account {error[0]}: {error[1]}\n")
-                f.write(f"账号 {error[0]}: {error[1]}\n")
+                f.write(f"{error[0]}: {error[1]}\n")
 
         print("Error account list generated: ErrorList.txt")
         print("已生成错误账号清单：ErrorList.txt")
