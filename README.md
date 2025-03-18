@@ -26,10 +26,6 @@ Can be used for personal progression assistance, union member recruitment, union
 
 	确保已安装`Edge`浏览器（Windows系统默认安装）
 	
-- The webpage may not open properly on the first run and may continuously report errors. Please close the program and restart it.
-
-	第一次运行可能无法正常打开网页并连续报错，请关闭程序重新运行
-	
 - Please fill in all account information into `LoginIndex`
 
   请将所有账号信息填入`LoginIndex`
