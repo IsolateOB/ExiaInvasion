@@ -596,7 +596,6 @@ if __name__ == "__main__":
 
     loginIndex = pd.read_csv("LoginIndex.csv", encoding="utf-8-sig")
 
-
     errorList = []
     for index, row in loginIndex.iterrows():
         name = row["Name"]
