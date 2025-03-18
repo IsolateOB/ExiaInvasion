@@ -31,9 +31,9 @@ Can be used for personal progression assistance, union member recruitment, union
 	第一次运行可能无法正常打开网页并连续报错，请关闭程序与浏览器并重新运行
 
 
-- Please fill in all account information into `LoginIndex`
+- Please fill in all account information into **LoginIndex**
 
-  请将所有账号信息填入`LoginIndex`
+  请将所有账号信息填入 **LoginIndex**
 
 
 - Currently only tables in Simplified Chinese can be output.
@@ -44,9 +44,9 @@ Can be used for personal progression assistance, union member recruitment, union
 
 ## Usage 用法
 
-- `SearchIndex` is used to provide the role search index of the main program `ExiaInvasion`. Roles can be added or deleted. The role name defaults to Simplified Chinese. The file can be changed as needed according to `nikke_list_English`  
+- **SearchIndex** is used to provide the role search index of the main program **ExiaInvasion**. Roles can be added or deleted. The role name defaults to Simplified Chinese. The file can be changed as needed according to **nikke_list_English**  
 
-	`SearchIndex`用于提供主程序`ExiaInvasion`的角色搜索索引，可添加或删除角色，角色名默认为简体中文。文件可对照`nikke_list_繁體中文`按需更改
+	**SearchIndex** 用于提供主程序 **ExiaInvasion** 的角色搜索索引，可添加或删除角色，角色名默认为简体中文。文件可对照**nikke_list_繁體中文**按需更改
 
 - `"character_ids"` consists of all 11 numbers between `id` and `id+10`
 
@@ -60,9 +60,9 @@ Can be used for personal progression assistance, union member recruitment, union
 
 	装备词条有15级，1-5级为红色，6-10级标记为黄色，11-14级标记为蓝色，15级标记为黑色
 
-- `merge` can merge all tables in the same directory
+- **merge** can merge all tables in the same directory
 
-	`merge`将合并同目录中的所有表格
+	**merge** 将合并同目录中的所有表格
 
 
 
