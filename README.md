@@ -1,8 +1,8 @@
 # ExiaInvasion
 
-`ExiaInvasion` is an open source crawler program that obtains Nikke character data in personal accounts from `blablalink` and generates tables
+**ExiaInvasion** is an open source crawler program that obtains Nikke character data in personal accounts from [blablalink](https://www.blablalink.com/) and generates tables
 
-`ExiaInvasion`是一个从`blablalink`获取个人账号中的Nikke人物数据并生成表格的开源爬虫程序
+**ExiaInvasion** 是一个从 [blablalink](https://www.blablalink.com/) 获取个人账号中的Nikke人物数据并生成表格的开源爬虫程序
 
 
 
@@ -22,9 +22,9 @@ Can be used for personal progression assistance, union member recruitment, union
 
 ## Notice 注意
 
-- Make sure you have the `Edge` browser (installed by default on Windows systems)
+- Make sure you have the **Edge** browser (installed by default on Windows systems)
 
-	确保已安装`Edge`浏览器（Windows系统默认安装）
+	确保已安装 **Edge** 浏览器（Windows系统默认安装）
 	
 - First run may not open the webpage properly and report errors continuously. Please close the program and browser and run again.
 
@@ -68,9 +68,9 @@ Can be used for personal progression assistance, union member recruitment, union
 
 ## Communication and feedback 交流与反馈
 
-联盟Discord: https://discord.gg/rN7CrqmY
+[联盟Discord](https://discord.gg/rN7CrqmY)
 
-Github: https://github.com/IsolateOB/ExiaInvasion
+[Github](https://github.com/IsolateOB/ExiaInvasion)
 
-东南亚服交流QQ群: 774618246
+[东南亚服交流QQ群](https://qm.qq.com/q/hznFzFRAf8)
 
