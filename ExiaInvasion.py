@@ -296,7 +296,7 @@ class ExiaInvasion:
         elif 11 <= level <= 14:
             return PatternFill("solid", fgColor="77AAFF")  # 蓝
         elif level == 15:
-            return PatternFill("solid", fgColor="000000")  # 黑
+            return PatternFill("solid", fgColor="FF000000")  # 黑
         else:
             return None
 
@@ -309,8 +309,8 @@ class ExiaInvasion:
 
 
     def saveTableToExcel(self):
-        print("Saving data to Excel...")
-        print("正在保存数据到Excel...")
+        print("Saving data to table...")
+        print("正在保存数据到表格...")
         print()
 
         medium_side = Side(border_style="medium", color="000000")
@@ -393,7 +393,7 @@ class ExiaInvasion:
 
                 priority = char_info.get("priority", "")
                 if priority == "black":
-                    c_char.fill = PatternFill("solid", fgColor="000000")
+                    c_char.fill = PatternFill("solid", fgColor="FF000000")
                     c_char.font = Font(color="FFFFFF", bold=True)
                 elif priority == "blue":
                     c_char.fill = PatternFill("solid", fgColor="99CCFF")
