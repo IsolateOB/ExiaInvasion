@@ -592,6 +592,8 @@ if __name__ == "__main__":
 
     loginIndex = pd.read_csv("LoginIndex.csv", encoding="utf-8-sig")
 
+    loginIndex = loginIndex.dropna(how='all')
+
     errorList = []
     for index, row in loginIndex.iterrows():
         name = row["Name"]
@@ -621,3 +623,11 @@ if __name__ == "__main__":
         for error in errorList:
             print(f"Account {error[0]}: {error[1]}")
             print(f"账号 {error[0]}: {error[1]}")
+
+        with open("ErrorList.txt", "w", encoding="utf-8") as f:
+            for error in errorList:
+                f.write(f"Account {error[0]}: {error[1]}\n")
+                f.write(f"账号 {error[0]}: {error[1]}\n")
+
+    print("Error account list generated: ErrorList.txt")
+    print("已生成错误账号清单 ErrorList.txt")
