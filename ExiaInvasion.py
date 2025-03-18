@@ -592,7 +592,7 @@ if __name__ == "__main__":
     print("请输入服务器编号：")
     print()
 
-    server = input()
+    server = int(input())
 
     loginIndex = pd.read_csv("LoginIndex.csv", encoding="utf-8-sig")
 
