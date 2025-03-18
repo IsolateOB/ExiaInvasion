@@ -76,12 +76,11 @@ match choice:
 
 files = [file for file in files if "merged" not in file]
 
+fileCount = len(files)
+
 if not files:
     print("未找到 .xlsx 文件！")
 else:
-    print("Merging...")
-    print("正在合并...")
-
     merged_wb = Workbook()
     merged_ws = merged_wb.active
     current_row = 1
@@ -89,6 +88,9 @@ else:
     for idx, file in enumerate(files):
         wb = load_workbook(file)
         ws = wb.active
+
+        print(f"Merging file {idx + 1}/{fileCount}: {file}")
+        print(f"正在合并第 {idx + 1}/{fileCount} 个文件：{file}")
 
         if idx == 0:
             rows_copied = copy_sheet(ws, merged_ws, current_row, min_row=1)
