@@ -31,13 +31,9 @@ Can be used for personal progression assistance, union member recruitment, union
   请将所有账号信息填入`LoginIndex`
 
 
-- An error may be reported when running for the first time, please close it and run again.
-
-  第一次运行可能会报错，请关闭后重新运行
-  
 - Currently only tables in Simplified Chinese can be output.
 
-	目前仅能输出简体中文表格
+  目前仅能输出简体中文表格
 
 
 
