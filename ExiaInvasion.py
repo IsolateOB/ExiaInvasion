@@ -592,12 +592,7 @@ if __name__ == "__main__":
     print("请输入服务器编号：")
     print()
 
-    try:
-        server = int(input())
-    except ValueError:
-        print("Invalid input. Please enter [0 or 1].")
-        print("输入无效。请输入 [0 或 1]。")
-    print()
+    server = input()
 
     loginIndex = pd.read_csv("LoginIndex.csv", encoding="utf-8-sig")
 
