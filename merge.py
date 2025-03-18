@@ -52,8 +52,8 @@ print("2. Sort by file name descending   2. 按文件名降序排列 ")
 print("3. Sort by synchro level ascending    3. 按同步器等级升序排列")
 print("4. Sort by synchro level descending   4. 按同步器等级降序排列")
 
-print("Please choose a sorting method (1-4):")
-choice = input("请选择排序方式（1-4）：")
+print("Please choose a sorting method [1-4]:")
+choice = input("请选择排序方式 [1-4]：")
 
 match choice:
     case "1":
