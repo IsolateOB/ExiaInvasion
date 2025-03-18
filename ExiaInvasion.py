@@ -576,8 +576,8 @@ if __name__ == "__main__":
     print("github.com/IsolateOB/ExiaInvasion")
     print()
 
-    print("An error may be reported when running for the first time, please close it and run again.")
-    print("第一次运行可能会报错，请关闭后重新运行")
+    print("The webpage may not open properly on the first run and may continuously report errors. Please close the program and restart it.")
+    print("第一次运行可能无法正常打开网页并连续报错，请关闭程序重新运行")
     print()
 
     print("0: HK香港/MC澳门/TW台湾")
