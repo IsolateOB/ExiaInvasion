@@ -133,6 +133,7 @@ class ExiaInvasion:
 
         return response
 
+
     def addNikkesDetailsToTable(self):
         print("Fetching Nikke details...")
         print("正在获取Nikke详情...")
@@ -188,6 +189,7 @@ class ExiaInvasion:
 
         return result
 
+
     def addEquipmentsToTable(self):
         print("Fetching equipment data...")
         print("正在获取装备数据...")
@@ -195,6 +197,7 @@ class ExiaInvasion:
         for element, characters in self.table["elements"].items():
             for character_name, details in characters.items():
                 details["equipments"] = self.getEquipments(details["character_ids"])
+
 
     @staticmethod
     def set_outer_border(ws, start_row, start_col, end_row, end_col, side=Side(border_style="medium", color="000000")):
@@ -236,6 +239,7 @@ class ExiaInvasion:
                 bottom=rborder.bottom
             )
 
+
     @staticmethod
     def set_vertical_border(ws, start_row, end_row, col, border_side=Side(border_style="medium", color="000000"), side_pos="right"):
         for r in range(start_row, end_row + 1):
@@ -255,6 +259,7 @@ class ExiaInvasion:
                     top=old_border.top,
                     bottom=old_border.bottom
                 )
+
 
     @staticmethod
     def set_horizontal_border(ws, row, start_col, end_col, border_side=Side(border_style="medium", color="000000"), side_pos="bottom"):
@@ -276,6 +281,7 @@ class ExiaInvasion:
                     bottom=old_border.bottom
                 )
 
+
     @staticmethod
     def item_rare_to_str(v):
         if v == 1:
@@ -286,6 +292,7 @@ class ExiaInvasion:
             return "SSR"
         else:
             return ""
+
 
     @staticmethod
     def get_fill_by_level(level):
@@ -299,6 +306,7 @@ class ExiaInvasion:
             return PatternFill("solid", fgColor="FF000000")  # 黑
         else:
             return None
+
 
     @staticmethod
     def get_font_by_level(level):
@@ -582,26 +590,35 @@ if __name__ == "__main__":
 
     server = input()
     print()
-    loginIndex = pd.read_csv("LoginIndex.csv", encoding="utf-8")
+    loginIndex = pd.read_csv("LoginIndex.csv", encoding="utf-8-sig")
 
 
-    error_count = 0
+    errorList = []
     for index, row in loginIndex.iterrows():
         name = row["Name"]
         account = row["E-mail"]
         password = row["Password"]
-        print(f"Logging in with account {index + 1}: {name}")
-        print(f"正在登录账号 {index + 1}: {name}")
+        print(f"Logging in with account ({index + 1}/{len(loginIndex)}): {name}")
+        print(f"正在登录账号 ({index + 1}/{len(loginIndex)}): {name}")
         print()
         try:
             ExiaInvasion(server, account, password)
         except Exception as e:
             print(f"Error occurred while processing account {index + 1}: {name}")
             print(f"处理账号 {index + 1} 时发生错误: {name}")
-            error_count += 1
+            errorList.append((index + 1, name))
             print(e)
             print()
 
 
+    error_count = len(errorList)
+
     print(f"All accounts processed. Total errors: {error_count}")
     print(f"所有账号处理完成。总错误数: {error_count}")
+
+    if error_count > 0:
+        print("Error accounts:")
+        print("错误账号：")
+        for error in errorList:
+            print(f"Account {error[0]}: {error[1]}")
+            print(f"账号 {error[0]}: {error[1]}")

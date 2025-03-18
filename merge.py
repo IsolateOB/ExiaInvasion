@@ -4,6 +4,8 @@ from openpyxl import load_workbook, Workbook
 from openpyxl.utils import get_column_letter
 from copy import copy
 
+
+
 def copy_cell(source_cell, target_cell):
     target_cell.value = source_cell.value
     if source_cell.has_style:
@@ -44,13 +46,42 @@ def copy_sheet(ws_source, ws_target, start_row_target, min_row=1):
 
     return max_row_source - min_row + 1
 
-print("Merging...")
-print("正在合并...")
 
-files = sorted(glob.glob(os.path.join(os.getcwd(), "*.xlsx")))
+print("1. Sort by file name ascending    1. 按文件名升序排列  ")
+print("2. Sort by file name descending   2. 按文件名降序排列 ")
+print("3. Sort by synchro level ascending    3. 按同步器等级升序排列")
+print("4. Sort by synchro level descending   4. 按同步器等级降序排列")
+
+print("Please choose a sorting method (1-4):")
+choice = input("请选择排序方式（1-4）：")
+
+match choice:
+    case "1":
+        files = sorted(glob.glob(os.path.join(os.getcwd(), "*.xlsx")))
+    case "2":
+        files = sorted(glob.glob(os.path.join(os.getcwd(), "*.xlsx")), reverse=True)
+    case "3":
+        files = sorted(
+            glob.glob(os.path.join(os.getcwd(), "*.xlsx")),
+            key=lambda x: load_workbook(x, data_only=True).active["B4"].value
+        )
+    case "4":
+        files = sorted(
+            glob.glob(os.path.join(os.getcwd(), "*.xlsx")),
+            key=lambda x: load_workbook(x, data_only=True).active["B4"].value,
+            reverse=True
+        )
+
+
+
+files = [file for file in files if "merged" not in file]
+
 if not files:
     print("未找到 .xlsx 文件！")
 else:
+    print("Merging...")
+    print("正在合并...")
+
     merged_wb = Workbook()
     merged_ws = merged_wb.active
     current_row = 1
