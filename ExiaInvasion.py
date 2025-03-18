@@ -89,6 +89,7 @@ class ExiaInvasion:
 
             if all(key in filtered_cookies for key in important_keys):
                 cookie_str = "; ".join([f"{key}={value}" for key, value in filtered_cookies.items()])
+                driver.quit()
                 return cookie_str
 
 
@@ -571,6 +572,9 @@ class ExiaInvasion:
 
         print(f"Data saved to {filename}")
         print("数据已保存到", f"{self.role_name}.xlsx")
+        print()
+        print()
+
 
 
 if __name__ == "__main__":
@@ -629,5 +633,5 @@ if __name__ == "__main__":
                 f.write(f"Account {error[0]}: {error[1]}\n")
                 f.write(f"账号 {error[0]}: {error[1]}\n")
 
-    print("Error account list generated: ErrorList.txt")
-    print("已生成错误账号清单 ErrorList.txt")
+        print("Error account list generated: ErrorList.txt")
+        print("已生成错误账号清单：ErrorList.txt")
