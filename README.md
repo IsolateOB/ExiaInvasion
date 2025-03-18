@@ -43,9 +43,9 @@ Can be used for personal progression assistance, union member recruitment, union
 
 ## Usage 用法
 
-- `SearchIndex` is used to provide the role search index of the main program `ExiaInvasion`. Roles can be added or deleted. The role name defaults to Simplified Chinese. The file can be changed as needed according to `nikke_list_en`  
+- `SearchIndex` is used to provide the role search index of the main program `ExiaInvasion`. Roles can be added or deleted. The role name defaults to Simplified Chinese. The file can be changed as needed according to `nikke_list_English`  
 
-	`SearchIndex`用于提供主程序`ExiaInvasion`的角色搜索索引，可添加或删除角色，角色名默认为简体中文。文件可对照`nikke_list_zh-TW`按需更改
+	`SearchIndex`用于提供主程序`ExiaInvasion`的角色搜索索引，可添加或删除角色，角色名默认为简体中文。文件可对照`nikke_list_繁體中文`按需更改
 
 - `"character_ids"` consists of all 11 numbers between `id` and `id+10`
 
