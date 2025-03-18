@@ -46,19 +46,23 @@ class ExiaInvasion:
         driver.get("https://www.blablalink.com/login")
 
         # 接受cookie政策
-        WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.ID, "onetrust-accept-btn-handler"))).click()
+        acceptCookie = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.ID, "onetrust-accept-btn-handler")))
+        driver.execute_script("arguments[0].click();", acceptCookie)
 
         # 选择服务器
         if server == "0":
-            WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, '/html/body/div[4]/div[3]/ul/li[1]'))).click()
+            serverSelect = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, '/html/body/div[4]/div[3]/ul/li[1]')))
         else:
-            WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, '/html/body/div[4]/div[3]/ul/li[2]'))).click()
+            serverSelect = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, '/html/body/div[4]/div[3]/ul/li[2]')))
 
-        WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, '//*[@id="login"]/div[2]/button'))).click()
+        driver.execute_script("arguments[0].click();", serverSelect)
+
+        changeToPassword = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, '//*[@id="login"]/div[2]/button')))
+        driver.execute_script("arguments[0].click();", changeToPassword)
 
         account_input = WebDriverWait(driver, 10).until(
             EC.visibility_of_element_located((By.ID, "loginPwdForm_account")))
