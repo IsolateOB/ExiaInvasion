@@ -638,12 +638,11 @@ if __name__ == "__main__":
     if error_count > 0:
         print("Error accounts:")
         print("错误账号：")
-        for error in errorList:
-            print(f"Account {error[0]}: {error[1]}")
-            print(f"账号 {error[0]}: {error[1]}")
 
         with open("ErrorList.txt", "w", encoding="utf-8") as f:
             for error in errorList:
+                print(f"Account {error[0]}: {error[1]}")
+                print(f"账号 {error[0]}: {error[1]}")
                 f.write(f"{error[0]}: {error[1]}\n")
 
         print("Error account list generated: ErrorList.txt")
