@@ -609,7 +609,8 @@ if __name__ == "__main__":
 
     loginIndex = pd.read_csv("LoginIndex.csv", encoding = encoding)
 
-    loginIndex = loginIndex.dropna(how='all')
+    # 跳过错误行
+    loginIndex = loginIndex.dropna(how='any')
 
     errorList = []
     for index, row in loginIndex.iterrows():
