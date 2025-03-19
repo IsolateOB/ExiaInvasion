@@ -642,3 +642,6 @@ if __name__ == "__main__":
 
         print("Error account list generated: ErrorList.txt")
         print("已生成错误账号清单：ErrorList.txt")
+
+    print("Press Enter to exit...")
+    input("按回车键退出...")
