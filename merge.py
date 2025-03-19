@@ -104,3 +104,7 @@ else:
     merged_wb.save("merged.xlsx")
     print("Merged finished, saved to: merged.xlsx")
     print("合并完成，生成文件：merged.xlsx")
+    print()
+
+    print("Press Enter to exit...")
+    input("按回车键退出...")

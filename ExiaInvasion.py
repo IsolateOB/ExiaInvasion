@@ -597,8 +597,8 @@ if __name__ == "__main__":
     print("1: JP日本/KR韩国/NA北美/SEA东南亚/Global全球")
     print()
 
-    print("Please enter the server number:")
-    print("请输入服务器编号：")
+    print("Please enter the server number [0 or 1]:")
+    print("请输入服务器编号[0或1]：")
     print()
 
     server = int(input())
