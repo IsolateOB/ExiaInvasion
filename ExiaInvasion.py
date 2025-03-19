@@ -607,7 +607,7 @@ if __name__ == "__main__":
         raw_data = f.read()
         encoding = chardet.detect(raw_data)["encoding"]
 
-    loginIndex = pd.read_csv("LoginIndex.csv", encoding = encoding)
+    loginIndex = pd.read_csv("LoginIndex.csv", encoding = encoding, dtype=str)
 
     # 跳过错误行
     loginIndex = loginIndex.dropna(how='any')
