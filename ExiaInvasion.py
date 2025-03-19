@@ -8,6 +8,7 @@ from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import pandas as pd
+import chardet
 
 
 
@@ -26,8 +27,8 @@ class ExiaInvasion:
 
     @staticmethod
     def getCookies(server, account, password):
-        print("Please do not operate the browser unless a human verification or error occurs")
-        print("请不要对浏览器进行任何操作，除非出现人机验证或报错")
+        print("Please do not operate the browser unless there is human-machine verification, error reporting, or long-term inactivity, etc")
+        print("请不要对浏览器进行任何操作，除非出现人机验证、报错、长时间无操作等情况")
         print()
 
 
@@ -602,7 +603,11 @@ if __name__ == "__main__":
 
     server = int(input())
 
-    loginIndex = pd.read_csv("LoginIndex.csv", encoding="utf-8-sig")
+    with open("LoginIndex.csv", "rb") as f:
+        raw_data = f.read()
+        encoding = chardet.detect(raw_data)["encoding"]
+
+    loginIndex = pd.read_csv("LoginIndex.csv", encoding = encoding)
 
     loginIndex = loginIndex.dropna(how='all')
 
