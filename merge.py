@@ -1,6 +1,7 @@
 import os
 import glob
 from openpyxl import load_workbook, Workbook
+from openpyxl.styles import Alignment
 from openpyxl.utils import get_column_letter
 from copy import copy
 
@@ -51,9 +52,12 @@ print("1. Sort by file name ascending    1. 按文件名升序排列  ")
 print("2. Sort by file name descending   2. 按文件名降序排列 ")
 print("3. Sort by synchro level ascending    3. 按同步器等级升序排列")
 print("4. Sort by synchro level descending   4. 按同步器等级降序排列")
+print()
 
 print("Please choose a sorting method [1-4]:")
-choice = input("请选择排序方式 [1-4]：")
+print("请选择排序方式 [1-4]：")
+choice = input()
+print()
 
 match choice:
     case "1":
@@ -63,12 +67,12 @@ match choice:
     case "3":
         files = sorted(
             glob.glob(os.path.join(os.getcwd(), "*.xlsx")),
-            key=lambda x: load_workbook(x, data_only=True).active["B4"].value
+            key=lambda x: load_workbook(x, data_only=True).active["C4"].value
         )
     case "4":
         files = sorted(
             glob.glob(os.path.join(os.getcwd(), "*.xlsx")),
-            key=lambda x: load_workbook(x, data_only=True).active["B4"].value,
+            key=lambda x: load_workbook(x, data_only=True).active["C4"].value,
             reverse=True
         )
 
@@ -91,11 +95,19 @@ else:
 
         print(f"Merging file {idx + 1}/{fileCount}: {file}")
         print(f"正在合并第 {idx + 1}/{fileCount} 个文件：{file}")
+        print()
+
+        start_row = current_row
 
         if idx == 0:
             rows_copied = copy_sheet(ws, merged_ws, current_row, min_row=1)
+            account_info_row = start_row + 3
         else:
             rows_copied = copy_sheet(ws, merged_ws, current_row, min_row=4)
+            account_info_row = start_row
+
+        cell = merged_ws.cell(row=account_info_row, column=1, value=idx + 1)
+        cell.alignment = Alignment(horizontal='center', vertical='center')
         current_row += rows_copied
 
     merged_ws.freeze_panes = merged_ws.cell(row=4, column=3)

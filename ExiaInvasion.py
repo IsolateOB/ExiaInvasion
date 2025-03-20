@@ -47,37 +47,37 @@ class ExiaInvasion:
         driver.get("https://www.blablalink.com/login")
 
         # 接受cookie政策
-        acceptCookie = WebDriverWait(driver, 10).until(
+        acceptCookie = WebDriverWait(driver, 20).until(
             EC.element_to_be_clickable((By.ID, "onetrust-accept-btn-handler")))
         driver.execute_script("arguments[0].click();", acceptCookie)
 
 
         # 选择服务器
         if server == 0:
-            serverSelect = WebDriverWait(driver, 10).until(
+            serverSelect = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR,
                                             r"body > div.w-full.outline-none.max-h-\[65vh\].max-w-\[var\(--max-pc-w\)\].right-0.mx-auto.overflow-x-hidden.overflow-y-auto.flex.flex-col.bg-\[var\(--op-fill-white\)\].rounded-t-\[8px\].fixed.left-0.bottom-0.z-50 > div.flex-1.overflow-y-auto.w-full.mr-\[4px\].mb-\[35px\] > ul > li:nth-child(1)")))
         else:
-            serverSelect = WebDriverWait(driver, 10).until(
+            serverSelect = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR,
                                             r"body > div.w-full.outline-none.max-h-\[65vh\].max-w-\[var\(--max-pc-w\)\].right-0.mx-auto.overflow-x-hidden.overflow-y-auto.flex.flex-col.bg-\[var\(--op-fill-white\)\].rounded-t-\[8px\].fixed.left-0.bottom-0.z-50 > div.flex-1.overflow-y-auto.w-full.mr-\[4px\].mb-\[35px\] > ul > li:nth-child(2)")))
 
         driver.execute_script("arguments[0].click();", serverSelect)
 
 
-        changeToPassword = WebDriverWait(driver, 10).until(
+        changeToPassword = WebDriverWait(driver, 20).until(
             EC.element_to_be_clickable((By.XPATH, '//*[@id="login"]/div[2]/button')))
         driver.execute_script("arguments[0].click();", changeToPassword)
 
-        account_input = WebDriverWait(driver, 10).until(
+        account_input = WebDriverWait(driver, 20).until(
             EC.visibility_of_element_located((By.ID, "loginPwdForm_account")))
         account_input.send_keys(account)
 
-        password_input = WebDriverWait(driver, 10).until(
+        password_input = WebDriverWait(driver, 20).until(
             EC.visibility_of_element_located((By.ID, "loginPwdForm_password")))
         password_input.send_keys(password)
 
-        loginbutton = WebDriverWait(driver, 10).until(
+        loginbutton = WebDriverWait(driver, 20).until(
             EC.element_to_be_clickable(
                 (By.XPATH, '//*[@id="loginPwdForm"]/div[3]/div/div/div/div/button')))
 
@@ -158,6 +158,7 @@ class ExiaInvasion:
                         details["skill_burst_level"] = nikke_details["skill_burst_level"]
                         details["item_rare"] = nikke_details["item_rare"]
                         details["item_level"] = nikke_details["item_level"]
+                        details["limit_break"] = nikke_details["limit_break"]
                     if nikke_details["level"] > self.synchroLevel:
                         self.synchroLevel = nikke_details["level"]
 
@@ -338,23 +339,25 @@ class ExiaInvasion:
         elements_data = self.table["elements"]  # dict
 
         property_keys = [
-            "skill1_level",  # 0
-            "skill2_level",  # 1
-            "skill_burst_level",  # 2
-            "item_rare",  # 3
-            "item_level",  # 4
-            None,  # 5
-            "IncElementDmg",    # 6
-            "StatAtk",  # 7
-            "StatAmmoLoad", # 8
-            "StatChargeTime",   #9
-            "StatChargeDamage",  # 10
-            "StatDef",  # 11
-            "StatCritical",  # 12
-            "StatCriticalDamage",  # 13
-            "StatAccuracyCircle"  # 14
+            "limit_break",  # 0
+            "skill1_level",  # 1
+            "skill2_level",  # 2
+            "skill_burst_level",  # 3
+            "item_rare",  # 4
+            "item_level",  # 5
+            None,  # 6
+            "IncElementDmg",    # 7
+            "StatAtk",  # 8
+            "StatAmmoLoad", # 9
+            "StatChargeTime",   #10
+            "StatChargeDamage",  # 11
+            "StatDef",  # 12
+            "StatCritical",  # 13
+            "StatCriticalDamage",  # 14
+            "StatAccuracyCircle"  # 15
         ]
         property_labels = [
+            "突破",
             "技能1",
             "技能2",
             "爆裂",
@@ -380,15 +383,18 @@ class ExiaInvasion:
         ws.row_dimensions[2].height = 25
         ws.row_dimensions[3].height = 25
 
-        cell_alliance = ws.cell(row=1, column=1, value="角色名称")
-        cell_synchro = ws.cell(row=1, column=2, value="同步等级")
+        cell_number = ws.cell(row=1, column=1, value="编号")
+        cell_alliance = ws.cell(row=1, column=2, value="角色名称")
+        cell_synchro = ws.cell(row=1, column=3, value="同步等级")
+        cell_number.alignment = Alignment(horizontal="center", vertical="center")
         cell_alliance.alignment = Alignment(horizontal="center", vertical="center")
         cell_synchro.alignment = Alignment(horizontal="center", vertical="center")
         ws.merge_cells(start_row=1, start_column=1, end_row=3, end_column=1)
         ws.merge_cells(start_row=1, start_column=2, end_row=3, end_column=2)
+        ws.merge_cells(start_row=1, start_column=3, end_row=3, end_column=3)
 
-        start_col = 3
-        width_per_char = 15
+        start_col = 4
+        width_per_char = 16
 
         for element_name, chars_dict in elements_data.items():
             num_chars = len(chars_dict)
@@ -427,8 +433,8 @@ class ExiaInvasion:
                     if label is None:
                         continue
                     col_index = col_cursor + i
-                    if i == 3:
-                        # 合并 i=3,4
+                    if i == 4:
+                        # 合并 i=4,5
                         ws.merge_cells(start_row=3, start_column=col_index, end_row=3, end_column=col_index + 1)
                         cell_head = ws.cell(row=3, column=col_index, value=label)
                         cell_head.alignment = Alignment(horizontal="center", vertical="center")
@@ -438,37 +444,48 @@ class ExiaInvasion:
 
                 self.set_outer_border(ws, 2, col_cursor, 3, col_cursor + width_per_char - 1, medium_side)
 
+                limit_break = char_info.get("limit_break", 0)
                 skill1 = char_info.get("skill1_level", 0)
                 skill2 = char_info.get("skill2_level", 0)
                 skill_burst = char_info.get("skill_burst_level", 0)
                 item_rare = self.item_rare_to_str(char_info.get("item_rare", 0))
                 item_level = char_info.get("item_level", 0)
 
-                for i in range(5):
+                if limit_break <= 3:
+                    limit_break_str = f"{limit_break} ★"
+                elif limit_break >3 and limit_break < 10:
+                    limit_break_str = f"+ {limit_break - 3}"
+                else:
+                    limit_break_str = "MAX"
+
+                for i in range(6):
                     ws.merge_cells(
                         start_row=4, start_column=col_cursor + i,
                         end_row=8, end_column=col_cursor + i
                     )
-                ws.cell(row=4, column=col_cursor + 0, value=skill1 if skill1 > 0 else "").alignment = Alignment(horizontal="center", vertical="center")
 
-                ws.cell(row=4, column=col_cursor + 1, value=skill2 if skill2 > 0 else "").alignment = Alignment(horizontal="center", vertical="center")
+                ws.cell(row=4, column=col_cursor, value=limit_break_str).alignment = Alignment(horizontal="center", vertical="center")
 
-                ws.cell(row=4, column=col_cursor + 2, value=skill_burst if skill_burst > 0 else "").alignment = Alignment(horizontal="center", vertical="center")
+                ws.cell(row=4, column=col_cursor + 1, value=skill1 if skill1 > 0 else "").alignment = Alignment(horizontal="center", vertical="center")
 
-                ws.cell(row=4, column=col_cursor + 3, value=item_rare).alignment = Alignment(horizontal="center", vertical="center")
+                ws.cell(row=4, column=col_cursor + 2, value=skill2 if skill2 > 0 else "").alignment = Alignment(horizontal="center", vertical="center")
 
-                ws.cell(row=4, column=col_cursor + 4, value=item_level if item_level >= 0 else "").alignment = Alignment(horizontal="center", vertical="center")
+                ws.cell(row=4, column=col_cursor + 3, value=skill_burst if skill_burst > 0 else "").alignment = Alignment(horizontal="center", vertical="center")
+
+                ws.cell(row=4, column=col_cursor + 4, value=item_rare).alignment = Alignment(horizontal="center", vertical="center")
+
+                ws.cell(row=4, column=col_cursor + 5, value=item_level if item_level >= 0 else "").alignment = Alignment(horizontal="center", vertical="center")
 
 
-                ws.cell(row=4, column=col_cursor + 5, value="头").alignment = Alignment(horizontal="center",
+                ws.cell(row=4, column=col_cursor + 6, value="头").alignment = Alignment(horizontal="center",
                                                                                         vertical="center")
-                ws.cell(row=5, column=col_cursor + 5, value="身").alignment = Alignment(horizontal="center",
+                ws.cell(row=5, column=col_cursor + 6, value="身").alignment = Alignment(horizontal="center",
                                                                                         vertical="center")
-                ws.cell(row=6, column=col_cursor + 5, value="手").alignment = Alignment(horizontal="center",
+                ws.cell(row=6, column=col_cursor + 6, value="手").alignment = Alignment(horizontal="center",
                                                                                         vertical="center")
-                ws.cell(row=7, column=col_cursor + 5, value="足").alignment = Alignment(horizontal="center",
+                ws.cell(row=7, column=col_cursor + 6, value="足").alignment = Alignment(horizontal="center",
                                                                                         vertical="center")
-                ws.cell(row=8, column=col_cursor + 5, value="合计").alignment = Alignment(horizontal="center",
+                ws.cell(row=8, column=col_cursor + 6, value="合计").alignment = Alignment(horizontal="center",
                                                                                           vertical="center")
 
                 equipments = char_info.get("equipments", {})
@@ -486,7 +503,7 @@ class ExiaInvasion:
                 for eq_idx in range(4):
                     row_idx = 4 + eq_idx
                     eq_list = equipments.get(eq_idx, [])
-                    for i in range(6, 15):
+                    for i in range(7, 16):
                         c = ws.cell(row=row_idx, column=col_cursor + i)
                         c.value = ""
                         c.alignment = Alignment(horizontal="center", vertical="center")
@@ -497,7 +514,7 @@ class ExiaInvasion:
                         lvl = f.get("level", 0)
                         if ftype in sum_stats:
                             sum_stats[ftype] += fval
-                        if ftype in property_keys[6:]:
+                        if ftype in property_keys[7:]:
                             i_prop = property_keys.index(ftype)  # 5..13
                             cell_eq = ws.cell(row=row_idx, column=col_cursor + i_prop)
                             cell_eq.value = fval/100
@@ -509,7 +526,7 @@ class ExiaInvasion:
                             if font: cell_eq.font = font
                             cell_eq.alignment = Alignment(horizontal="center", vertical="center")
 
-                for i in range(6, 15):
+                for i in range(7, 16):
                     pkey = property_keys[i]
                     c_sum = ws.cell(row=8, column=col_cursor + i)
                     if pkey in sum_stats:
@@ -520,39 +537,42 @@ class ExiaInvasion:
 
                 self.set_outer_border(ws, 4, col_cursor, 8, col_cursor + width_per_char - 1, medium_side)
 
-                self.set_vertical_border(ws, 3, 8, col_cursor + 3, border_side=thin_side, side_pos="left")
-                self.set_vertical_border(ws, 3, 8, col_cursor + 4, border_side=thin_side, side_pos="right")
+                self.set_vertical_border(ws, 3, 8, col_cursor, border_side=thin_side, side_pos="right")
+                self.set_vertical_border(ws, 3, 8, col_cursor + 4, border_side=thin_side, side_pos="left")
                 self.set_vertical_border(ws, 3, 8, col_cursor + 5, border_side=thin_side, side_pos="right")
+                self.set_vertical_border(ws, 3, 8, col_cursor + 6, border_side=thin_side, side_pos="right")
 
                 self.set_vertical_border(ws, 1, 8, 1, border_side=medium_side, side_pos="left")
                 self.set_vertical_border(ws, 1, 8, 1, border_side=medium_side, side_pos="right")
+                self.set_vertical_border(ws, 1, 8, 2, border_side=medium_side, side_pos="right")
 
-                self.set_horizontal_border(ws, 3, 1, 2, side_pos="bottom")
-                self.set_horizontal_border(ws, 8, 1, 2, side_pos="bottom")
+                self.set_horizontal_border(ws, 3, 1, 3, side_pos="bottom")
+                self.set_horizontal_border(ws, 8, 1, 3, side_pos="bottom")
 
-                self.set_horizontal_border(ws, 8, col_cursor + 5, col_cursor + 14,
-                                           border_side=Side(border_style="thin", color="000000"), side_pos="top")
+                self.set_horizontal_border(ws, 8, col_cursor + 6, col_cursor + 15, border_side=thin_side, side_pos="top")
 
-                ws.merge_cells(start_row=4, start_column=1, end_row=8, end_column=1)  # 联盟成员
-                ws.merge_cells(start_row=4, start_column=2, end_row=8, end_column=2)  # 同步等级
+                ws.merge_cells(start_row=4, start_column=1, end_row=8, end_column=1)    # 编号
+                ws.merge_cells(start_row=4, start_column=2, end_row=8, end_column=2)    # 角色名称
+                ws.merge_cells(start_row=4, start_column=3, end_row=8, end_column=3)    # 同步等级
                 # 并在 row=4 写入
-                ws.cell(row=4, column=1, value=alliance_name).alignment = Alignment(horizontal="center",
+                ws.cell(row=4, column=2, value=alliance_name).alignment = Alignment(horizontal="center",
                                                                                     vertical="center")
-                ws.cell(row=4, column=2, value=synchro_level).alignment = Alignment(horizontal="center",
+                ws.cell(row=4, column=3, value=synchro_level).alignment = Alignment(horizontal="center",
                                                                                     vertical="center")
 
                 col_cursor += width_per_char  # 下一个角色
 
             start_col += total_width
 
-        ws.column_dimensions[get_column_letter(1)].width = 16
-        ws.column_dimensions[get_column_letter(2)].width = 10
+        ws.column_dimensions[get_column_letter(1)].width = 6
+        ws.column_dimensions[get_column_letter(2)].width = 16
+        ws.column_dimensions[get_column_letter(3)].width = 10
 
-        for col in range(3, ws.max_column + 1):
-            offset = (col - 3) % width_per_char
-            if offset < 5:
+        for col in range(4, ws.max_column + 1):
+            offset = (col - 4) % width_per_char
+            if offset < 6:
                 ws.column_dimensions[get_column_letter(col)].width = 6
-            elif offset == 5:
+            elif offset == 6:
                 ws.column_dimensions[get_column_letter(col)].width = 5
             else:
                 ws.column_dimensions[get_column_letter(col)].width = 10
@@ -578,12 +598,12 @@ class ExiaInvasion:
         print(f"Data saved to {filename}")
         print("数据已保存到", f"{self.role_name}.xlsx")
         print()
-        print()
+
 
 
 
 if __name__ == "__main__":
-    print("ExiaInvasion v1.27  by 灵乌未默")
+    print("ExiaInvasion v1.30  by 灵乌未默")
     print()
     print("GitHub:")
     print("github.com/IsolateOB/ExiaInvasion")
@@ -634,6 +654,7 @@ if __name__ == "__main__":
 
     print(f"All accounts processed. Total errors: {error_count}")
     print(f"所有账号处理完成。总错误数: {error_count}")
+    print()
 
     if error_count > 0:
         print("Error accounts:")
