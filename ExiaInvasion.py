@@ -646,7 +646,6 @@ if __name__ == "__main__":
             print(f"Error occurred while processing account {index + 1}: {name}")
             print(f"处理账号 {index + 1} 时发生错误: {name}")
             errorList.append((index + 1, name))
-            print(e)
             print()
 
 
