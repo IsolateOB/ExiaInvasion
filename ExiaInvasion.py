@@ -451,7 +451,10 @@ class ExiaInvasion:
                 item_rare = self.item_rare_to_str(char_info.get("item_rare", 0))
                 item_level = char_info.get("item_level", 0)
 
-                if limit_break <= 3:
+
+                if limit_break < 0:
+                    limit_break_str = ""
+                elif limit_break >=0 and limit_break <= 3:
                     limit_break_str = f"{limit_break} ★"
                 elif limit_break >3 and limit_break < 10:
                     limit_break_str = f"+ {limit_break - 3}"
