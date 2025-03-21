@@ -383,17 +383,14 @@ class ExiaInvasion:
         ws.row_dimensions[2].height = 25
         ws.row_dimensions[3].height = 25
 
-        cell_number = ws.cell(row=1, column=1, value="编号")
-        cell_alliance = ws.cell(row=1, column=2, value="角色名称")
+
+        cell_alliance = ws.cell(row=1, column=1, value="角色名称")
         cell_synchro = ws.cell(row=1, column=3, value="同步等级")
-        cell_number.font = Font(bold=True)
         cell_alliance.font = Font(bold=True)
         cell_synchro.font = Font(bold=True)
-        cell_number.alignment = Alignment(horizontal="center", vertical="center")
         cell_alliance.alignment = Alignment(horizontal="center", vertical="center")
         cell_synchro.alignment = Alignment(horizontal="center", vertical="center")
-        ws.merge_cells(start_row=1, start_column=1, end_row=3, end_column=1)
-        ws.merge_cells(start_row=1, start_column=2, end_row=3, end_column=2)
+        ws.merge_cells(start_row=1, start_column=1, end_row=3, end_column=2)
         ws.merge_cells(start_row=1, start_column=3, end_row=3, end_column=3)
 
         start_col = 4
@@ -549,8 +546,9 @@ class ExiaInvasion:
                 self.set_vertical_border(ws, 3, 8, col_cursor + 6, border_side=thin_side, side_pos="right")
 
                 self.set_vertical_border(ws, 1, 8, 1, border_side=medium_side, side_pos="left")
-                self.set_vertical_border(ws, 1, 8, 1, border_side=medium_side, side_pos="right")
                 self.set_vertical_border(ws, 1, 8, 2, border_side=medium_side, side_pos="right")
+
+                self.set_vertical_border(ws, 4, 8, 1, border_side=thin_side, side_pos="right")
 
                 self.set_horizontal_border(ws, 3, 1, 3, side_pos="bottom")
                 self.set_horizontal_border(ws, 8, 1, 3, side_pos="bottom")
@@ -561,6 +559,7 @@ class ExiaInvasion:
                 ws.merge_cells(start_row=4, start_column=2, end_row=8, end_column=2)    # 角色名称
                 ws.merge_cells(start_row=4, start_column=3, end_row=8, end_column=3)    # 同步等级
                 # 并在 row=4 写入
+                ws.cell(row=4, column=1).alignment = Alignment(horizontal="center", vertical="center")
                 ws.cell(row=4, column=2, value=alliance_name).alignment = Alignment(horizontal="center",
                                                                                     vertical="center")
                 ws.cell(row=4, column=3, value=synchro_level).alignment = Alignment(horizontal="center",
@@ -570,7 +569,7 @@ class ExiaInvasion:
 
             start_col += total_width
 
-        ws.column_dimensions[get_column_letter(1)].width = 6
+        ws.column_dimensions[get_column_letter(1)].width = 5
         ws.column_dimensions[get_column_letter(2)].width = 16
         ws.column_dimensions[get_column_letter(3)].width = 10
 

@@ -107,7 +107,6 @@ else:
             account_info_row = start_row
 
         cell = merged_ws.cell(row=account_info_row, column=1, value=idx + 1)
-        cell.alignment = Alignment(horizontal='center', vertical='center')
         current_row += rows_copied
 
     merged_ws.freeze_panes = merged_ws.cell(row=4, column=4)
