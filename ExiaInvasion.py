@@ -606,7 +606,7 @@ class ExiaInvasion:
 
 
 if __name__ == "__main__":
-    print("ExiaInvasion v1.30  by 灵乌未默")
+    print("ExiaInvasion v1.31  by 灵乌未默")
     print()
     print("GitHub:")
     print("github.com/IsolateOB/ExiaInvasion")
