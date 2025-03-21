@@ -63,7 +63,13 @@ Can be used for personal progression assistance, union member recruitment, union
 
   装备词条有15级，1-5级为红色，6-10级标记为黄色，11-14级标记为蓝色，15级标记为黑色
 
-  
+
+
+
+## [统计角色](https://www.kdocs.cn/l/cqaoCnPqbPpM)
+
+![育成指南](育成指南.png)
+
 
 
 

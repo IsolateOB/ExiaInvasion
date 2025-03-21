@@ -292,15 +292,24 @@ class ExiaInvasion:
 
 
     @staticmethod
-    def item_rare_to_str(v):
-        if v == 1:
+    def item_rare_to_str(item_rare):
+        if item_rare == 1:
             return "R"
-        elif v == 2:
+        elif item_rare == 2:
             return "SR"
-        elif v == 3:
+        elif item_rare == 3:
             return "SSR"
         else:
             return ""
+
+
+    @staticmethod
+    def get_item_level(item_rare, item_level):
+        if item_rare == 3:
+            return f"{item_level + 1}★"
+        else:
+            return item_level
+
 
 
     @staticmethod
@@ -456,7 +465,8 @@ class ExiaInvasion:
                 skill1 = char_info.get("skill1_level", 0)
                 skill2 = char_info.get("skill2_level", 0)
                 skill_burst = char_info.get("skill_burst_level", 0)
-                item_rare = self.item_rare_to_str(char_info.get("item_rare", 0))
+                item_rare = char_info.get("item_rare", 0)
+                item_rare_str = self.item_rare_to_str(item_rare)
                 item_level = char_info.get("item_level", 0)
 
                 limit_break_str = self.get_limit_break_str(limit_break)
@@ -475,9 +485,9 @@ class ExiaInvasion:
 
                 ws.cell(row=4, column=col_cursor + 3, value=skill_burst if skill_burst > 0 else "").alignment = Alignment(horizontal="center", vertical="center")
 
-                ws.cell(row=4, column=col_cursor + 4, value=item_rare).alignment = Alignment(horizontal="center", vertical="center")
+                ws.cell(row=4, column=col_cursor + 4, value=item_rare_str).alignment = Alignment(horizontal="center", vertical="center")
 
-                ws.cell(row=4, column=col_cursor + 5, value=item_level if item_level >= 0 else "").alignment = Alignment(horizontal="center", vertical="center")
+                ws.cell(row=4, column=col_cursor + 5, value=self.get_item_level(item_rare, item_level) if item_level >= 0 else "").alignment = Alignment(horizontal="center", vertical="center")
 
 
                 ws.cell(row=4, column=col_cursor + 6, value="头").alignment = Alignment(horizontal="center",
