@@ -110,7 +110,7 @@ else:
         cell.alignment = Alignment(horizontal='center', vertical='center')
         current_row += rows_copied
 
-    merged_ws.freeze_panes = merged_ws.cell(row=4, column=3)
+    merged_ws.freeze_panes = merged_ws.cell(row=4, column=4)
 
 
     merged_wb.save("merged.xlsx")
