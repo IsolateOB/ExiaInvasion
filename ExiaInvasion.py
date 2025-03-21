@@ -351,10 +351,10 @@ class ExiaInvasion:
             "StatAmmoLoad", # 9
             "StatChargeTime",   #10
             "StatChargeDamage",  # 11
-            "StatDef",  # 12
-            "StatCritical",  # 13
-            "StatCriticalDamage",  # 14
-            "StatAccuracyCircle"  # 15
+            "StatCritical",  # 12
+            "StatCriticalDamage",  # 13
+            "StatAccuracyCircle",  # 14
+            "StatDef", # 15
         ]
         property_labels = [
             "突破",
@@ -369,10 +369,10 @@ class ExiaInvasion:
             "弹夹",
             "蓄速",
             "蓄伤",
-            "防御",
             "暴击",
             "暴伤",
             "命中",
+            "防御"
         ]
 
         wb = Workbook()
@@ -498,10 +498,10 @@ class ExiaInvasion:
                     "StatAmmoLoad": 0.0,
                     "StatChargeTime": 0.0,
                     "StatChargeDamage": 0.0,
-                    "StatDef": 0.0,
                     "StatCritical": 0.0,
                     "StatCriticalDamage": 0.0,
                     "StatAccuracyCircle": 0.0,
+                    "StatDef": 0.0,
                 }
                 for eq_idx in range(4):
                     row_idx = 4 + eq_idx
@@ -608,7 +608,7 @@ class ExiaInvasion:
 
 
 if __name__ == "__main__":
-    print("ExiaInvasion v1.31  by 灵乌未默")
+    print("ExiaInvasion v1.32  by 灵乌未默")
     print()
     print("GitHub:")
     print("github.com/IsolateOB/ExiaInvasion")
