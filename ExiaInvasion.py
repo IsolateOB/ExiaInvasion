@@ -61,12 +61,10 @@ class ExiaInvasion:
             serverSelect = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR,
                                             r"body > div.w-full.outline-none.max-h-\[65vh\].max-w-\[var\(--max-pc-w\)\].right-0.mx-auto.overflow-x-hidden.overflow-y-auto.flex.flex-col.bg-\[var\(--op-fill-white\)\].rounded-t-\[8px\].fixed.left-0.bottom-0.z-50 > div.flex-1.overflow-y-auto.w-full.mr-\[4px\].mb-\[35px\] > ul > li:nth-child(2)")))
-
         driver.execute_script("arguments[0].click();", serverSelect)
 
-
         changeToPassword = WebDriverWait(driver, 20).until(
-            EC.element_to_be_clickable((By.XPATH, '//*[@id="login"]/div[2]/button')))
+            EC.element_to_be_clickable((By.CSS_SELECTOR,r"#login > div.pass-login__footer._1216mun4 > button")))
         driver.execute_script("arguments[0].click();", changeToPassword)
 
         account_input = WebDriverWait(driver, 20).until(
@@ -327,14 +325,26 @@ class ExiaInvasion:
             return Font(color="000000")
 
 
+    @staticmethod
+    def get_limit_break_str(limit_break):
+        if limit_break < 0:
+            limit_break_str = ""
+        elif limit_break >= 0 and limit_break <= 3:
+            limit_break_str = f"{limit_break} ★"
+        elif limit_break > 3 and limit_break < 10:
+            limit_break_str = f"+ {limit_break - 3}"
+        else:
+            limit_break_str = "MAX"
+        return limit_break_str
+
+
     def saveTableToExcel(self):
         print("Saving data to table...")
         print("正在保存数据到表格...")
         print()
 
-        medium_side = Side(border_style="medium", color="000000")
-        thin_side = Side(border_style="thin", color="000000")
-        alliance_name = self.table.get("name", "")
+        medium_side = Side(border_style="medium", color="FF000000")
+        thin_side = Side(border_style="thin", color="FF000000")
         synchro_level = self.table.get("synchroLevel", 0)
         elements_data = self.table["elements"]  # dict
 
@@ -413,7 +423,7 @@ class ExiaInvasion:
                 c_char = ws.cell(row=2, column=col_cursor, value=char_name)
                 c_char.alignment = Alignment(horizontal="center", vertical="center")
                 self.set_horizontal_border(ws, 2, col_cursor, col_cursor + width_per_char - 1,
-                                           border_side=Side(border_style="thin", color="000000"), side_pos="bottom")
+                                           border_side=thin_side, side_pos="bottom")
 
                 priority = char_info.get("priority", "")
                 if priority == "black":
@@ -425,8 +435,6 @@ class ExiaInvasion:
                 elif priority == "yellow":
                     c_char.fill = PatternFill("solid", fgColor="FFFF88")
                     c_char.font = Font(bold=True)
-
-
 
                 for i, label in enumerate(property_labels):
                     # 跳过 None
@@ -451,15 +459,7 @@ class ExiaInvasion:
                 item_rare = self.item_rare_to_str(char_info.get("item_rare", 0))
                 item_level = char_info.get("item_level", 0)
 
-
-                if limit_break < 0:
-                    limit_break_str = ""
-                elif limit_break >=0 and limit_break <= 3:
-                    limit_break_str = f"{limit_break} ★"
-                elif limit_break >3 and limit_break < 10:
-                    limit_break_str = f"+ {limit_break - 3}"
-                else:
-                    limit_break_str = "MAX"
+                limit_break_str = self.get_limit_break_str(limit_break)
 
                 for i in range(6):
                     ws.merge_cells(
@@ -560,7 +560,7 @@ class ExiaInvasion:
                 ws.merge_cells(start_row=4, start_column=3, end_row=8, end_column=3)    # 同步器
                 # 并在 row=4 写入
                 ws.cell(row=4, column=1).alignment = Alignment(horizontal="center", vertical="center")
-                ws.cell(row=4, column=2, value=alliance_name).alignment = Alignment(horizontal="center", vertical="center")
+                ws.cell(row=4, column=2, value=self.role_name).alignment = Alignment(horizontal="center", vertical="center")
                 ws.cell(row=4, column=2).font = Font(bold=True)
 
                 ws.cell(row=4, column=3, value=synchro_level).alignment = Alignment(horizontal="center", vertical="center")
@@ -638,20 +638,22 @@ if __name__ == "__main__":
     loginIndex = loginIndex.dropna(how='any')
 
     errorList = []
+    i = 1
     for index, row in loginIndex.iterrows():
         name = row["Name"]
         account = row["E-mail"]
         password = row["Password"]
-        print(f"Logging in with account ({index + 1}/{len(loginIndex)}): {name}")
-        print(f"正在登录账号 ({index + 1}/{len(loginIndex)}): {name}")
+        print(f"Logging in with account ({i}/{len(loginIndex)}): {name}")
+        print(f"正在登录账号 ({i}/{len(loginIndex)}): {name}")
         print()
         try:
             ExiaInvasion(server, account, password)
         except Exception as e:
             print(f"Error occurred while processing account {index + 1}: {name}")
-            print(f"处理账号 {index + 1} 时发生错误: {name}")
-            errorList.append((index + 1, name))
+            print(f"处理账号 {i} 时发生错误: {name}")
+            errorList.append((i, name))
             print()
+        i += 1
 
 
     error_count = len(errorList)
