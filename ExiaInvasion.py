@@ -385,7 +385,7 @@ class ExiaInvasion:
 
 
         cell_alliance = ws.cell(row=1, column=1, value="角色名称")
-        cell_synchro = ws.cell(row=1, column=3, value="同步等级")
+        cell_synchro = ws.cell(row=1, column=3, value="同步器")
         cell_alliance.font = Font(bold=True)
         cell_synchro.font = Font(bold=True)
         cell_alliance.alignment = Alignment(horizontal="center", vertical="center")
@@ -557,21 +557,21 @@ class ExiaInvasion:
 
                 ws.merge_cells(start_row=4, start_column=1, end_row=8, end_column=1)    # 编号
                 ws.merge_cells(start_row=4, start_column=2, end_row=8, end_column=2)    # 角色名称
-                ws.merge_cells(start_row=4, start_column=3, end_row=8, end_column=3)    # 同步等级
+                ws.merge_cells(start_row=4, start_column=3, end_row=8, end_column=3)    # 同步器
                 # 并在 row=4 写入
                 ws.cell(row=4, column=1).alignment = Alignment(horizontal="center", vertical="center")
-                ws.cell(row=4, column=2, value=alliance_name).alignment = Alignment(horizontal="center",
-                                                                                    vertical="center")
-                ws.cell(row=4, column=3, value=synchro_level).alignment = Alignment(horizontal="center",
-                                                                                    vertical="center")
+                ws.cell(row=4, column=2, value=alliance_name).alignment = Alignment(horizontal="center", vertical="center")
+                ws.cell(row=4, column=2).font = Font(bold=True)
+
+                ws.cell(row=4, column=3, value=synchro_level).alignment = Alignment(horizontal="center", vertical="center")
 
                 col_cursor += width_per_char  # 下一个角色
 
             start_col += total_width
 
         ws.column_dimensions[get_column_letter(1)].width = 5
-        ws.column_dimensions[get_column_letter(2)].width = 16
-        ws.column_dimensions[get_column_letter(3)].width = 10
+        ws.column_dimensions[get_column_letter(2)].width = 18
+        ws.column_dimensions[get_column_letter(3)].width = 8
 
         for col in range(4, ws.max_column + 1):
             offset = (col - 4) % width_per_char
