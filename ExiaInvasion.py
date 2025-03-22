@@ -9,24 +9,25 @@ from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import pandas as pd
 import chardet
+import time
 
 
 
 class ExiaInvasion:
     def __init__(self, browser, server, account, password):
-        self.cookie_str = self.getCookies(browser, server, account, password)
-        self.role_name = self.getRoleName()
+        self.cookie_str = self.get_cookies(browser, server, account, password)
+        self.role_name = self.get_role_name()
         self.table = json.loads(open("SearchIndex.json", "r", encoding="utf-8").read())
-        self.playerNikkes = ExiaInvasion.getPlayerNikkes(self)
+        self.playerNikkes = ExiaInvasion.get_player_nikkes(self)
         ExiaInvasion.addEquipmentsToTable(self)
-        ExiaInvasion.addNikkesDetailsToTable(self)
+        ExiaInvasion.add_nikkes_details_to_table(self)
         self.table["synchroLevel"] = self.synchroLevel
         self.table["name"] = self.role_name
         ExiaInvasion.saveTableToExcel(self)
 
 
     @staticmethod
-    def getCookies(browser, server, account, password):
+    def get_cookies(browser, server, account, password):
         print("Please do not operate the browser unless there is human-machine verification, error reporting, or long-term inactivity, etc")
         print("请不要对浏览器进行任何操作，除非出现人机验证、报错、长时间无操作等情况")
         print()
@@ -66,6 +67,8 @@ class ExiaInvasion:
                                             r"body > div.w-full.outline-none.max-h-\[65vh\].max-w-\[var\(--max-pc-w\)\].right-0.mx-auto.overflow-x-hidden.overflow-y-auto.flex.flex-col.bg-\[var\(--op-fill-white\)\].rounded-t-\[8px\].fixed.left-0.bottom-0.z-50 > div.flex-1.overflow-y-auto.w-full.mr-\[4px\].mb-\[35px\] > ul > li:nth-child(2)")))
         driver.execute_script("arguments[0].click();", serverSelect)
 
+        time.sleep(2)
+
         changeToPassword = WebDriverWait(driver, 20).until(
             EC.element_to_be_clickable((By.CSS_SELECTOR,r"#login > div.pass-login__footer._1216mun4 > button")))
         driver.execute_script("arguments[0].click();", changeToPassword)
@@ -100,7 +103,7 @@ class ExiaInvasion:
 
 
 
-    def getHeader(self, contentLength):
+    def get_header(self, contentLength):
         headers = {
             "Accept": "application/json, text/plain, */*",
             "Accept-Encoding": "gzip, deflate, br, zstd",
@@ -127,8 +130,8 @@ class ExiaInvasion:
         return headers
 
 
-    def getRoleName(self):
-        headers = self.getHeader("2")
+    def get_role_name(self):
+        headers = self.get_header("2")
         url = "https://api.blablalink.com/api/ugc/direct/standalonesite/User/GetUserGamePlayerInfo"
         response = requests.post(url, headers=headers, json={}).json()
 
@@ -137,19 +140,35 @@ class ExiaInvasion:
         return role_name
 
 
-    def getPlayerNikkes(self):
-        headers = self.getHeader("2")
+    def get_player_nikkes(self):
+        headers = self.get_header("2")
         url = "https://api.blablalink.com/api/game/proxy/Tools/GetPlayerNikkes"
         response = requests.post(url, headers=headers, json={}).json()
 
         return response
 
 
-    def addNikkesDetailsToTable(self):
+    def add_nikkes_details_to_table(self):
         print("Fetching Nikke details...")
         print("正在获取Nikke详情...")
         print()
         self.synchroLevel = 1
+
+        self.cube_dict = {"遗迹突击魔方":{"cube_id": 1000301, "cube_level": 0},
+                          "战术突击魔方": {"cube_id": 1000302, "cube_level": 0},
+                          "遗迹巨熊魔方": {"cube_id": 1000303, "cube_level": 0},
+                          "战术巨熊魔方": {"cube_id": 1000304, "cube_level": 0},
+                          "遗迹促进魔方": {"cube_id": 1000305, "cube_level": 0},
+                          "战术促进魔方": {"cube_id": 1000306, "cube_level": 0},
+                          "遗迹量子魔方": {"cube_id": 1000307, "cube_level": 0},
+                          "体力神器魔方": {"cube_id": 1000308, "cube_level": 0},
+                          "遗迹强韧魔方": {"cube_id": 1000309, "cube_level": 0},
+                          "遗迹治疗魔方": {"cube_id": 1000310, "cube_level": 0},
+                          "遗迹回火魔方": {"cube_id": 1000311, "cube_level": 0},
+                          "遗迹辅助魔方": {"cube_id": 1000312, "cube_level": 0},
+                          "遗迹毁灭魔方": {"cube_id": 1000313, "cube_level": 0}}
+
+
         for element, characters in self.table["elements"].items():
             for character_name, details in characters.items():
                 for nikke_details in self.playerNikkes["data"]["player_nikkes"]:
@@ -162,10 +181,18 @@ class ExiaInvasion:
                         details["limit_break"] = nikke_details["limit_break"]
                     if nikke_details["level"] > self.synchroLevel:
                         self.synchroLevel = nikke_details["level"]
+                    for cube_name, cube_data in self.cube_dict.items():
+                        if nikke_details["cube_id"] == cube_data["cube_id"]:
+                            if nikke_details["cube_level"] > cube_data["cube_level"]:
+                                self.cube_dict[cube_name]["cube_level"] = nikke_details["cube_level"]
+
+        for cube_name, cube_data in self.cube_dict.items():
+            if cube_data["cube_level"] == 0:
+                cube_data["cube_level"] = "未找到"
 
 
     def getEquipments(self, character_ids):
-        headers = self.getHeader("96")
+        headers = self.get_header("96")
         url = "https://api.blablalink.com/api/game/proxy/Tools/GetPlayerEquipContents"
         json_data = requests.post(url, headers=headers, json={"character_ids": character_ids}).json()
         if json_data == None:
@@ -595,6 +622,38 @@ class ExiaInvasion:
             else:
                 ws.column_dimensions[get_column_letter(col)].width = 10
 
+        cube_start_col = col_cursor
+        cube_count = len(self.cube_dict)
+
+        ws.merge_cells(start_row=1, start_column=cube_start_col, end_row=1, end_column=cube_start_col + cube_count - 1)
+        cell_cube_header = ws.cell(row=1, column=cube_start_col, value="Cube 魔方")
+        cell_cube_header.alignment = Alignment(horizontal="center", vertical="center")
+        cell_cube_header.font = Font(bold=True)
+        self.set_outer_border(ws, 1, cube_start_col, 1, cube_start_col + cube_count - 1, medium_side)
+
+        for i, (cube_name, cube_data) in enumerate(self.cube_dict.items()):
+            col = cube_start_col + i
+            ws.merge_cells(start_row=2, start_column=col, end_row=3, end_column=col)
+            cell_cube_name = ws.cell(row=2, column=col, value=cube_name)
+            cell_cube_name.alignment = Alignment(horizontal="center", vertical="center")
+            cell_cube_name.font = Font(bold=True)
+            if i < cube_count - 1:
+                self.set_vertical_border(ws, 2, 8, col, border_side=thin_side, side_pos="right")
+
+        self.set_outer_border(ws, 2, cube_start_col, 3, cube_start_col + cube_count - 1, medium_side)
+
+        for i, (cube_name, cube_data) in enumerate(self.cube_dict.items()):
+            col = cube_start_col + i
+            ws.merge_cells(start_row=4, start_column=col, end_row=8, end_column=col)
+            cube_level_value = cube_data["cube_level"]
+            cell_cube_level = ws.cell(row=4, column=col, value=cube_level_value)
+            cell_cube_level.alignment = Alignment(horizontal="center", vertical="center")
+
+        self.set_outer_border(ws, 4, cube_start_col, 8, cube_start_col + cube_count - 1, medium_side)
+
+        for col in range(cube_start_col, cube_start_col + cube_count):
+            ws.column_dimensions[get_column_letter(col)].width = 15
+
         new_font_name = "微软雅黑"
         for row in ws.iter_rows():
             for cell in row:
@@ -621,7 +680,7 @@ class ExiaInvasion:
 
 
 if __name__ == "__main__":
-    print("ExiaInvasion v1.32  by 灵乌未默")
+    print("ExiaInvasion v1.33  by 灵乌未默")
     print()
     print("GitHub:")
     print("github.com/IsolateOB/ExiaInvasion")
