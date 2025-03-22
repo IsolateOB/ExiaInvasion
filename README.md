@@ -22,9 +22,9 @@ Can be used for personal progression assistance, union member recruitment, union
 
 ## Notice 注意
 
-- Make sure you have the **Edge** browser (installed by default on Windows systems)
+- **Edge** or **Chrome** is required to run the program
 
-	确保已安装 **Edge** 浏览器（Windows系统默认安装）
+	需要 **Edge** 或 **Chrome** 浏览器
 	
 - First run may not open the webpage properly and report errors continuously. Please close the program and browser and run again.
 
@@ -39,9 +39,9 @@ Can be used for personal progression assistance, union member recruitment, union
 
 ## Usage 用法
 
-- Please fill in all account information into **LoginIndex**
+- Please fill in all account information into **LoginIndex** , do not delete the first row header
 
-  请将所有账号信息填入 **LoginIndex**
+  请将所有账号信息填入 **LoginIndex** ，不要删去第一行表头
 
 - **merge** can merge all tables in the same directory
 

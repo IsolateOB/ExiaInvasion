@@ -13,8 +13,8 @@ import chardet
 
 
 class ExiaInvasion:
-    def __init__(self, server, account, password):
-        self.cookie_str = self.getCookies(server, account, password)
+    def __init__(self, browser, server, account, password):
+        self.cookie_str = self.getCookies(browser, server, account, password)
         self.role_name = self.getRoleName()
         self.table = json.loads(open("SearchIndex.json", "r", encoding="utf-8").read())
         self.playerNikkes = ExiaInvasion.getPlayerNikkes(self)
@@ -26,7 +26,7 @@ class ExiaInvasion:
 
 
     @staticmethod
-    def getCookies(server, account, password):
+    def getCookies(browser, server, account, password):
         print("Please do not operate the browser unless there is human-machine verification, error reporting, or long-term inactivity, etc")
         print("请不要对浏览器进行任何操作，除非出现人机验证、报错、长时间无操作等情况")
         print()
@@ -43,7 +43,10 @@ class ExiaInvasion:
                           "game_adult_status",
                           "OptanonConsent"]
 
-        driver = webdriver.Edge()
+        if browser == 0:
+            driver = webdriver.Edge()
+        else:
+            driver = webdriver.Chrome()
         driver.get("https://www.blablalink.com/login")
 
         # 接受cookie政策
@@ -628,6 +631,16 @@ if __name__ == "__main__":
     print("第一次运行可能无法正常打开网页并连续报错，请关闭程序与浏览器并重新运行")
     print()
 
+    print("0: Edge")
+    print("1: Chrome")
+    print()
+
+    print("Please enter the browser number [0 or 1]:")
+    print("请输入浏览器编号[0或1]：")
+    print()
+
+    browser = int(input())
+
     print("0: HK香港/MC澳门/TW台湾")
     print("1: JP日本/KR韩国/NA北美/SEA东南亚/Global全球")
     print()
@@ -657,7 +670,7 @@ if __name__ == "__main__":
         print(f"正在登录账号 ({i}/{len(loginIndex)}): {name}")
         print()
         try:
-            ExiaInvasion(server, account, password)
+            ExiaInvasion(browser, server, account, password)
         except Exception as e:
             print(f"Error occurred while processing account {index + 1}: {name}")
             print(f"处理账号 {i} 时发生错误: {name}")
