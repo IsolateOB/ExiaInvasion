@@ -15,15 +15,32 @@ import chardet
 
 class ExiaInvasion:
     def __init__(self, browser, server, account, password):
+        self.synchroLevel = 1
+
+        self.cube_dict = {"遗迹突击魔方": {"cube_id": 1000301, "cube_level": 0},
+                          "战术突击魔方": {"cube_id": 1000302, "cube_level": 0},
+                          "遗迹巨熊魔方": {"cube_id": 1000303, "cube_level": 0},
+                          "战术巨熊魔方": {"cube_id": 1000304, "cube_level": 0},
+                          "遗迹促进魔方": {"cube_id": 1000305, "cube_level": 0},
+                          "战术促进魔方": {"cube_id": 1000306, "cube_level": 0},
+                          "遗迹量子魔方": {"cube_id": 1000307, "cube_level": 0},
+                          "体力神器魔方": {"cube_id": 1000308, "cube_level": 0},
+                          "遗迹强韧魔方": {"cube_id": 1000309, "cube_level": 0},
+                          "遗迹治疗魔方": {"cube_id": 1000310, "cube_level": 0},
+                          "遗迹回火魔方": {"cube_id": 1000311, "cube_level": 0},
+                          "遗迹辅助魔方": {"cube_id": 1000312, "cube_level": 0},
+                          "遗迹毁灭魔方": {"cube_id": 1000313, "cube_level": 0}}
+
+
         self.cookie_str = self.get_cookies(browser, server, account, password)
         self.role_name = self.get_role_name()
         self.table = json.loads(open("SearchIndex.json", "r", encoding="utf-8").read())
-        self.playerNikkes = ExiaInvasion.get_player_nikkes(self)
-        ExiaInvasion.add_equipments_to_table(self)
-        ExiaInvasion.add_nikkes_details_to_table(self)
+        self.playerNikkes = self.get_player_nikkes()
+        self.add_equipments_to_table()
+        self.add_nikkes_details_to_table()
         self.table["synchroLevel"] = self.synchroLevel
         self.table["name"] = self.role_name
-        ExiaInvasion.save_table(self)
+        self.save_table()
 
 
     @staticmethod
@@ -58,23 +75,23 @@ class ExiaInvasion:
 
         # 选择服务器
         if server == 0:
-            serverSelect = WebDriverWait(driver, 20).until(
+            server_select = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR,
                                             r"body > div.w-full.outline-none.max-h-\[65vh\].max-w-\[var\(--max-pc-w\)\].right-0.mx-auto.overflow-x-hidden.overflow-y-auto.flex.flex-col.bg-\[var\(--op-fill-white\)\].rounded-t-\[8px\].fixed.left-0.bottom-0.z-50 > div.flex-1.overflow-y-auto.w-full.mr-\[4px\].mb-\[35px\] > ul > li:nth-child(1)")))
         else:
-            serverSelect = WebDriverWait(driver, 20).until(
+            server_select = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR,
                                             r"body > div.w-full.outline-none.max-h-\[65vh\].max-w-\[var\(--max-pc-w\)\].right-0.mx-auto.overflow-x-hidden.overflow-y-auto.flex.flex-col.bg-\[var\(--op-fill-white\)\].rounded-t-\[8px\].fixed.left-0.bottom-0.z-50 > div.flex-1.overflow-y-auto.w-full.mr-\[4px\].mb-\[35px\] > ul > li:nth-child(2)")))
-        driver.execute_script("arguments[0].click();", serverSelect)
+        driver.execute_script("arguments[0].click();", server_select)
 
         try:
             WebDriverWait(driver, 2).until(
                 EC.visibility_of_element_located((By.ID, "loginPwdForm_account"))
             )
         except TimeoutException:
-            changeToPassword = WebDriverWait(driver, 20).until(
+            change_to_password = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, r"#login > div.pass-login__footer._1216mun4 > button")))
-            driver.execute_script("arguments[0].click();", changeToPassword)
+            driver.execute_script("arguments[0].click();", change_to_password)
 
         account_input = WebDriverWait(driver, 20).until(
             EC.visibility_of_element_located((By.ID, "loginPwdForm_account")))
@@ -106,12 +123,12 @@ class ExiaInvasion:
 
 
 
-    def get_header(self, contentLength):
+    def get_header(self, content_length):
         headers = {
             "Accept": "application/json, text/plain, */*",
             "Accept-Encoding": "gzip, deflate, br, zstd",
             "Accept-Language": "zh-CN,zh-TW;q=0.9,zh;q=0.8,en;q=0.7",
-            "Content-Length": contentLength,
+            "Content-Length": content_length,
             "Content-Type": "application/json",
             "Cookie": self.cookie_str,
             "Dnt": "1",
@@ -155,22 +172,6 @@ class ExiaInvasion:
         print("Fetching Nikke details...")
         print("正在获取Nikke详情...")
         print()
-        self.synchroLevel = 1
-
-        self.cube_dict = {"遗迹突击魔方":{"cube_id": 1000301, "cube_level": 0},
-                          "战术突击魔方": {"cube_id": 1000302, "cube_level": 0},
-                          "遗迹巨熊魔方": {"cube_id": 1000303, "cube_level": 0},
-                          "战术巨熊魔方": {"cube_id": 1000304, "cube_level": 0},
-                          "遗迹促进魔方": {"cube_id": 1000305, "cube_level": 0},
-                          "战术促进魔方": {"cube_id": 1000306, "cube_level": 0},
-                          "遗迹量子魔方": {"cube_id": 1000307, "cube_level": 0},
-                          "体力神器魔方": {"cube_id": 1000308, "cube_level": 0},
-                          "遗迹强韧魔方": {"cube_id": 1000309, "cube_level": 0},
-                          "遗迹治疗魔方": {"cube_id": 1000310, "cube_level": 0},
-                          "遗迹回火魔方": {"cube_id": 1000311, "cube_level": 0},
-                          "遗迹辅助魔方": {"cube_id": 1000312, "cube_level": 0},
-                          "遗迹毁灭魔方": {"cube_id": 1000313, "cube_level": 0}}
-
 
         for element, characters in self.table["elements"].items():
             for character_name, details in characters.items():
@@ -198,7 +199,7 @@ class ExiaInvasion:
         headers = self.get_header("96")
         url = "https://api.blablalink.com/api/game/proxy/Tools/GetPlayerEquipContents"
         json_data = requests.post(url, headers=headers, json={"character_ids": character_ids}).json()
-        if json_data == None:
+        if json_data is None:
             json_data = requests.post(url, headers=headers, json={"character_ids": character_ids}).json()
         player_equip_contents = json_data["data"]["player_equip_contents"]
 
@@ -733,7 +734,7 @@ if __name__ == "__main__":
         print()
         try:
             ExiaInvasion(browser, server, account, password)
-        except Exception as e:
+        except Exception:
             print(f"Error occurred while processing account {index + 1}: {name}")
             print(f"处理账号 {i} 时发生错误: {name}")
             errorList.append((i, name))
