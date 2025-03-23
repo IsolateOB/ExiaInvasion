@@ -36,19 +36,19 @@ class ExiaInvasion:
                               "遗迹毁灭魔方": {"cube_id": 1000313, "cube_level": 0}}
 
 
-        self.cube_dict_en = {"Assault Cube":{"cube_id": 1000301, "cube_level": 0},
-                             "Onslaught Cube":{"cube_id": 1000302, "cube_level": 0},
-                             "Resilience Cube":{"cube_id": 1000303, "cube_level": 0},
-                             "Bastion Cube":{"cube_id": 1000304, "cube_level": 0},
-                             "Adjutant Cube":{"cube_id": 1000305, "cube_level": 0},
-                             "Wingman Cube":{"cube_id": 1000306, "cube_level": 0},
-                             "Quantum Cube":{"cube_id": 1000307, "cube_level": 0},
-                             "Vigor Cube":{"cube_id": 1000308, "cube_level": 0},
-                             "Endurance Cube":{"cube_id": 1000309, "cube_level": 0},
-                             "Healing Cube":{"cube_id": 1000310, "cube_level": 0},
-                             "Tempering Cube":{"cube_id": 1000311, "cube_level": 0},
-                             "Relic Assist Cube":{"cube_id": 1000312, "cube_level": 0},
-                             "Destruction Cube":{"cube_id": 1000313, "cube_level": 0}}
+        self.cube_dict_eng = {"Assault Cube": {"cube_id": 1000301, "cube_level": 0},
+                             "Onslaught Cube": {"cube_id": 1000302, "cube_level": 0},
+                             "Resilience Cube": {"cube_id": 1000303, "cube_level": 0},
+                             "Bastion Cube": {"cube_id": 1000304, "cube_level": 0},
+                             "Adjutant Cube": {"cube_id": 1000305, "cube_level": 0},
+                             "Wingman Cube": {"cube_id": 1000306, "cube_level": 0},
+                             "Quantum Cube": {"cube_id": 1000307, "cube_level": 0},
+                             "Vigor Cube": {"cube_id": 1000308, "cube_level": 0},
+                             "Endurance Cube": {"cube_id": 1000309, "cube_level": 0},
+                             "Healing Cube": {"cube_id": 1000310, "cube_level": 0},
+                             "Tempering Cube": {"cube_id": 1000311, "cube_level": 0},
+                              "Relic Assist Cube": {"cube_id": 1000312, "cube_level": 0},
+                              "Destruction Cube": {"cube_id": 1000313, "cube_level": 0}}
 
 
         self.cookie_str = self.get_cookies()
@@ -209,14 +209,17 @@ class ExiaInvasion:
                         details["limit_break"] = nikke_details["limit_break"]
                     if nikke_details["level"] > self.account_dict["synchroLevel"]:
                         self.account_dict["synchroLevel"] = nikke_details["level"]
-                    if language == 0:
-                        cube = self.cube_dict_en
+                    if self.language == 0:
+                        for cube_name, cube_data in self.cube_dict_eng.items():
+                            if nikke_details["cube_id"] == cube_data["cube_id"]:
+                                if nikke_details["cube_level"] > cube_data["cube_level"]:
+                                    self.cube_dict_eng[cube_name]["cube_level"] = nikke_details["cube_level"]
                     else:
-                        cube = self.cube_dict_chs
-                    for cube_name, cube_data in cube.items():
-                        if nikke_details["cube_id"] == cube_data["cube_id"]:
-                            if nikke_details["cube_level"] > cube_data["cube_level"]:
-                                self.cube_dict_chs[cube_name]["cube_level"] = nikke_details["cube_level"]
+                        for cube_name, cube_data in self.cube_dict_chs.items():
+                            if nikke_details["cube_id"] == cube_data["cube_id"]:
+                                if nikke_details["cube_level"] > cube_data["cube_level"]:
+                                    self.cube_dict_chs[cube_name]["cube_level"] = nikke_details["cube_level"]
+
 
 
     def get_equipments(self, character_ids):
@@ -455,12 +458,12 @@ class ExiaInvasion:
             "防御"
         ]
 
-        property_labels_en = [
-            "Limit Break",
+        property_labels_eng = [
+            "LB",
             "Skill 1",
             "Skill 2",
             "Burst",
-            "Item Rarity",  # 会合并到下一列
+            "Item",  # 会合并到下一列
             None,  # 跳过
             "T10",
             "Elem",
@@ -475,7 +478,7 @@ class ExiaInvasion:
         ]
 
         if self.language == 0:
-            property_labels = property_labels_en
+            property_labels = property_labels_eng
         else:
             property_labels = property_labels_chs
 
@@ -673,18 +676,30 @@ class ExiaInvasion:
 
             start_col += total_width
 
-        ws.column_dimensions[get_column_letter(1)].width = 5
-        ws.column_dimensions[get_column_letter(2)].width = 18
-        ws.column_dimensions[get_column_letter(3)].width = 8
+        if self.language == 0:
+            ws.column_dimensions[get_column_letter(1)].width = 5
+            ws.column_dimensions[get_column_letter(2)].width = 20
+            ws.column_dimensions[get_column_letter(3)].width = 11
 
-        for col in range(4, ws.max_column + 1):
-            offset = (col - 4) % width_per_char
-            if offset < 6:
-                ws.column_dimensions[get_column_letter(col)].width = 6
-            elif offset == 6:
-                ws.column_dimensions[get_column_letter(col)].width = 5
-            else:
-                ws.column_dimensions[get_column_letter(col)].width = 10
+            for col in range(4, ws.max_column + 1):
+                offset = (col - 4) % width_per_char
+                if offset < 7:
+                    ws.column_dimensions[get_column_letter(col)].width = 6
+                else:
+                    ws.column_dimensions[get_column_letter(col)].width = 10
+        else:
+            ws.column_dimensions[get_column_letter(1)].width = 5
+            ws.column_dimensions[get_column_letter(2)].width = 20
+            ws.column_dimensions[get_column_letter(3)].width = 8
+
+            for col in range(4, ws.max_column + 1):
+                offset = (col - 4) % width_per_char
+                if offset < 6:
+                    ws.column_dimensions[get_column_letter(col)].width = 6
+                elif offset == 6:
+                    ws.column_dimensions[get_column_letter(col)].width = 5
+                else:
+                    ws.column_dimensions[get_column_letter(col)].width = 10
 
         cube_start_col = col_cursor
         cube_count = len(self.cube_dict_chs)
@@ -698,7 +713,13 @@ class ExiaInvasion:
         cell_cube_header.font = Font(bold=True)
         self.set_outer_border(ws, 1, cube_start_col, 1, cube_start_col + cube_count - 1, medium_side)
 
-        for i, (cube_name, cube_data) in enumerate(self.cube_dict_chs.items()):
+
+        if self.language == 0:
+            cube = self.cube_dict_eng
+        else:
+            cube = self.cube_dict_chs
+
+        for i, (cube_name, cube_data) in enumerate(cube.items()):
             col = cube_start_col + i
             ws.merge_cells(start_row=2, start_column=col, end_row=3, end_column=col)
             cell_cube_name = ws.cell(row=2, column=col, value=cube_name)
@@ -709,7 +730,7 @@ class ExiaInvasion:
 
         self.set_outer_border(ws, 2, cube_start_col, 3, cube_start_col + cube_count - 1, medium_side)
 
-        for i, (cube_name, cube_data) in enumerate(self.cube_dict_chs.items()):
+        for i, (cube_name, cube_data) in enumerate(cube.items()):
             col = cube_start_col + i
             ws.merge_cells(start_row=4, start_column=col, end_row=8, end_column=col)
             cube_level_value = cube_data["cube_level"]
@@ -723,8 +744,13 @@ class ExiaInvasion:
 
         self.set_outer_border(ws, 4, cube_start_col, 8, cube_start_col + cube_count - 1, medium_side)
 
-        for col in range(cube_start_col, cube_start_col + cube_count):
-            ws.column_dimensions[get_column_letter(col)].width = 15
+
+        if self.language == 0:
+            for col in range(cube_start_col, cube_start_col + cube_count):
+                ws.column_dimensions[get_column_letter(col)].width = 19
+        else:
+            for col in range(cube_start_col, cube_start_col + cube_count):
+                ws.column_dimensions[get_column_letter(col)].width = 14
 
         new_font_name = "Arial"
         for row in ws.iter_rows():
@@ -741,13 +767,14 @@ class ExiaInvasion:
                                      color=old_font.color)
 
 
+
         filename = f"{self.account_dict["name"]}.xlsx"
         wb.save(filename)
 
         if self.language == 0:
             print(f"Data saved to {filename}")
         else:
-            print("数据已保存到", f"{self.account_dict["name"]}.xlsx")
+            print(f"数据已保存到 {filename}")
 
 
 
