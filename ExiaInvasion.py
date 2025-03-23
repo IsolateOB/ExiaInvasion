@@ -15,8 +15,6 @@ import chardet
 
 class ExiaInvasion:
     def __init__(self, browser, server, account, password):
-        self.synchroLevel = 1
-
         self.cube_dict = {"遗迹突击魔方": {"cube_id": 1000301, "cube_level": 0},
                           "战术突击魔方": {"cube_id": 1000302, "cube_level": 0},
                           "遗迹巨熊魔方": {"cube_id": 1000303, "cube_level": 0},
@@ -33,14 +31,11 @@ class ExiaInvasion:
 
 
         self.cookie_str = self.get_cookies(browser, server, account, password)
-        self.role_name = self.get_role_name()
-        self.table = json.loads(open("SearchIndex.json", "r", encoding="utf-8").read())
-        self.playerNikkes = self.get_player_nikkes()
-        self.add_equipments_to_table()
-        self.add_nikkes_details_to_table()
-        self.table["synchroLevel"] = self.synchroLevel
-        self.table["name"] = self.role_name
-        self.save_table()
+        self.account_dict = json.loads(open("SearchIndex.json", "r", encoding="utf-8").read())
+        self.account_dict["name"] = self.get_role_name()
+        self.add_nikkes_details_to_dict()
+        self.add_equipments_to_dict()
+        self.save_dict_to_excel()
 
 
     @staticmethod
@@ -168,14 +163,16 @@ class ExiaInvasion:
         return response
 
 
-    def add_nikkes_details_to_table(self):
+    def add_nikkes_details_to_dict(self):
         print("Fetching Nikke details...")
         print("正在获取Nikke详情...")
         print()
 
-        for element, characters in self.table["elements"].items():
+        player_nikkes = self.get_player_nikkes()
+
+        for element, characters in self.account_dict["elements"].items():
             for character_name, details in characters.items():
-                for nikke_details in self.playerNikkes["data"]["player_nikkes"]:
+                for nikke_details in player_nikkes["data"]["player_nikkes"]:
                     if details["name_code"] == nikke_details["name_code"]:
                         details["skill1_level"] = nikke_details["skill1_level"]
                         details["skill2_level"] = nikke_details["skill2_level"]
@@ -183,8 +180,8 @@ class ExiaInvasion:
                         details["item_rare"] = nikke_details["item_rare"]
                         details["item_level"] = nikke_details["item_level"]
                         details["limit_break"] = nikke_details["limit_break"]
-                    if nikke_details["level"] > self.synchroLevel:
-                        self.synchroLevel = nikke_details["level"]
+                    if nikke_details["level"] > self.account_dict["synchroLevel"]:
+                        self.account_dict["synchroLevel"] = nikke_details["level"]
                     for cube_name, cube_data in self.cube_dict.items():
                         if nikke_details["cube_id"] == cube_data["cube_id"]:
                             if nikke_details["cube_level"] > cube_data["cube_level"]:
@@ -229,13 +226,14 @@ class ExiaInvasion:
         return result
 
 
-    def add_equipments_to_table(self):
+    def add_equipments_to_dict(self):
         print("Fetching equipment data...")
         print("正在获取装备数据...")
         print()
-        for element, characters in self.table["elements"].items():
+        for element, characters in self.account_dict["elements"].items():
             for character_name, details in characters.items():
-                details["equipments"] = self.get_equipments(details["character_ids"])
+                character_ids = [details["id"] + i for i in range(11)]
+                details["equipments"] = self.get_equipments(character_ids)
 
 
     @staticmethod
@@ -377,15 +375,14 @@ class ExiaInvasion:
         return limit_break_str
 
 
-    def save_table(self):
+    def save_dict_to_excel(self):
         print("Saving data to table...")
         print("正在保存数据到表格...")
         print()
 
         medium_side = Side(border_style="medium", color="FF000000")
         thin_side = Side(border_style="thin", color="FF000000")
-        synchro_level = self.table.get("synchroLevel", 0)
-        elements_data = self.table["elements"]  # dict
+        elements_data = self.account_dict["elements"]  # dict
 
         property_keys = [
             "limit_break",  # 0
@@ -432,7 +429,7 @@ class ExiaInvasion:
         ws.row_dimensions[2].height = 25
         ws.row_dimensions[3].height = 25
 
-
+        # 表头
         cell_alliance = ws.cell(row=1, column=1, value="角色名称")
         cell_synchro = ws.cell(row=1, column=3, value="同步器")
         cell_alliance.font = Font(bold=True)
@@ -441,6 +438,18 @@ class ExiaInvasion:
         cell_synchro.alignment = Alignment(horizontal="center", vertical="center")
         ws.merge_cells(start_row=1, start_column=1, end_row=3, end_column=2)
         ws.merge_cells(start_row=1, start_column=3, end_row=3, end_column=3)
+
+        ws.merge_cells(start_row=4, start_column=1, end_row=8, end_column=1)  # 编号
+        ws.merge_cells(start_row=4, start_column=2, end_row=8, end_column=2)  # 角色名称
+        ws.merge_cells(start_row=4, start_column=3, end_row=8, end_column=3)  # 同步器
+
+        # 在 row=4 写入角色名称和同步器的值
+        ws.cell(row=4, column=1).alignment = Alignment(horizontal="center", vertical="center")
+        ws.cell(row=4, column=2, value=self.account_dict["name"]).alignment = Alignment(horizontal="center", vertical="center")
+        ws.cell(row=4, column=2).font = Font(bold=True)
+
+        ws.cell(row=4, column=3, value=self.account_dict["synchroLevel"]).alignment = Alignment(horizontal="center",
+                                                                                                vertical="center")
 
         start_col = 4
         width_per_char = 16
@@ -520,16 +529,11 @@ class ExiaInvasion:
                 ws.cell(row=4, column=col_cursor + 5, value=self.get_item_level(item_rare, item_level) if item_level >= 0 else "").alignment = Alignment(horizontal="center", vertical="center")
 
 
-                ws.cell(row=4, column=col_cursor + 6, value="头").alignment = Alignment(horizontal="center",
-                                                                                        vertical="center")
-                ws.cell(row=5, column=col_cursor + 6, value="身").alignment = Alignment(horizontal="center",
-                                                                                        vertical="center")
-                ws.cell(row=6, column=col_cursor + 6, value="手").alignment = Alignment(horizontal="center",
-                                                                                        vertical="center")
-                ws.cell(row=7, column=col_cursor + 6, value="足").alignment = Alignment(horizontal="center",
-                                                                                        vertical="center")
-                ws.cell(row=8, column=col_cursor + 6, value="合计").alignment = Alignment(horizontal="center",
-                                                                                          vertical="center")
+                ws.cell(row=4, column=col_cursor + 6, value="头").alignment = Alignment(horizontal="center", vertical="center")
+                ws.cell(row=5, column=col_cursor + 6, value="身").alignment = Alignment(horizontal="center", vertical="center")
+                ws.cell(row=6, column=col_cursor + 6, value="手").alignment = Alignment(horizontal="center", vertical="center")
+                ws.cell(row=7, column=col_cursor + 6, value="足").alignment = Alignment(horizontal="center", vertical="center")
+                ws.cell(row=8, column=col_cursor + 6, value="合计").alignment = Alignment(horizontal="center", vertical="center")
 
                 equipments = char_info.get("equipments", {})
                 sum_stats = {
@@ -594,16 +598,6 @@ class ExiaInvasion:
                 self.set_horizontal_border(ws, 8, 1, 3, side_pos="bottom")
 
                 self.set_horizontal_border(ws, 8, col_cursor + 6, col_cursor + 15, border_side=thin_side, side_pos="top")
-
-                ws.merge_cells(start_row=4, start_column=1, end_row=8, end_column=1)    # 编号
-                ws.merge_cells(start_row=4, start_column=2, end_row=8, end_column=2)    # 角色名称
-                ws.merge_cells(start_row=4, start_column=3, end_row=8, end_column=3)    # 同步器
-                # 并在 row=4 写入
-                ws.cell(row=4, column=1).alignment = Alignment(horizontal="center", vertical="center")
-                ws.cell(row=4, column=2, value=self.role_name).alignment = Alignment(horizontal="center", vertical="center")
-                ws.cell(row=4, column=2).font = Font(bold=True)
-
-                ws.cell(row=4, column=3, value=synchro_level).alignment = Alignment(horizontal="center", vertical="center")
 
                 col_cursor += width_per_char  # 下一个角色
 
@@ -671,18 +665,17 @@ class ExiaInvasion:
                                      color=old_font.color)
 
 
-        filename = f"{self.role_name}.xlsx"
+        filename = f"{self.account_dict["name"]}.xlsx"
         wb.save(filename)
 
         print(f"Data saved to {filename}")
-        print("数据已保存到", f"{self.role_name}.xlsx")
+        print("数据已保存到", f"{self.account_dict["name"]}.xlsx")
         print()
 
 
 
-
 if __name__ == "__main__":
-    print("ExiaInvasion v1.41  by 灵乌未默")
+    print("ExiaInvasion v1.42  by 灵乌未默")
     print()
     print("GitHub:")
     print("github.com/IsolateOB/ExiaInvasion")
