@@ -51,10 +51,6 @@ Can be used for personal progression assistance, union member recruitment, union
 
 	**SearchIndex** 用于提供主程序 **ExiaInvasion** 的角色搜索索引，可添加或删除角色，角色名默认为简体中文。文件可对照 **nikke_list_繁體中文** 按需更改
 
-- `"character_ids"` consists of all 11 numbers between `id` and `id+10`
-
-	`"character_ids"`由`id`与`id+10`之间的所有11个数组成
-
 - `"priority"` is based on my personal subjective character priority, only for tabulation purposes, black>blue>yellow
 
 	`“priority”`是依据我个人主观的角色优先级，仅用于制表，黑>蓝>黄
