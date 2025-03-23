@@ -14,35 +14,60 @@ import chardet
 
 
 class ExiaInvasion:
-    def __init__(self, browser, server, account, password):
-        self.cube_dict = {"遗迹突击魔方": {"cube_id": 1000301, "cube_level": 0},
-                          "战术突击魔方": {"cube_id": 1000302, "cube_level": 0},
-                          "遗迹巨熊魔方": {"cube_id": 1000303, "cube_level": 0},
-                          "战术巨熊魔方": {"cube_id": 1000304, "cube_level": 0},
-                          "遗迹促进魔方": {"cube_id": 1000305, "cube_level": 0},
-                          "战术促进魔方": {"cube_id": 1000306, "cube_level": 0},
-                          "遗迹量子魔方": {"cube_id": 1000307, "cube_level": 0},
-                          "体力神器魔方": {"cube_id": 1000308, "cube_level": 0},
-                          "遗迹强韧魔方": {"cube_id": 1000309, "cube_level": 0},
-                          "遗迹治疗魔方": {"cube_id": 1000310, "cube_level": 0},
-                          "遗迹回火魔方": {"cube_id": 1000311, "cube_level": 0},
-                          "遗迹辅助魔方": {"cube_id": 1000312, "cube_level": 0},
-                          "遗迹毁灭魔方": {"cube_id": 1000313, "cube_level": 0}}
+    def __init__(self, language, browser, server, account, password):
+        self.language = language
+        self.browser = browser
+        self.server = server
+        self.account = account
+        self.password = password
+
+        self.cube_dict_chs = {"遗迹突击魔方": {"cube_id": 1000301, "cube_level": 0},
+                              "战术突击魔方": {"cube_id": 1000302, "cube_level": 0},
+                              "遗迹巨熊魔方": {"cube_id": 1000303, "cube_level": 0},
+                              "战术巨熊魔方": {"cube_id": 1000304, "cube_level": 0},
+                              "遗迹促进魔方": {"cube_id": 1000305, "cube_level": 0},
+                              "战术促进魔方": {"cube_id": 1000306, "cube_level": 0},
+                              "遗迹量子魔方": {"cube_id": 1000307, "cube_level": 0},
+                              "体力神器魔方": {"cube_id": 1000308, "cube_level": 0},
+                              "遗迹强韧魔方": {"cube_id": 1000309, "cube_level": 0},
+                              "遗迹治疗魔方": {"cube_id": 1000310, "cube_level": 0},
+                              "遗迹回火魔方": {"cube_id": 1000311, "cube_level": 0},
+                              "遗迹辅助魔方": {"cube_id": 1000312, "cube_level": 0},
+                              "遗迹毁灭魔方": {"cube_id": 1000313, "cube_level": 0}}
 
 
-        self.cookie_str = self.get_cookies(browser, server, account, password)
-        self.account_dict = json.loads(open("SearchIndex.json", "r", encoding="utf-8").read())
+        self.cube_dict_en = {"Assault Cube":{"cube_id": 1000301, "cube_level": 0},
+                             "Onslaught Cube":{"cube_id": 1000302, "cube_level": 0},
+                             "Resilience Cube":{"cube_id": 1000303, "cube_level": 0},
+                             "Bastion Cube":{"cube_id": 1000304, "cube_level": 0},
+                             "Adjutant Cube":{"cube_id": 1000305, "cube_level": 0},
+                             "Wingman Cube":{"cube_id": 1000306, "cube_level": 0},
+                             "Quantum Cube":{"cube_id": 1000307, "cube_level": 0},
+                             "Vigor Cube":{"cube_id": 1000308, "cube_level": 0},
+                             "Endurance Cube":{"cube_id": 1000309, "cube_level": 0},
+                             "Healing Cube":{"cube_id": 1000310, "cube_level": 0},
+                             "Tempering Cube":{"cube_id": 1000311, "cube_level": 0},
+                             "Relic Assist Cube":{"cube_id": 1000312, "cube_level": 0},
+                             "Destruction Cube":{"cube_id": 1000313, "cube_level": 0}}
+
+
+        self.cookie_str = self.get_cookies()
+        if self.language == 0:
+            self.account_dict = json.loads(open("SearchIndexEn.json", "r", encoding="utf-8").read())
+        else:
+            self.account_dict = json.loads(open("SearchIndexChs.json", "r", encoding="utf-8").read())
         self.account_dict["name"] = self.get_role_name()
         self.add_nikkes_details_to_dict()
         self.add_equipments_to_dict()
         self.save_dict_to_excel()
 
 
-    @staticmethod
-    def get_cookies(browser, server, account, password):
-        print("Please do not operate the browser unless there is human-machine verification, error reporting, or long-term inactivity, etc")
-        print("请不要对浏览器进行任何操作，除非出现人机验证、报错、长时间无操作等情况")
-        print()
+
+    def get_cookies(self):
+        if self.language == 0:
+            print("Please do not operate the browser unless there is human-machine verification, error reporting, or long-term inactivity, etc")
+        else:
+            print("请不要对浏览器进行任何操作，除非出现人机验证、报错、长时间无操作等情况")
 
 
         important_keys = ["OptanonAlertBoxClosed",
@@ -56,7 +81,7 @@ class ExiaInvasion:
                           "game_adult_status",
                           "OptanonConsent"]
 
-        if browser == 0:
+        if self.browser == 0:
             driver = webdriver.Edge()
         else:
             driver = webdriver.Chrome()
@@ -90,11 +115,11 @@ class ExiaInvasion:
 
         account_input = WebDriverWait(driver, 20).until(
             EC.visibility_of_element_located((By.ID, "loginPwdForm_account")))
-        account_input.send_keys(account)
+        account_input.send_keys(self.account)
 
         password_input = WebDriverWait(driver, 20).until(
             EC.visibility_of_element_located((By.ID, "loginPwdForm_password")))
-        password_input.send_keys(password)
+        password_input.send_keys(self.password)
 
         loginbutton = WebDriverWait(driver, 20).until(
             EC.element_to_be_clickable(
@@ -102,9 +127,10 @@ class ExiaInvasion:
 
         driver.execute_script("arguments[0].click();", loginbutton)
 
-        print("Retrieving cookies...")
-        print("正在获取cookie...")
-        print()
+        if self.language == 0:
+            print("Retrieving cookies...")
+        else:
+            print("正在获取cookie...")
 
         while True:
             all_cookies = driver.get_cookies()
@@ -164,9 +190,10 @@ class ExiaInvasion:
 
 
     def add_nikkes_details_to_dict(self):
-        print("Fetching Nikke details...")
-        print("正在获取Nikke详情...")
-        print()
+        if self.language == 0:
+            print("Fetching Nikke details...")
+        else:
+            print("正在获取Nikke详情...")
 
         player_nikkes = self.get_player_nikkes()
 
@@ -182,10 +209,14 @@ class ExiaInvasion:
                         details["limit_break"] = nikke_details["limit_break"]
                     if nikke_details["level"] > self.account_dict["synchroLevel"]:
                         self.account_dict["synchroLevel"] = nikke_details["level"]
-                    for cube_name, cube_data in self.cube_dict.items():
+                    if language == 0:
+                        cube = self.cube_dict_en
+                    else:
+                        cube = self.cube_dict_chs
+                    for cube_name, cube_data in cube.items():
                         if nikke_details["cube_id"] == cube_data["cube_id"]:
                             if nikke_details["cube_level"] > cube_data["cube_level"]:
-                                self.cube_dict[cube_name]["cube_level"] = nikke_details["cube_level"]
+                                self.cube_dict_chs[cube_name]["cube_level"] = nikke_details["cube_level"]
 
 
     def get_equipments(self, character_ids):
@@ -227,9 +258,11 @@ class ExiaInvasion:
 
 
     def add_equipments_to_dict(self):
-        print("Fetching equipment data...")
-        print("正在获取装备数据...")
-        print()
+        if self.language == 0:
+            print("Fetching equipment data...")
+        else:
+            print("正在获取装备数据...")
+
         for element, characters in self.account_dict["elements"].items():
             for character_name, details in characters.items():
                 character_ids = [details["id"] + i for i in range(11)]
@@ -376,9 +409,10 @@ class ExiaInvasion:
 
 
     def save_dict_to_excel(self):
-        print("Saving data to table...")
-        print("正在保存数据到表格...")
-        print()
+        if self.language == 0:
+            print("Saving data to table...")
+        else:
+            print("正在保存数据到表格...")
 
         medium_side = Side(border_style="medium", color="FF000000")
         thin_side = Side(border_style="thin", color="FF000000")
@@ -402,7 +436,7 @@ class ExiaInvasion:
             "StatAccuracyCircle",  # 14
             "StatDef", # 15
         ]
-        property_labels = [
+        property_labels_chs = [
             "突破",
             "技能1",
             "技能2",
@@ -421,17 +455,48 @@ class ExiaInvasion:
             "防御"
         ]
 
+        property_labels_en = [
+            "Limit Break",
+            "Skill 1",
+            "Skill 2",
+            "Burst",
+            "Item Rarity",  # 会合并到下一列
+            None,  # 跳过
+            "T10",
+            "Elem",
+            "Atk",
+            "Ammo",
+            "Chg Spd",
+            "Chg DMG",
+            "Crit%",
+            "Crit DMG",
+            "Hit%",
+            "Def"
+        ]
+
+        if self.language == 0:
+            property_labels = property_labels_en
+        else:
+            property_labels = property_labels_chs
+
         wb = Workbook()
         ws = wb.active
-        ws.title = "成员信息"
+        if self.language == 0:
+            ws.title = "Member Info"
+        else:
+            ws.title = "成员信息"
 
         ws.row_dimensions[1].height = 25
         ws.row_dimensions[2].height = 25
         ws.row_dimensions[3].height = 25
 
         # 表头
-        cell_alliance = ws.cell(row=1, column=1, value="角色名称")
-        cell_synchro = ws.cell(row=1, column=3, value="同步器")
+        if self.language == 0:
+            cell_alliance = ws.cell(row=1, column=1, value="Name")
+            cell_synchro = ws.cell(row=1, column=3, value="Synchro")
+        else:
+            cell_alliance = ws.cell(row=1, column=1, value="名称")
+            cell_synchro = ws.cell(row=1, column=3, value="同步器")
         cell_alliance.font = Font(bold=True)
         cell_synchro.font = Font(bold=True)
         cell_alliance.alignment = Alignment(horizontal="center", vertical="center")
@@ -448,8 +513,7 @@ class ExiaInvasion:
         ws.cell(row=4, column=2, value=self.account_dict["name"]).alignment = Alignment(horizontal="center", vertical="center")
         ws.cell(row=4, column=2).font = Font(bold=True)
 
-        ws.cell(row=4, column=3, value=self.account_dict["synchroLevel"]).alignment = Alignment(horizontal="center",
-                                                                                                vertical="center")
+        ws.cell(row=4, column=3, value=self.account_dict["synchroLevel"]).alignment = Alignment(horizontal="center", vertical="center")
 
         start_col = 4
         width_per_char = 16
@@ -528,12 +592,18 @@ class ExiaInvasion:
 
                 ws.cell(row=4, column=col_cursor + 5, value=self.get_item_level(item_rare, item_level) if item_level >= 0 else "").alignment = Alignment(horizontal="center", vertical="center")
 
-
-                ws.cell(row=4, column=col_cursor + 6, value="头").alignment = Alignment(horizontal="center", vertical="center")
-                ws.cell(row=5, column=col_cursor + 6, value="身").alignment = Alignment(horizontal="center", vertical="center")
-                ws.cell(row=6, column=col_cursor + 6, value="手").alignment = Alignment(horizontal="center", vertical="center")
-                ws.cell(row=7, column=col_cursor + 6, value="足").alignment = Alignment(horizontal="center", vertical="center")
-                ws.cell(row=8, column=col_cursor + 6, value="合计").alignment = Alignment(horizontal="center", vertical="center")
+                if self.language == 0:
+                    ws.cell(row=4, column=col_cursor + 6, value="Head").alignment = Alignment(horizontal="center", vertical="center")
+                    ws.cell(row=5, column=col_cursor + 6, value="Body").alignment = Alignment(horizontal="center", vertical="center")
+                    ws.cell(row=6, column=col_cursor + 6, value="Arm").alignment = Alignment(horizontal="center", vertical="center")
+                    ws.cell(row=7, column=col_cursor + 6, value="Leg").alignment = Alignment(horizontal="center", vertical="center")
+                    ws.cell(row=8, column=col_cursor + 6, value="Total").alignment = Alignment(horizontal="center", vertical="center")
+                else:
+                    ws.cell(row=4, column=col_cursor + 6, value="头").alignment = Alignment(horizontal="center", vertical="center")
+                    ws.cell(row=5, column=col_cursor + 6, value="身").alignment = Alignment(horizontal="center", vertical="center")
+                    ws.cell(row=6, column=col_cursor + 6, value="手").alignment = Alignment(horizontal="center", vertical="center")
+                    ws.cell(row=7, column=col_cursor + 6, value="足").alignment = Alignment(horizontal="center", vertical="center")
+                    ws.cell(row=8, column=col_cursor + 6, value="合计").alignment = Alignment(horizontal="center", vertical="center")
 
                 equipments = char_info.get("equipments", {})
                 sum_stats = {
@@ -617,15 +687,18 @@ class ExiaInvasion:
                 ws.column_dimensions[get_column_letter(col)].width = 10
 
         cube_start_col = col_cursor
-        cube_count = len(self.cube_dict)
+        cube_count = len(self.cube_dict_chs)
 
         ws.merge_cells(start_row=1, start_column=cube_start_col, end_row=1, end_column=cube_start_col + cube_count - 1)
-        cell_cube_header = ws.cell(row=1, column=cube_start_col, value="Cube 魔方")
+        if self.language == 0:
+            cell_cube_header = ws.cell(row=1, column=cube_start_col, value="Cube")
+        else:
+            cell_cube_header = ws.cell(row=1, column=cube_start_col, value="魔方")
         cell_cube_header.alignment = Alignment(horizontal="center", vertical="center")
         cell_cube_header.font = Font(bold=True)
         self.set_outer_border(ws, 1, cube_start_col, 1, cube_start_col + cube_count - 1, medium_side)
 
-        for i, (cube_name, cube_data) in enumerate(self.cube_dict.items()):
+        for i, (cube_name, cube_data) in enumerate(self.cube_dict_chs.items()):
             col = cube_start_col + i
             ws.merge_cells(start_row=2, start_column=col, end_row=3, end_column=col)
             cell_cube_name = ws.cell(row=2, column=col, value=cube_name)
@@ -636,12 +709,15 @@ class ExiaInvasion:
 
         self.set_outer_border(ws, 2, cube_start_col, 3, cube_start_col + cube_count - 1, medium_side)
 
-        for i, (cube_name, cube_data) in enumerate(self.cube_dict.items()):
+        for i, (cube_name, cube_data) in enumerate(self.cube_dict_chs.items()):
             col = cube_start_col + i
             ws.merge_cells(start_row=4, start_column=col, end_row=8, end_column=col)
             cube_level_value = cube_data["cube_level"]
             if cube_level_value == 0:
-                cube_level_value = "未找到"
+                if self.language == 0:
+                    cube_level_value = "Not found"
+                else:
+                    cube_level_value = "未找到"
             cell_cube_level = ws.cell(row=4, column=col, value=cube_level_value)
             cell_cube_level.alignment = Alignment(horizontal="center", vertical="center")
 
@@ -650,7 +726,7 @@ class ExiaInvasion:
         for col in range(cube_start_col, cube_start_col + cube_count):
             ws.column_dimensions[get_column_letter(col)].width = 15
 
-        new_font_name = "微软雅黑"
+        new_font_name = "Arial"
         for row in ws.iter_rows():
             for cell in row:
                 if cell.font:
@@ -668,42 +744,64 @@ class ExiaInvasion:
         filename = f"{self.account_dict["name"]}.xlsx"
         wb.save(filename)
 
-        print(f"Data saved to {filename}")
-        print("数据已保存到", f"{self.account_dict["name"]}.xlsx")
-        print()
+        if self.language == 0:
+            print(f"Data saved to {filename}")
+        else:
+            print("数据已保存到", f"{self.account_dict["name"]}.xlsx")
 
 
 
 if __name__ == "__main__":
-    print("ExiaInvasion v1.42  by 灵乌未默")
+    print("ExiaInvasion v1.50  by 灵乌未默")
     print()
     print("GitHub:")
     print("github.com/IsolateOB/ExiaInvasion")
     print()
 
-    print("First run may not open the webpage properly and report errors continuously. Please close the program and browser and run again.")
-    print("第一次运行可能无法正常打开网页并连续报错，请关闭程序与浏览器并重新运行")
+    print("0: English")
+    print("1: 简体中文")
     print()
 
-    print("0: Edge")
-    print("1: Chrome")
-    print()
+    print("Please select the language [0 or 1]:")
+    print("请选择语言 [0或1]：")
 
-    print("Please enter the browser number [0 or 1]:")
-    print("请输入浏览器编号[0或1]：")
-    print()
+    language = int(input())
 
-    browser = int(input())
+    if language == 0:
+        print("First run may not open the webpage properly and report errors continuously. Please close the program and browser and run again.")
+        print()
 
-    print("0: HK香港/MC澳门/TW台湾")
-    print("1: JP日本/KR韩国/NA北美/SEA东南亚/Global全球")
-    print()
+        print("0: Edge")
+        print("1: Chrome")
+        print()
 
-    print("Please enter the server number [0 or 1]:")
-    print("请输入服务器编号[0或1]：")
-    print()
+        browser = int(input("Please enter the browser number [0 or 1]:"))
+        print()
 
-    server = int(input())
+        print("0: HK/MC/TW")
+        print("1: JP/KR/NA/SEA/Global")
+        print()
+
+        server = input("Please enter the server number [0 or 1]:")
+        print()
+    else:
+        print("第一次运行可能无法正常打开网页并连续报错，请关闭程序与浏览器并重新运行")
+        print()
+
+        print("0: Edge")
+        print("1: Chrome")
+        print()
+
+        browser = int(input("请输入浏览器编号[0或1]："))
+        print()
+
+        print("0: 香港/澳门/台湾")
+        print("1: 日本/韩国/北美/东南亚/全球")
+        print()
+
+        server = input("请输入服务器编号[0或1]：")
+        print()
+
 
     with open("LoginIndex.csv", "rb") as f:
         raw_data = f.read()
@@ -720,28 +818,35 @@ if __name__ == "__main__":
         name = row["Name"]
         account = row["E-mail"]
         password = row["Password"]
-        print(f"Logging in with account ({i}/{len(loginIndex)}): {name}")
-        print(f"正在登录账号 ({i}/{len(loginIndex)}): {name}")
-        print()
+        if language == 0:
+            print(f"Logging in with account ({i}/{len(loginIndex)}): {name}")
+        else:
+            print(f"正在登录账号 ({i}/{len(loginIndex)}): {name}")
         try:
-            ExiaInvasion(browser, server, account, password)
+            ExiaInvasion(language, browser, server, account, password)
         except Exception:
-            print(f"Error occurred while processing account {index + 1}: {name}")
-            print(f"处理账号 {i} 时发生错误: {name}")
+            if language == 0:
+                print(f"Error occurred while processing account {index + 1}: {name}")
+            else:
+                print(f"处理账号 {i} 时发生错误: {name}")
             errorList.append((i, name))
-            print()
         i += 1
+        print()
 
 
     error_count = len(errorList)
 
-    print(f"All accounts processed. Total errors: {error_count}")
-    print(f"所有账号处理完成。总错误数: {error_count}")
+    if language == 0:
+        print(f"All accounts processed. Total errors: {error_count}")
+    else:
+        print(f"所有账号处理完成。总错误数: {error_count}")
     print()
 
     if error_count > 0:
-        print("Error accounts:")
-        print("错误账号：")
+        if language == 0:
+            print("Error accounts:")
+        else:
+            print("错误账号：")
 
         with open("ErrorList.txt", "w", encoding="utf-8") as f:
             for error in errorList:
@@ -749,9 +854,9 @@ if __name__ == "__main__":
                 f.write(f"{error[0]}: {error[1]}\n")
             print()
 
-        print("Error account list generated: ErrorList.txt")
-        print("已生成错误账号清单：ErrorList.txt")
-        print()
-
-    print("Press Enter to exit...")
-    input("按回车键退出...")
+        if language == 0:
+            print("Error account list generated: ErrorList.txt")
+            print("Press Enter to exit...")
+        else:
+            print("已生成错误账号清单：ErrorList.txt")
+            input("按回车键退出...")
