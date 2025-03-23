@@ -31,9 +31,9 @@ Can be used for personal progression assistance, union member recruitment, union
 	第一次运行可能无法正常打开网页并连续报错，请关闭程序与浏览器并重新运行
 
 
-- Currently only tables in Simplified Chinese can be output.
+- Currently only tables in Simplified Chinese and English can be output.
 
-  目前仅能输出简体中文表格
+  目前仅能输出简体中文和英文表格
 
 
 
@@ -72,7 +72,7 @@ Can be used for personal progression assistance, union member recruitment, union
 
 ## Communication and feedback 交流与反馈
 
-[联盟Discord](https://discord.gg/rN7CrqmY)
+[Discord](https://discord.gg/rN7CrqmY)
 
 [Github](https://github.com/IsolateOB/ExiaInvasion)
 
