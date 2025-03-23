@@ -2,6 +2,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 import json
 import requests
 from openpyxl import Workbook
@@ -9,7 +10,6 @@ from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import pandas as pd
 import chardet
-import time
 
 
 
@@ -67,11 +67,14 @@ class ExiaInvasion:
                                             r"body > div.w-full.outline-none.max-h-\[65vh\].max-w-\[var\(--max-pc-w\)\].right-0.mx-auto.overflow-x-hidden.overflow-y-auto.flex.flex-col.bg-\[var\(--op-fill-white\)\].rounded-t-\[8px\].fixed.left-0.bottom-0.z-50 > div.flex-1.overflow-y-auto.w-full.mr-\[4px\].mb-\[35px\] > ul > li:nth-child(2)")))
         driver.execute_script("arguments[0].click();", serverSelect)
 
-        time.sleep(2)
-
-        changeToPassword = WebDriverWait(driver, 20).until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR,r"#login > div.pass-login__footer._1216mun4 > button")))
-        driver.execute_script("arguments[0].click();", changeToPassword)
+        try:
+            WebDriverWait(driver, 2).until(
+                EC.visibility_of_element_located((By.ID, "loginPwdForm_account"))
+            )
+        except TimeoutException:
+            changeToPassword = WebDriverWait(driver, 20).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, r"#login > div.pass-login__footer._1216mun4 > button")))
+            driver.execute_script("arguments[0].click();", changeToPassword)
 
         account_input = WebDriverWait(driver, 20).until(
             EC.visibility_of_element_located((By.ID, "loginPwdForm_account")))
