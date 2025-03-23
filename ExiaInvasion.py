@@ -1,3 +1,4 @@
+from IPython.terminal.shortcuts.auto_suggest import accept_character
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -19,11 +20,11 @@ class ExiaInvasion:
         self.role_name = self.get_role_name()
         self.table = json.loads(open("SearchIndex.json", "r", encoding="utf-8").read())
         self.playerNikkes = ExiaInvasion.get_player_nikkes(self)
-        ExiaInvasion.addEquipmentsToTable(self)
+        ExiaInvasion.add_equipments_to_table(self)
         ExiaInvasion.add_nikkes_details_to_table(self)
         self.table["synchroLevel"] = self.synchroLevel
         self.table["name"] = self.role_name
-        ExiaInvasion.saveTableToExcel(self)
+        ExiaInvasion.save_table(self)
 
 
     @staticmethod
@@ -51,9 +52,9 @@ class ExiaInvasion:
         driver.get("https://www.blablalink.com/login")
 
         # 接受cookie政策
-        acceptCookie = WebDriverWait(driver, 20).until(
+        accept_cookie = WebDriverWait(driver, 20).until(
             EC.element_to_be_clickable((By.ID, "onetrust-accept-btn-handler")))
-        driver.execute_script("arguments[0].click();", acceptCookie)
+        driver.execute_script("arguments[0].click();", accept_cookie)
 
 
         # 选择服务器
@@ -194,7 +195,7 @@ class ExiaInvasion:
                 cube_data["cube_level"] = "未找到"
 
 
-    def getEquipments(self, character_ids):
+    def get_equipments(self, character_ids):
         headers = self.get_header("96")
         url = "https://api.blablalink.com/api/game/proxy/Tools/GetPlayerEquipContents"
         json_data = requests.post(url, headers=headers, json={"character_ids": character_ids}).json()
@@ -232,13 +233,13 @@ class ExiaInvasion:
         return result
 
 
-    def addEquipmentsToTable(self):
+    def add_equipments_to_table(self):
         print("Fetching equipment data...")
         print("正在获取装备数据...")
         print()
         for element, characters in self.table["elements"].items():
             for character_name, details in characters.items():
-                details["equipments"] = self.getEquipments(details["character_ids"])
+                details["equipments"] = self.get_equipments(details["character_ids"])
 
 
     @staticmethod
@@ -380,7 +381,7 @@ class ExiaInvasion:
         return limit_break_str
 
 
-    def saveTableToExcel(self):
+    def save_table(self):
         print("Saving data to table...")
         print("正在保存数据到表格...")
         print()
