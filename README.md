@@ -1,14 +1,8 @@
 # ExiaInvasion
 
-**ExiaInvasion** is an open source crawler program that obtains Nikke character data in personal accounts from [blablalink](https://www.blablalink.com/) and generates progression tables
+**ExiaInvasion** is an open source crawler program that obtains Nikke character data in personal accounts from [blablalink](https://www.blablalink.com/) and generates progress tracker
 
 **ExiaInvasion** 是一个从 [blablalink](https://www.blablalink.com/) 获取个人账号中的Nikke人物数据并生成练度表的开源爬虫程序
-
-
-
-Can be used for personal progression assistance, union member recruitment, union member progression statistics
-
-可用于个人育成辅助，联盟成员招募，联盟成员育成统计
 
 
 
@@ -47,9 +41,9 @@ Can be used for personal progression assistance, union member recruitment, union
 
   **merge** 将合并同目录中的所有表格
 
-- **SearchIndex** is used to provide the role search index of the main program **ExiaInvasion**. Roles can be added or deleted. The role name defaults to Simplified Chinese. The file can be changed as needed according to **nikke_list_English**  
+- **SearchIndexEng** is used to provide the role search index of the main program **ExiaInvasion**. Roles can be added or deleted. The role name defaults to Simplified Chinese. The file can be changed as needed according to **nikke_list_English**  
 
-	**SearchIndex** 用于提供主程序 **ExiaInvasion** 的角色搜索索引，可添加或删除角色，角色名默认为简体中文。文件可对照 **nikke_list_繁體中文** 按需更改
+	**SearchIndexChs** 用于提供主程序 **ExiaInvasion** 的角色搜索索引，可添加或删除角色，可对照 **nikke_list_繁體中文** 按需更改
 
 - `"priority"` is based on my personal subjective character priority, only for tabulation purposes, black>blue>yellow
 

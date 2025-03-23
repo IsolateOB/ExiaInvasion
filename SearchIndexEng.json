@@ -188,6 +188,11 @@
 				"id": 327001,
 				"priority": "yellow"
 			},
+			"Noir": {
+				"name_code": 5009,
+				"id": 327101,
+				"priority": "yellow"
+			},
 			"Exia": {
 				"name_code": 5003,
 				"id": 321001,
