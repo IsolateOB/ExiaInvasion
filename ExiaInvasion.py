@@ -1,4 +1,3 @@
-from IPython.terminal.shortcuts.auto_suggest import accept_character
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
