@@ -55,8 +55,7 @@
 
 
 
-
-## [统计角色](https://www.kdocs.cn/l/cqaoCnPqbPpM)
+## [Nikke Table 妮姬表](https://www.kdocs.cn/l/cqaoCnPqbPpM)
 
 ![育成指南](育成指南.png)
 
