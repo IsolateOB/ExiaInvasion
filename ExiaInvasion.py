@@ -53,7 +53,7 @@ class ExiaInvasion:
 
         self.cookie_str = self.get_cookies()
         if self.language == 0:
-            self.account_dict = json.loads(open("SearchIndexEn.json", "r", encoding="utf-8").read())
+            self.account_dict = json.loads(open("SearchIndexEng.json", "r", encoding="utf-8").read())
         else:
             self.account_dict = json.loads(open("SearchIndexChs.json", "r", encoding="utf-8").read())
         self.account_dict["name"] = self.get_role_name()
