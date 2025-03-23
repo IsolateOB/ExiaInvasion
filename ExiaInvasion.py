@@ -190,10 +190,6 @@ class ExiaInvasion:
                             if nikke_details["cube_level"] > cube_data["cube_level"]:
                                 self.cube_dict[cube_name]["cube_level"] = nikke_details["cube_level"]
 
-        for cube_name, cube_data in self.cube_dict.items():
-            if cube_data["cube_level"] == 0:
-                cube_data["cube_level"] = "未找到"
-
 
     def get_equipments(self, character_ids):
         headers = self.get_header("96")
@@ -650,6 +646,8 @@ class ExiaInvasion:
             col = cube_start_col + i
             ws.merge_cells(start_row=4, start_column=col, end_row=8, end_column=col)
             cube_level_value = cube_data["cube_level"]
+            if cube_level_value == 0:
+                cube_level_value = "未找到"
             cell_cube_level = ws.cell(row=4, column=col, value=cube_level_value)
             cell_cube_level.alignment = Alignment(horizontal="center", vertical="center")
 
