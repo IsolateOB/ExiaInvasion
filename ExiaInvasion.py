@@ -52,7 +52,7 @@ class ExiaInvasion:
 
 
         self.cookie_str = self.get_cookies()
-        if self.language == 0:
+        if self.language == 1:
             self.account_dict = json.loads(open("SearchIndexEng.json", "r", encoding="utf-8").read())
         else:
             self.account_dict = json.loads(open("SearchIndexChs.json", "r", encoding="utf-8").read())
@@ -64,7 +64,7 @@ class ExiaInvasion:
 
 
     def get_cookies(self):
-        if self.language == 0:
+        if self.language == 1:
             print("Please do not operate the browser unless there is human-machine verification, error reporting, or long-term inactivity, etc")
         else:
             print("请不要对浏览器进行任何操作，除非出现人机验证、报错、长时间无操作等情况")
@@ -81,7 +81,7 @@ class ExiaInvasion:
                           "game_adult_status",
                           "OptanonConsent"]
 
-        if self.browser == 0:
+        if self.browser == 1:
             driver = webdriver.Edge()
         else:
             driver = webdriver.Chrome()
@@ -94,7 +94,7 @@ class ExiaInvasion:
 
 
         # 选择服务器
-        if self.server == 0:
+        if self.server == 1:
             server_select = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR,
                                             r"body > div.w-full.outline-none.max-h-\[65vh\].max-w-\[var\(--max-pc-w\)\].right-0.mx-auto.overflow-x-hidden.overflow-y-auto.flex.flex-col.bg-\[var\(--op-fill-white\)\].rounded-t-\[8px\].fixed.left-0.bottom-0.z-50 > div.flex-1.overflow-y-auto.w-full.mr-\[4px\].mb-\[35px\] > ul > li:nth-child(1)")))
@@ -127,7 +127,7 @@ class ExiaInvasion:
 
         driver.execute_script("arguments[0].click();", loginbutton)
 
-        if self.language == 0:
+        if self.language == 1:
             print("Retrieving cookies...")
         else:
             print("正在获取cookie...")
@@ -190,7 +190,7 @@ class ExiaInvasion:
 
 
     def add_nikkes_details_to_dict(self):
-        if self.language == 0:
+        if self.language == 1:
             print("Fetching Nikke details...")
         else:
             print("正在获取Nikke详情...")
@@ -209,7 +209,7 @@ class ExiaInvasion:
                         details["limit_break"] = nikke_details["limit_break"]
                     if nikke_details["level"] > self.account_dict["synchroLevel"]:
                         self.account_dict["synchroLevel"] = nikke_details["level"]
-                    if self.language == 0:
+                    if self.language == 1:
                         for cube_name, cube_data in self.cube_dict_eng.items():
                             if nikke_details["cube_id"] == cube_data["cube_id"]:
                                 if nikke_details["cube_level"] > cube_data["cube_level"]:
@@ -261,7 +261,7 @@ class ExiaInvasion:
 
 
     def add_equipments_to_dict(self):
-        if self.language == 0:
+        if self.language == 1:
             print("Fetching equipment data...")
         else:
             print("正在获取装备数据...")
@@ -412,7 +412,7 @@ class ExiaInvasion:
 
 
     def save_dict_to_excel(self):
-        if self.language == 0:
+        if self.language == 1:
             print("Saving data to table...")
         else:
             print("正在保存数据到表格...")
@@ -477,14 +477,14 @@ class ExiaInvasion:
             "Def"
         ]
 
-        if self.language == 0:
+        if self.language == 1:
             property_labels = property_labels_eng
         else:
             property_labels = property_labels_chs
 
         wb = Workbook()
         ws = wb.active
-        if self.language == 0:
+        if self.language == 1:
             ws.title = "Member Info"
         else:
             ws.title = "成员信息"
@@ -494,7 +494,7 @@ class ExiaInvasion:
         ws.row_dimensions[3].height = 25
 
         # 表头
-        if self.language == 0:
+        if self.language == 1:
             cell_alliance = ws.cell(row=1, column=1, value="Name")
             cell_synchro = ws.cell(row=1, column=3, value="Synchro")
         else:
@@ -595,7 +595,7 @@ class ExiaInvasion:
 
                 ws.cell(row=4, column=col_cursor + 5, value=self.get_item_level(item_rare, item_level) if item_level >= 0 else "").alignment = Alignment(horizontal="center", vertical="center")
 
-                if self.language == 0:
+                if self.language == 1:
                     ws.cell(row=4, column=col_cursor + 6, value="Head").alignment = Alignment(horizontal="center", vertical="center")
                     ws.cell(row=5, column=col_cursor + 6, value="Body").alignment = Alignment(horizontal="center", vertical="center")
                     ws.cell(row=6, column=col_cursor + 6, value="Arm").alignment = Alignment(horizontal="center", vertical="center")
@@ -676,7 +676,7 @@ class ExiaInvasion:
 
             start_col += total_width
 
-        if self.language == 0:
+        if self.language == 1:
             ws.column_dimensions[get_column_letter(1)].width = 5
             ws.column_dimensions[get_column_letter(2)].width = 20
             ws.column_dimensions[get_column_letter(3)].width = 11
@@ -705,7 +705,7 @@ class ExiaInvasion:
         cube_count = len(self.cube_dict_chs)
 
         ws.merge_cells(start_row=1, start_column=cube_start_col, end_row=1, end_column=cube_start_col + cube_count - 1)
-        if self.language == 0:
+        if self.language == 1:
             cell_cube_header = ws.cell(row=1, column=cube_start_col, value="Cube")
         else:
             cell_cube_header = ws.cell(row=1, column=cube_start_col, value="魔方")
@@ -714,7 +714,7 @@ class ExiaInvasion:
         self.set_outer_border(ws, 1, cube_start_col, 1, cube_start_col + cube_count - 1, medium_side)
 
 
-        if self.language == 0:
+        if self.language == 1:
             cube = self.cube_dict_eng
         else:
             cube = self.cube_dict_chs
@@ -735,7 +735,7 @@ class ExiaInvasion:
             ws.merge_cells(start_row=4, start_column=col, end_row=8, end_column=col)
             cube_level_value = cube_data["cube_level"]
             if cube_level_value == 0:
-                if self.language == 0:
+                if self.language == 1:
                     cube_level_value = "Not found"
                 else:
                     cube_level_value = "未找到"
@@ -745,7 +745,7 @@ class ExiaInvasion:
         self.set_outer_border(ws, 4, cube_start_col, 8, cube_start_col + cube_count - 1, medium_side)
 
 
-        if self.language == 0:
+        if self.language == 1:
             for col in range(cube_start_col, cube_start_col + cube_count):
                 ws.column_dimensions[get_column_letter(col)].width = 19
         else:
@@ -770,7 +770,7 @@ class ExiaInvasion:
         filename = f"{self.account_dict["name"]}.xlsx"
         wb.save(filename)
 
-        if self.language == 0:
+        if self.language == 1:
             print(f"Data saved to {filename}")
         else:
             print(f"数据已保存到 {filename}")
@@ -778,54 +778,54 @@ class ExiaInvasion:
 
 
 if __name__ == "__main__":
-    print("ExiaInvasion v1.51  by 灵乌未默")
+    print("ExiaInvasion v1.52  by 灵乌未默")
     print()
     print("GitHub:")
     print("github.com/IsolateOB/ExiaInvasion")
     print()
 
-    print("0: English")
-    print("1: 简体中文")
+    print("1: English")
+    print("2: 简体中文")
     print()
 
-    print("Please select the language [0 or 1]:")
-    print("请选择语言 [0或1]：")
+    print("Please select the language [1 or 2]:")
+    print("请选择语言 [1或2]：")
 
     language = int(input())
 
-    if language == 0:
+    if language == 1:
         print("First run may not open the webpage properly and report errors continuously. Please close the program and browser and run again.")
         print()
 
-        print("0: Edge")
-        print("1: Chrome")
+        print("1: Edge")
+        print("2: Chrome")
         print()
 
-        browser = int(input("Please enter the browser number [0 or 1]:"))
+        browser = int(input("Please enter the browser number [1 or 2]:"))
         print()
 
-        print("0: HK/MC/TW")
-        print("1: JP/KR/NA/SEA/Global")
+        print("1: HK/MC/TW")
+        print("2: JP/KR/NA/SEA/Global")
         print()
 
-        server = input("Please enter the server number [0 or 1]:")
+        server = input("Please enter the server number [1 or 2]:")
         print()
     else:
         print("第一次运行可能无法正常打开网页并连续报错，请关闭程序与浏览器并重新运行")
         print()
 
-        print("0: Edge")
-        print("1: Chrome")
+        print("1: Edge")
+        print("2: Chrome")
         print()
 
-        browser = int(input("请输入浏览器编号[0或1]："))
+        browser = int(input("请输入浏览器编号[1或2]："))
         print()
 
-        print("0: 香港/澳门/台湾")
-        print("1: 日本/韩国/北美/东南亚/全球")
+        print("1: 香港/澳门/台湾")
+        print("2: 日本/韩国/北美/东南亚/全球")
         print()
 
-        server = input("请输入服务器编号[0或1]：")
+        server = input("请输入服务器编号[1或2]：")
         print()
 
 
@@ -844,14 +844,14 @@ if __name__ == "__main__":
         name = row["Name"]
         account = row["E-mail"]
         password = row["Password"]
-        if language == 0:
+        if language == 1:
             print(f"Logging in with account ({i}/{len(loginIndex)}): {name}")
         else:
             print(f"正在登录账号 ({i}/{len(loginIndex)}): {name}")
         try:
             ExiaInvasion(language, browser, server, account, password)
         except Exception:
-            if language == 0:
+            if language == 1:
                 print(f"Error occurred while processing account {index + 1}: {name}")
             else:
                 print(f"处理账号 {i} 时发生错误: {name}")
@@ -862,14 +862,14 @@ if __name__ == "__main__":
 
     error_count = len(errorList)
 
-    if language == 0:
+    if language == 1:
         print(f"All accounts processed. Total errors: {error_count}")
     else:
         print(f"所有账号处理完成。总错误数: {error_count}")
     print()
 
     if error_count > 0:
-        if language == 0:
+        if language == 1:
             print("Error accounts:")
         else:
             print("错误账号：")
@@ -880,7 +880,7 @@ if __name__ == "__main__":
                 f.write(f"{error[0]}: {error[1]}\n")
             print()
 
-        if language == 0:
+        if language == 1:
             print("Error account list generated: ErrorList.txt")
             print("Press Enter to exit...")
         else:
