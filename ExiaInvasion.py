@@ -10,8 +10,6 @@ from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import pandas as pd
 import chardet
-import sys
-import io
 
 
 
