@@ -790,8 +790,10 @@ if __name__ == "__main__":
 
     print("Please select the language [1 or 2]:")
     print("请选择语言 [1或2]：")
+    print()
 
     language = int(input())
+    print()
 
     if language == 1:
         print("First run may not open the webpage properly and report errors continuously. Please close the program and browser and run again.")
@@ -882,7 +884,10 @@ if __name__ == "__main__":
 
         if language == 1:
             print("Error account list generated: ErrorList.txt")
-            print("Press Enter to exit...")
         else:
             print("已生成错误账号清单：ErrorList.txt")
-            input("按回车键退出...")
+
+    if language == 1:
+        input("Press Enter to exit...")
+    else:
+        input("按回车键退出...")
