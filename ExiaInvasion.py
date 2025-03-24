@@ -778,12 +778,7 @@ class ExiaInvasion:
 
 
 if __name__ == "__main__":
-    import sys
-    import io
-
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-
-    print("ExiaInvasion v1.52  by 灵乌未默")
+    print("ExiaInvasion v1.51  by 灵乌未默")
     print()
     print("GitHub:")
     print("github.com/IsolateOB/ExiaInvasion")
