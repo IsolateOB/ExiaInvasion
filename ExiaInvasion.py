@@ -752,7 +752,8 @@ class ExiaInvasion:
             for col in range(cube_start_col, cube_start_col + cube_count):
                 ws.column_dimensions[get_column_letter(col)].width = 14
 
-        new_font_name = "Arial"
+
+        new_font_name = "Microsoft YaHei"
         for row in ws.iter_rows():
             for cell in row:
                 if cell.font:
