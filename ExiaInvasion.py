@@ -92,7 +92,7 @@ class ExiaInvasion:
             EC.element_to_be_clickable((By.ID, "onetrust-accept-btn-handler")))
         driver.execute_script("arguments[0].click();", accept_cookie)
 
-
+        input()
         # 选择服务器
         if self.server == 1:
             server_select = WebDriverWait(driver, 20).until(
@@ -779,7 +779,7 @@ class ExiaInvasion:
 
 
 if __name__ == "__main__":
-    print("ExiaInvasion v1.52  by 灵乌未默")
+    print("ExiaInvasion v1.53  by 灵乌未默")
     print()
     print("GitHub:")
     print("github.com/IsolateOB/ExiaInvasion")
@@ -811,7 +811,7 @@ if __name__ == "__main__":
         print("2: JP/KR/NA/SEA/Global")
         print()
 
-        server = input("Please enter the server number [1 or 2]:")
+        server = int(input("Please enter the server number [1 or 2]:"))
         print()
     else:
         print("第一次运行可能无法正常打开网页并连续报错，请关闭程序与浏览器并重新运行")
@@ -828,7 +828,7 @@ if __name__ == "__main__":
         print("2: 日本/韩国/北美/东南亚/全球")
         print()
 
-        server = input("请输入服务器编号[1或2]：")
+        server = int(input("请输入服务器编号[1或2]："))
         print()
 
 
