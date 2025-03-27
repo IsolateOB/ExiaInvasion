@@ -92,7 +92,6 @@ class ExiaInvasion:
             EC.element_to_be_clickable((By.ID, "onetrust-accept-btn-handler")))
         driver.execute_script("arguments[0].click();", accept_cookie)
 
-        input()
         # 选择服务器
         if self.server == 1:
             server_select = WebDriverWait(driver, 20).until(
