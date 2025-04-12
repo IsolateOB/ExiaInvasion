@@ -103,13 +103,15 @@ class ExiaInvasion:
                                             r"body > div.w-full.outline-none.max-h-\[65vh\].max-w-\[var\(--max-pc-w\)\].right-0.mx-auto.overflow-x-hidden.overflow-y-auto.flex.flex-col.bg-\[var\(--op-fill-white\)\].rounded-t-\[8px\].fixed.left-0.bottom-0.z-50 > div.flex-1.overflow-y-auto.w-full.mr-\[4px\].mb-\[35px\] > ul > li:nth-child(2)")))
         driver.execute_script("arguments[0].click();", server_select)
 
+        input()
         try:
             WebDriverWait(driver, 2).until(
                 EC.visibility_of_element_located((By.ID, "loginPwdForm_account"))
             )
         except TimeoutException:
             change_to_password = WebDriverWait(driver, 20).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, r"#login > div.pass-login__footer._1216mun4 > button")))
+                EC.element_to_be_clickable((By.CLASS_NAME, "pass-switchLogin__oper"))
+            )
             driver.execute_script("arguments[0].click();", change_to_password)
 
         account_input = WebDriverWait(driver, 20).until(
