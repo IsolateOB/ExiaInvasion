@@ -1,8 +1,4 @@
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
+from playwright.sync_api import sync_playwright, TimeoutError
 import json
 import requests
 from openpyxl import Workbook
@@ -62,7 +58,6 @@ class ExiaInvasion:
         self.save_dict_to_excel()
 
 
-
     def get_cookies(self):
         if self.language == 1:
             print("Please do not operate the browser unless there is human-machine verification, error reporting, or long-term inactivity, etc")
@@ -81,67 +76,46 @@ class ExiaInvasion:
                           "game_adult_status",
                           "OptanonConsent"]
 
-        if self.browser == 1:
-            driver = webdriver.Edge()
-        else:
-            driver = webdriver.Chrome()
-        driver.get("https://www.blablalink.com/login")
+        with sync_playwright() as p:
+            if self.browser == 1:
+                browser = p.chromium.launch(channel="msedge", headless=False)
+            else:
+                browser = p.chromium.launch(channel="chrome", headless=False)
+            context = browser.new_context()
+            page = context.new_page()
+            page.goto("https://www.blablalink.com/login")
 
-        # 接受cookie政策
-        accept_cookie = WebDriverWait(driver, 20).until(
-            EC.element_to_be_clickable((By.ID, "onetrust-accept-btn-handler")))
-        driver.execute_script("arguments[0].click();", accept_cookie)
 
-        # 选择服务器
-        if self.server == 1:
-            server_select = WebDriverWait(driver, 20).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR,
-                                            r"body > div.w-full.outline-none.max-h-\[65vh\].max-w-\[var\(--max-pc-w\)\].right-0.mx-auto.overflow-x-hidden.overflow-y-auto.flex.flex-col.bg-\[var\(--op-fill-white\)\].rounded-t-\[8px\].fixed.left-0.bottom-0.z-50 > div.flex-1.overflow-y-auto.w-full.mr-\[4px\].mb-\[35px\] > ul > li:nth-child(1)")))
-        else:
-            server_select = WebDriverWait(driver, 20).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR,
-                                            r"body > div.w-full.outline-none.max-h-\[65vh\].max-w-\[var\(--max-pc-w\)\].right-0.mx-auto.overflow-x-hidden.overflow-y-auto.flex.flex-col.bg-\[var\(--op-fill-white\)\].rounded-t-\[8px\].fixed.left-0.bottom-0.z-50 > div.flex-1.overflow-y-auto.w-full.mr-\[4px\].mb-\[35px\] > ul > li:nth-child(2)")))
-        driver.execute_script("arguments[0].click();", server_select)
+            page.click('#onetrust-accept-btn-handler')
 
-        try:
-            WebDriverWait(driver, 2).until(
-                EC.visibility_of_element_located((By.ID, "loginPwdForm_account"))
-            )
-        except TimeoutException:
-            change_to_password = WebDriverWait(driver, 20).until(
-                EC.element_to_be_clickable((By.CLASS_NAME, "pass-switchLogin__oper"))
-            )
-            driver.execute_script("arguments[0].click();", change_to_password)
 
-        account_input = WebDriverWait(driver, 20).until(
-            EC.visibility_of_element_located((By.ID, "loginPwdForm_account")))
-        account_input.send_keys(self.account)
+            if self.server == 1:
+                page.click(r"css=body > div.w-full.outline-none.max-h-\[65vh\].max-w-\[var\(--max-pc-w\)\].right-0.mx-auto.overflow-x-hidden.overflow-y-auto.flex.flex-col.bg-\[var\(--op-fill-white\)\].rounded-t-\[8px\].fixed.left-0.bottom-0.z-50 > div.flex-1.overflow-y-auto.w-full.mr-\[4px\].mb-\[35px\] > ul > li:nth-child(1)")
+            else:
+                page.click(r"css=body > div.w-full.outline-none.max-h-\[65vh\].max-w-\[var\(--max-pc-w\)\].right-0.mx-auto.overflow-x-hidden.overflow-y-auto.flex.flex-col.bg-\[var\(--op-fill-white\)\].rounded-t-\[8px\].fixed.left-0.bottom-0.z-50 > div.flex-1.overflow-y-auto.w-full.mr-\[4px\].mb-\[35px\] > ul > li:nth-child(2)")
 
-        password_input = WebDriverWait(driver, 20).until(
-            EC.visibility_of_element_located((By.ID, "loginPwdForm_password")))
-        password_input.send_keys(self.password)
+            try:
+                page.wait_for_selector('#loginPwdForm_account', timeout=2000)
+            except TimeoutError:
+                page.click('.pass-switchLogin__oper')
 
-        loginbutton = WebDriverWait(driver, 20).until(
-            EC.element_to_be_clickable(
-                (By.XPATH, '//*[@id="loginPwdForm"]/div[3]/div/div/div/div/button')))
+            page.fill('#loginPwdForm_account', self.account)
+            page.fill('#loginPwdForm_password', self.password)
+            page.click('xpath=//*[@id="loginPwdForm"]/div[3]/div/div/div/div/button')
 
-        driver.execute_script("arguments[0].click();", loginbutton)
+            if self.language == 1:
+                print("Retrieving cookies...")
+            else:
+                print("正在获取cookie...")
 
-        if self.language == 1:
-            print("Retrieving cookies...")
-        else:
-            print("正在获取cookie...")
-
-        while True:
-            all_cookies = driver.get_cookies()
-            filtered_cookies = {cookie["name"]: cookie["value"] for cookie in all_cookies if
-                                cookie["name"] in important_keys}
-
-            if all(key in filtered_cookies for key in important_keys):
-                cookie_str = "; ".join([f"{key}={value}" for key, value in filtered_cookies.items()])
-                driver.quit()
-                return cookie_str
-
+            while True:
+                cookies = context.cookies()
+                filtered = {c['name']: c['value'] for c in cookies if c['name'] in important_keys}
+                if all(key in filtered for key in important_keys):
+                    cookie_str = "; ".join([f"{k}={v}" for k, v in filtered.items()])
+                    context.close()
+                    browser.close()
+                    return cookie_str
 
 
     def get_header(self, content_length):
