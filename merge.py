@@ -1,7 +1,6 @@
 import os
 import glob
 from openpyxl import load_workbook, Workbook
-from openpyxl.styles import Alignment
 from openpyxl.utils import get_column_letter
 from copy import copy
 
