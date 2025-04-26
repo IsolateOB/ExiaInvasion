@@ -6,16 +6,13 @@ from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import pandas as pd
 import chardet
-import time
+
 
 
 class ExiaInvasion:
-    def __init__(self, language, browser, server, account, password):
+    def __init__(self, language, browser):
         self.language = language
         self.browser = browser
-        self.server = server
-        self.account = account
-        self.password = password
 
         self.cube_dict_chs = {"遗迹突击魔方": {"cube_id": 1000301, "cube_level": 0},
                               "战术突击魔方": {"cube_id": 1000302, "cube_level": 0},
@@ -85,26 +82,11 @@ class ExiaInvasion:
             page = context.new_page()
             page.goto("https://www.blablalink.com/login")
 
-
-            page.click('#onetrust-accept-btn-handler')
-
-
-            if self.server == 1:
-                page.click(r"css=body > div.w-full.outline-none.max-h-\[65vh\].max-w-\[var\(--max-pc-w\)\].right-0.mx-auto.overflow-x-hidden.overflow-y-auto.flex.flex-col.bg-\[var\(--op-fill-white\)\].rounded-t-\[8px\].fixed.left-0.bottom-0.z-50 > div.flex-1.overflow-y-auto.w-full.mr-\[4px\].mb-\[35px\] > ul > li:nth-child(1)")
+            if self.language == 1:
+                print("Please log in...")
             else:
-                page.click(r"css=body > div.w-full.outline-none.max-h-\[65vh\].max-w-\[var\(--max-pc-w\)\].right-0.mx-auto.overflow-x-hidden.overflow-y-auto.flex.flex-col.bg-\[var\(--op-fill-white\)\].rounded-t-\[8px\].fixed.left-0.bottom-0.z-50 > div.flex-1.overflow-y-auto.w-full.mr-\[4px\].mb-\[35px\] > ul > li:nth-child(2)")
+                print("请登录。。。")
 
-            for i in range(20):
-                if page.query_selector('#loginPwdForm_account'):
-                    break
-                time.sleep(0.1)
-
-            if not page.query_selector('#loginPwdForm_account'):
-                page.click('.pass-switchLogin__oper')
-
-            page.fill('#loginPwdForm_account', self.account)
-            page.fill('#loginPwdForm_password', self.password)
-            page.click('xpath=//*[@id="loginPwdForm"]/div[3]/div/div/div/div/button')
 
             if self.language == 1:
                 print("Retrieving cookies...")
@@ -756,7 +738,7 @@ class ExiaInvasion:
 
 
 if __name__ == "__main__":
-    print("ExiaInvasion v1.56  by 灵乌未默")
+    print("ExiaInvasion手动版 v1.55  by 灵乌未默")
     print()
     print("GitHub:")
     print("github.com/IsolateOB/ExiaInvasion")
@@ -784,12 +766,6 @@ if __name__ == "__main__":
         browser = int(input("Please enter the browser number [1 or 2]:"))
         print()
 
-        print("1: HK/MC/TW")
-        print("2: JP/KR/NA/SEA/Global")
-        print()
-
-        server = int(input("Please enter the server number [1 or 2]:"))
-        print()
     else:
         print("第一次运行可能无法正常打开网页并连续报错，请关闭程序与浏览器并重新运行")
         print()
@@ -801,71 +777,5 @@ if __name__ == "__main__":
         browser = int(input("请输入浏览器编号[1或2]："))
         print()
 
-        print("1: 香港/澳门/台湾")
-        print("2: 日本/韩国/北美/东南亚/全球")
-        print()
 
-        server = int(input("请输入服务器编号[1或2]："))
-        print()
-
-
-    with open("LoginIndex.csv", "rb") as f:
-        raw_data = f.read()
-        encoding = chardet.detect(raw_data)["encoding"]
-
-    loginIndex = pd.read_csv("LoginIndex.csv", encoding = encoding, dtype=str)
-
-    # 跳过错误行
-    loginIndex = loginIndex.dropna(how='any')
-
-    errorList = []
-    i = 1
-    for index, row in loginIndex.iterrows():
-        name = row["Name"]
-        account = row["E-mail"]
-        password = row["Password"]
-        if language == 1:
-            print(f"Logging in with account ({i}/{len(loginIndex)}): {name}")
-        else:
-            print(f"正在登录账号 ({i}/{len(loginIndex)}): {name}")
-        try:
-            ExiaInvasion(language, browser, server, account, password)
-        except Exception:
-            if language == 1:
-                print(f"Error occurred while processing account {index + 1}: {name}")
-            else:
-                print(f"处理账号 {i} 时发生错误: {name}")
-            errorList.append((i, name))
-        i += 1
-        print()
-
-
-    error_count = len(errorList)
-
-    if language == 1:
-        print(f"All accounts processed. Total errors: {error_count}")
-    else:
-        print(f"所有账号处理完成。总错误数: {error_count}")
-    print()
-
-    if error_count > 0:
-        if language == 1:
-            print("Error accounts:")
-        else:
-            print("错误账号：")
-
-        with open("ErrorList.txt", "w", encoding="utf-8") as f:
-            for error in errorList:
-                print(f"{error[0]}: {error[1]}")
-                f.write(f"{error[0]}: {error[1]}\n")
-            print()
-
-        if language == 1:
-            print("Error account list generated: ErrorList.txt")
-        else:
-            print("已生成错误账号清单：ErrorList.txt")
-
-    if language == 1:
-        input("Press Enter to exit...")
-    else:
-        input("按回车键退出...")
+    ExiaInvasion(language, browser)
