@@ -2090,9 +2090,85 @@
         }
     },
     {
+        "id": 116201,
+        "resource_id": 162,
+        "order": 10069,
+        "original_rare": "SSR",
+        "class": "Attacker",
+        "use_burst_skill": "Step3",
+        "name_code": 5138,
+        "grade_core_id": 1,
+        "corporation": "MISSILIS",
+        "is_visible": true,
+        "name_localkey": {
+            "value": "Locale_Character:162_name",
+            "name": "米哈拉：羈絆鎖鏈"
+        },
+        "element_id": {
+            "value": [
+                100001
+            ],
+            "element": {
+                "id": 100001,
+                "element": "Fire",
+                "group_id": 5000001,
+                "weak_element_id": 200001,
+                "element_name_localekey": "Locale_System:ELEMENT_NAME_FIRE",
+                "element_code_name_localekey": "Locale_System:ELEMENT_CODE_NAME_FIRE",
+                "element_desc_localekey": "Locale_System:ELEMENT_DESC_FIRE",
+                "element_icon": "icn_element_fire"
+            }
+        },
+        "shot_id": {
+            "value": 1059001,
+            "element": {
+                "weapon_type": "MG",
+                "attack_type": "Metal"
+            }
+        }
+    },
+    {
+        "id": 159001,
+        "resource_id": 590,
+        "order": 10070,
+        "original_rare": "SSR",
+        "class": "Defender",
+        "use_burst_skill": "Step2",
+        "name_code": 5139,
+        "grade_core_id": 1,
+        "corporation": "MISSILIS",
+        "is_visible": true,
+        "name_localkey": {
+            "value": "Locale_Character:590_name",
+            "name": "莫莉"
+        },
+        "element_id": {
+            "value": [
+                300001
+            ],
+            "element": {
+                "id": 300001,
+                "element": "Wind",
+                "group_id": 5000003,
+                "weak_element_id": 100001,
+                "element_name_localekey": "Locale_System:ELEMENT_NAME_WIND",
+                "element_code_name_localekey": "Locale_System:ELEMENT_CODE_NAME_WIND",
+                "element_desc_localekey": "Locale_System:ELEMENT_DESC_WIND",
+                "element_icon": "icn_element_wind"
+            }
+        },
+        "shot_id": {
+            "value": 1016201,
+            "element": {
+                "weapon_type": "AR",
+                "attack_type": "Metal"
+            }
+        }
+    },
+    {
         "id": 314001,
         "resource_id": 140,
-        "order": 10069,
+        "order": 10071,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step3",
@@ -2130,7 +2206,7 @@
     {
         "id": 321001,
         "resource_id": 210,
-        "order": 10070,
+        "order": 10072,
         "original_rare": "SSR",
         "class": "Supporter",
         "use_burst_skill": "Step1",
@@ -2168,7 +2244,7 @@
     {
         "id": 319101,
         "resource_id": 191,
-        "order": 10071,
+        "order": 10073,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step3",
@@ -2206,7 +2282,7 @@
     {
         "id": 327001,
         "resource_id": 270,
-        "order": 10072,
+        "order": 10074,
         "original_rare": "SSR",
         "class": "Defender",
         "use_burst_skill": "Step2",
@@ -2244,7 +2320,7 @@
     {
         "id": 327101,
         "resource_id": 271,
-        "order": 10073,
+        "order": 10075,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step3",
@@ -2282,7 +2358,7 @@
     {
         "id": 314201,
         "resource_id": 142,
-        "order": 10074,
+        "order": 10076,
         "original_rare": "SSR",
         "class": "Supporter",
         "use_burst_skill": "Step1",
@@ -2320,7 +2396,7 @@
     {
         "id": 313001,
         "resource_id": 130,
-        "order": 10075,
+        "order": 10077,
         "original_rare": "SSR",
         "class": "Supporter",
         "use_burst_skill": "Step1",
@@ -2358,7 +2434,7 @@
     {
         "id": 314101,
         "resource_id": 141,
-        "order": 10076,
+        "order": 10078,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step1",
@@ -2396,7 +2472,7 @@
     {
         "id": 317101,
         "resource_id": 171,
-        "order": 10077,
+        "order": 10079,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step3",
@@ -2434,7 +2510,7 @@
     {
         "id": 319001,
         "resource_id": 190,
-        "order": 10078,
+        "order": 10080,
         "original_rare": "SSR",
         "class": "Defender",
         "use_burst_skill": "Step1",
@@ -2472,7 +2548,7 @@
     {
         "id": 320001,
         "resource_id": 200,
-        "order": 10079,
+        "order": 10081,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step2",
@@ -2510,7 +2586,7 @@
     {
         "id": 320101,
         "resource_id": 201,
-        "order": 10080,
+        "order": 10082,
         "original_rare": "SSR",
         "class": "Supporter",
         "use_burst_skill": "Step1",
@@ -2548,7 +2624,7 @@
     {
         "id": 320201,
         "resource_id": 202,
-        "order": 10081,
+        "order": 10083,
         "original_rare": "SSR",
         "class": "Supporter",
         "use_burst_skill": "Step2",
@@ -2586,7 +2662,7 @@
     {
         "id": 321201,
         "resource_id": 212,
-        "order": 10082,
+        "order": 10084,
         "original_rare": "SSR",
         "class": "Defender",
         "use_burst_skill": "Step2",
@@ -2624,7 +2700,7 @@
     {
         "id": 324201,
         "resource_id": 242,
-        "order": 10083,
+        "order": 10085,
         "original_rare": "SSR",
         "class": "Defender",
         "use_burst_skill": "Step2",
@@ -2662,7 +2738,7 @@
     {
         "id": 328201,
         "resource_id": 282,
-        "order": 10084,
+        "order": 10086,
         "original_rare": "SSR",
         "class": "Supporter",
         "use_burst_skill": "Step1",
@@ -2700,7 +2776,7 @@
     {
         "id": 311201,
         "resource_id": 112,
-        "order": 10085,
+        "order": 10087,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step2",
@@ -2738,7 +2814,7 @@
     {
         "id": 331101,
         "resource_id": 311,
-        "order": 10086,
+        "order": 10088,
         "original_rare": "SSR",
         "class": "Supporter",
         "use_burst_skill": "Step1",
@@ -2776,7 +2852,7 @@
     {
         "id": 331201,
         "resource_id": 312,
-        "order": 10087,
+        "order": 10089,
         "original_rare": "SSR",
         "class": "Supporter",
         "use_burst_skill": "Step1",
@@ -2814,7 +2890,7 @@
     {
         "id": 338101,
         "resource_id": 381,
-        "order": 10088,
+        "order": 10090,
         "original_rare": "SSR",
         "class": "Supporter",
         "use_burst_skill": "Step2",
@@ -2852,7 +2928,7 @@
     {
         "id": 339201,
         "resource_id": 392,
-        "order": 10089,
+        "order": 10091,
         "original_rare": "SSR",
         "class": "Defender",
         "use_burst_skill": "Step1",
@@ -2890,7 +2966,7 @@
     {
         "id": 343201,
         "resource_id": 432,
-        "order": 10090,
+        "order": 10092,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step2",
@@ -2928,7 +3004,7 @@
     {
         "id": 343001,
         "resource_id": 430,
-        "order": 10091,
+        "order": 10093,
         "original_rare": "SSR",
         "class": "Supporter",
         "use_burst_skill": "Step1",
@@ -2966,7 +3042,7 @@
     {
         "id": 343101,
         "resource_id": 431,
-        "order": 10092,
+        "order": 10094,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step1",
@@ -3004,7 +3080,7 @@
     {
         "id": 320301,
         "resource_id": 203,
-        "order": 10093,
+        "order": 10095,
         "original_rare": "SSR",
         "class": "Defender",
         "use_burst_skill": "Step1",
@@ -3042,7 +3118,7 @@
     {
         "id": 228001,
         "resource_id": 280,
-        "order": 10094,
+        "order": 10096,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step1",
@@ -3080,7 +3156,7 @@
     {
         "id": 313201,
         "resource_id": 132,
-        "order": 10095,
+        "order": 10097,
         "original_rare": "SSR",
         "class": "Supporter",
         "use_burst_skill": "Step1",
@@ -3118,7 +3194,7 @@
     {
         "id": 338001,
         "resource_id": 380,
-        "order": 10096,
+        "order": 10098,
         "original_rare": "SSR",
         "class": "Defender",
         "use_burst_skill": "Step2",
@@ -3156,7 +3232,7 @@
     {
         "id": 301501,
         "resource_id": 15,
-        "order": 10097,
+        "order": 10099,
         "original_rare": "SSR",
         "class": "Supporter",
         "use_burst_skill": "Step3",
@@ -3194,7 +3270,7 @@
     {
         "id": 319401,
         "resource_id": 194,
-        "order": 10098,
+        "order": 10100,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step3",
@@ -3232,7 +3308,7 @@
     {
         "id": 306201,
         "resource_id": 62,
-        "order": 10099,
+        "order": 10101,
         "original_rare": "SSR",
         "class": "Supporter",
         "use_burst_skill": "Step1",
@@ -3270,7 +3346,7 @@
     {
         "id": 338201,
         "resource_id": 382,
-        "order": 10100,
+        "order": 10102,
         "original_rare": "SSR",
         "class": "Supporter",
         "use_burst_skill": "Step2",
@@ -3308,7 +3384,7 @@
     {
         "id": 328101,
         "resource_id": 281,
-        "order": 10101,
+        "order": 10103,
         "original_rare": "SSR",
         "class": "Defender",
         "use_burst_skill": "Step1",
@@ -3346,7 +3422,7 @@
     {
         "id": 331001,
         "resource_id": 310,
-        "order": 10102,
+        "order": 10104,
         "original_rare": "SSR",
         "class": "Supporter",
         "use_burst_skill": "Step2",
@@ -3384,7 +3460,7 @@
     {
         "id": 355001,
         "resource_id": 550,
-        "order": 10103,
+        "order": 10105,
         "original_rare": "SSR",
         "class": "Defender",
         "use_burst_skill": "Step2",
@@ -3422,7 +3498,7 @@
     {
         "id": 331401,
         "resource_id": 314,
-        "order": 10104,
+        "order": 10106,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step3",
@@ -3460,7 +3536,7 @@
     {
         "id": 319501,
         "resource_id": 195,
-        "order": 10105,
+        "order": 10107,
         "original_rare": "SSR",
         "class": "Supporter",
         "use_burst_skill": "Step1",
@@ -3498,7 +3574,7 @@
     {
         "id": 355101,
         "resource_id": 551,
-        "order": 10106,
+        "order": 10108,
         "original_rare": "SSR",
         "class": "Supporter",
         "use_burst_skill": "Step2",
@@ -3536,7 +3612,7 @@
     {
         "id": 328301,
         "resource_id": 283,
-        "order": 10107,
+        "order": 10109,
         "original_rare": "SSR",
         "class": "Supporter",
         "use_burst_skill": "Step2",
@@ -3574,7 +3650,7 @@
     {
         "id": 328401,
         "resource_id": 284,
-        "order": 10108,
+        "order": 10110,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step3",
@@ -3612,7 +3688,7 @@
     {
         "id": 327201,
         "resource_id": 272,
-        "order": 10109,
+        "order": 10111,
         "original_rare": "SSR",
         "class": "Supporter",
         "use_burst_skill": "Step1",
@@ -3650,7 +3726,7 @@
     {
         "id": 324001,
         "resource_id": 240,
-        "order": 10110,
+        "order": 10112,
         "original_rare": "SSR",
         "class": "Defender",
         "use_burst_skill": "Step1",
@@ -3688,7 +3764,7 @@
     {
         "id": 352001,
         "resource_id": 520,
-        "order": 10111,
+        "order": 10113,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step3",
@@ -3726,7 +3802,7 @@
     {
         "id": 352101,
         "resource_id": 521,
-        "order": 10112,
+        "order": 10114,
         "original_rare": "SSR",
         "class": "Supporter",
         "use_burst_skill": "Step2",
@@ -3764,7 +3840,7 @@
     {
         "id": 422001,
         "resource_id": 220,
-        "order": 10113,
+        "order": 10115,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step3",
@@ -3802,7 +3878,7 @@
     {
         "id": 423101,
         "resource_id": 231,
-        "order": 10114,
+        "order": 10116,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step3",
@@ -3840,7 +3916,7 @@
     {
         "id": 422101,
         "resource_id": 221,
-        "order": 10115,
+        "order": 10117,
         "original_rare": "SSR",
         "class": "Supporter",
         "use_burst_skill": "Step1",
@@ -3878,7 +3954,7 @@
     {
         "id": 422201,
         "resource_id": 222,
-        "order": 10116,
+        "order": 10118,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step3",
@@ -3916,7 +3992,7 @@
     {
         "id": 423001,
         "resource_id": 230,
-        "order": 10117,
+        "order": 10119,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step3",
@@ -3954,7 +4030,7 @@
     {
         "id": 423201,
         "resource_id": 232,
-        "order": 10118,
+        "order": 10120,
         "original_rare": "SSR",
         "class": "Defender",
         "use_burst_skill": "Step2",
@@ -3992,7 +4068,7 @@
     {
         "id": 426001,
         "resource_id": 260,
-        "order": 10119,
+        "order": 10121,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step3",
@@ -4030,7 +4106,7 @@
     {
         "id": 426101,
         "resource_id": 261,
-        "order": 10121,
+        "order": 10123,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step2",
@@ -4068,7 +4144,7 @@
     {
         "id": 423301,
         "resource_id": 233,
-        "order": 10122,
+        "order": 10124,
         "original_rare": "SSR",
         "class": "Supporter",
         "use_burst_skill": "Step1",
@@ -4106,7 +4182,7 @@
     {
         "id": 447001,
         "resource_id": 470,
-        "order": 10125,
+        "order": 10127,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "AllStep",
@@ -4144,7 +4220,7 @@
     {
         "id": 422401,
         "resource_id": 224,
-        "order": 10126,
+        "order": 10128,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step3",
@@ -4182,7 +4258,7 @@
     {
         "id": 422501,
         "resource_id": 225,
-        "order": 10127,
+        "order": 10129,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step3",
@@ -4220,7 +4296,7 @@
     {
         "id": 433001,
         "resource_id": 330,
-        "order": 10128,
+        "order": 10130,
         "original_rare": "SSR",
         "class": "Defender",
         "use_burst_skill": "Step2",
@@ -4258,7 +4334,7 @@
     {
         "id": 422601,
         "resource_id": 226,
-        "order": 10129,
+        "order": 10131,
         "original_rare": "SSR",
         "class": "Defender",
         "use_burst_skill": "Step1",
@@ -4296,7 +4372,7 @@
     {
         "id": 451101,
         "resource_id": 511,
-        "order": 10130,
+        "order": 10132,
         "original_rare": "SSR",
         "class": "Defender",
         "use_burst_skill": "Step3",
@@ -4334,7 +4410,7 @@
     {
         "id": 451401,
         "resource_id": 514,
-        "order": 10131,
+        "order": 10133,
         "original_rare": "SSR",
         "class": "Supporter",
         "use_burst_skill": "Step2",
@@ -4370,9 +4446,47 @@
         }
     },
     {
+        "id": 451301,
+        "resource_id": 513,
+        "order": 10134,
+        "original_rare": "SSR",
+        "class": "Supporter",
+        "use_burst_skill": "Step1",
+        "name_code": 5137,
+        "grade_core_id": 1,
+        "corporation": "PILGRIM",
+        "is_visible": true,
+        "name_localkey": {
+            "value": "Locale_Character:513_name",
+            "name": "小美人魚"
+        },
+        "element_id": {
+            "value": [
+                300001
+            ],
+            "element": {
+                "id": 300001,
+                "element": "Wind",
+                "group_id": 5000003,
+                "weak_element_id": 100001,
+                "element_name_localekey": "Locale_System:ELEMENT_NAME_WIND",
+                "element_code_name_localekey": "Locale_System:ELEMENT_CODE_NAME_WIND",
+                "element_desc_localekey": "Locale_System:ELEMENT_DESC_WIND",
+                "element_icon": "icn_element_wind"
+            }
+        },
+        "shot_id": {
+            "value": 1051301,
+            "element": {
+                "weapon_type": "SMG",
+                "attack_type": "Metal"
+            }
+        }
+    },
+    {
         "id": 580001,
         "resource_id": 800,
-        "order": 10132,
+        "order": 10135,
         "original_rare": "SSR",
         "class": "Defender",
         "use_burst_skill": "Step2",
@@ -4410,7 +4524,7 @@
     {
         "id": 580101,
         "resource_id": 801,
-        "order": 10133,
+        "order": 10136,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step3",
@@ -4448,7 +4562,7 @@
     {
         "id": 581001,
         "resource_id": 810,
-        "order": 10134,
+        "order": 10137,
         "original_rare": "SSR",
         "class": "Defender",
         "use_burst_skill": "Step3",
@@ -4486,7 +4600,7 @@
     {
         "id": 581101,
         "resource_id": 811,
-        "order": 10135,
+        "order": 10138,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step3",
@@ -4524,7 +4638,7 @@
     {
         "id": 582001,
         "resource_id": 820,
-        "order": 10136,
+        "order": 10139,
         "original_rare": "SSR",
         "class": "Supporter",
         "use_burst_skill": "Step2",
@@ -4562,7 +4676,7 @@
     {
         "id": 582101,
         "resource_id": 821,
-        "order": 10137,
+        "order": 10140,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step3",
@@ -4600,7 +4714,7 @@
     {
         "id": 583001,
         "resource_id": 830,
-        "order": 10138,
+        "order": 10141,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step3",
@@ -4638,7 +4752,7 @@
     {
         "id": 583101,
         "resource_id": 831,
-        "order": 10139,
+        "order": 10142,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step3",
@@ -4676,7 +4790,7 @@
     {
         "id": 583201,
         "resource_id": 832,
-        "order": 10140,
+        "order": 10143,
         "original_rare": "SSR",
         "class": "Supporter",
         "use_burst_skill": "Step2",
@@ -4714,7 +4828,7 @@
     {
         "id": 583501,
         "resource_id": 835,
-        "order": 10141,
+        "order": 10144,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step3",
@@ -4752,7 +4866,7 @@
     {
         "id": 583401,
         "resource_id": 834,
-        "order": 10142,
+        "order": 10145,
         "original_rare": "SSR",
         "class": "Attacker",
         "use_burst_skill": "Step3",

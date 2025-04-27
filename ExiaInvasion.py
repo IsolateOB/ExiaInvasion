@@ -1,4 +1,4 @@
-from playwright.sync_api import sync_playwright, TimeoutError
+from playwright.sync_api import sync_playwright
 import json
 import requests
 from openpyxl import Workbook

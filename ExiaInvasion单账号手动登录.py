@@ -4,8 +4,7 @@ import requests
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
-import pandas as pd
-import chardet
+
 
 
 
@@ -75,12 +74,25 @@ class ExiaInvasion:
 
         with sync_playwright() as p:
             if self.browser == 1:
-                browser = p.chromium.launch(channel="msedge", headless=False)
+                browser = p.chromium.launch(
+                    channel="msedge",
+                    headless=False,
+                    args=["--disable-blink-features=AutomationControlled"]
+                )
             else:
-                browser = p.chromium.launch(channel="chrome", headless=False)
+                browser = p.chromium.launch(
+                    channel="chrome",
+                    headless=False,
+                    args=[
+                        "--disable-blink-features=AutomationControlled",
+                    ]
+                )
             context = browser.new_context()
             page = context.new_page()
-            page.goto("https://www.blablalink.com/login")
+
+            page.add_init_script('Object.defineProperty(navigator, "webdriver", {get: () => undefined})')
+
+            page.goto("https://www.blablalink.com")
 
             if self.language == 1:
                 print("Please log in...")

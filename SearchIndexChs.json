@@ -30,6 +30,11 @@
 				"id": 201601,
 				"priority": "black"
 			},
+			"米哈拉：羁绊锁链": {
+				"name_code": 5138,
+				"id": 116201,
+				"priority": "black"
+			},
 			"德雷克": {
 				"name_code": 5024,
 				"id": 110101,
@@ -131,6 +136,11 @@
 			"玛丽": {
 				"name_code": 5120,
 				"id": 583201,
+				"priority": "black"
+			},
+			"小美人鱼": {
+				"name_code": 5137,
+				"id": 451301,
 				"priority": "black"
 			},
 			"丽塔": {
