@@ -7,15 +7,22 @@ from openpyxl.utils import get_column_letter
 import pandas as pd
 import chardet
 import time
+from http.cookies import SimpleCookie
 
 
 class ExiaInvasion:
-    def __init__(self, language, browser, server, account, password):
+    def __init__(self, language, browser, server, email, password, cookies):
+        def safe(val):
+            if isinstance(val, str) and val.strip().lower() == "nan":
+                return None
+            return val
+
         self.language = language
         self.browser = browser
         self.server = server
-        self.account = account
-        self.password = password
+        self.email = email
+        self.password = safe(password)
+        self.cookies = safe(cookies)
 
         self.cube_dict_chs = {"遗迹突击魔方": {"cube_id": 1000301, "cube_level": 0},
                               "战术突击魔方": {"cube_id": 1000302, "cube_level": 0},
@@ -59,12 +66,6 @@ class ExiaInvasion:
 
 
     def get_cookies(self):
-        if self.language == 1:
-            print("Please do not operate the browser unless there is human-machine verification, error reporting, or long-term inactivity, etc")
-        else:
-            print("请不要对浏览器进行任何操作，除非出现人机验证、报错、长时间无操作等情况")
-
-
         important_keys = ["OptanonAlertBoxClosed",
                           "game_login_game",
                           "game_openid",
@@ -75,6 +76,24 @@ class ExiaInvasion:
                           "game_uid",
                           "game_adult_status",
                           "OptanonConsent"]
+
+        if self.cookies:
+            cookie = SimpleCookie()
+            cookie.load(self.cookies)
+
+            parsed_cookie = {key: morsel.value for key, morsel in cookie.items()}
+            filtered = {k: v for k, v in parsed_cookie.items() if k in important_keys}
+            cookie_str = "; ".join([f"{k}={v}" for k, v in filtered.items()])
+            if self.language == 1:
+                print("Using existing cookies...")
+            else:
+                print("正在使用现有的cookie...")
+            return cookie_str
+
+        if self.language == 1:
+            print("Please do not operate the browser unless there is human-machine verification, error reporting, or long-term inactivity, etc")
+        else:
+            print("请不要对浏览器进行任何操作，除非出现人机验证、报错、长时间无操作等情况")
 
         with sync_playwright() as p:
             if self.browser == 1:
@@ -102,7 +121,7 @@ class ExiaInvasion:
             if not page.query_selector('#loginPwdForm_account'):
                 page.click('.pass-switchLogin__oper')
 
-            page.fill('#loginPwdForm_account', self.account)
+            page.fill('#loginPwdForm_account', self.email)
             page.fill('#loginPwdForm_password', self.password)
             page.click('xpath=//*[@id="loginPwdForm"]/div[3]/div/div/div/div/button')
 
@@ -756,7 +775,7 @@ class ExiaInvasion:
 
 
 if __name__ == "__main__":
-    print("ExiaInvasion v1.56  by 灵乌未默")
+    print("ExiaInvasion v1.57  by 灵乌未默")
     print()
     print("GitHub:")
     print("github.com/IsolateOB/ExiaInvasion")
@@ -815,28 +834,45 @@ if __name__ == "__main__":
 
     loginIndex = pd.read_csv("LoginIndex.csv", encoding = encoding, dtype=str)
 
-    # 跳过错误行
-    loginIndex = loginIndex.dropna(how='any')
+
+    def is_missing(val: str):
+        if pd.isna(val):
+            return True
+        if isinstance(val, str):
+            val_strip = val.strip()
+            return val_strip == "" or val_strip.lower() == "nan"
+        return False
 
     errorList = []
+    total = len(loginIndex)
     i = 1
-    for index, row in loginIndex.iterrows():
-        name = row["Name"]
-        account = row["E-mail"]
-        password = row["Password"]
+    for i, (idx, row) in enumerate(loginIndex.iterrows(), start=1):
+        name = row.get("Name", "")
+        email = row.get("E-mail", "")
+        password = row.get("Password", "")
+        cookies = row.get("Cookies", "")
+
+        if is_missing(email) or (is_missing(password) and is_missing(cookies)):
+            errorList.append((i, name))
+            if language == 1:
+                print(f"Skip ({i}/{total}) {name} due to missing information")
+            else:
+                print(f"缺失信息，跳过 ({i}/{total}) {name}")
+            continue
+
         if language == 1:
             print(f"Logging in with account ({i}/{len(loginIndex)}): {name}")
         else:
             print(f"正在登录账号 ({i}/{len(loginIndex)}): {name}")
         try:
-            ExiaInvasion(language, browser, server, account, password)
+            ExiaInvasion(language, browser, server, email, password, cookies)
         except Exception:
             if language == 1:
-                print(f"Error occurred while processing account {index + 1}: {name}")
+                print(f"Error occurred while processing account {i}: {name}")
             else:
                 print(f"处理账号 {i} 时发生错误: {name}")
             errorList.append((i, name))
-        i += 1
+
         print()
 
 
