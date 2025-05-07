@@ -775,7 +775,7 @@ class ExiaInvasion:
 
 
 if __name__ == "__main__":
-    print("ExiaInvasion v1.57  by 灵乌未默")
+    print("ExiaInvasion v1.58  by 灵乌未默")
     print()
     print("GitHub:")
     print("github.com/IsolateOB/ExiaInvasion")
@@ -852,13 +852,14 @@ if __name__ == "__main__":
         password = row.get("Password", "")
         cookies = row.get("Cookies", "")
 
-        if is_missing(email) or (is_missing(password) and is_missing(cookies)):
-            errorList.append((i, name))
-            if language == 1:
-                print(f"Skip ({i}/{total}) {name} due to missing information")
-            else:
-                print(f"缺失信息，跳过 ({i}/{total}) {name}")
-            continue
+        if is_missing(cookies):
+            if is_missing(email) or is_missing(password):
+                errorList.append((i, name))
+                if language == 1:
+                    print(f"Skip ({i}/{total}) {name} due to missing information")
+                else:
+                    print(f"缺失信息，跳过 ({i}/{total}) {name}")
+                continue
 
         if language == 1:
             print(f"Logging in with account ({i}/{len(loginIndex)}): {name}")
