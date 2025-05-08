@@ -10,7 +10,7 @@
 
 
 
-![示例输出](示例输出.png)
+![示例输出](https://raw.githubusercontent.com/IsolateOB/ExiaInvasion/refs/heads/main/%E7%A4%BA%E4%BE%8B%E8%BE%93%E5%87%BA.png)
 
 
 
@@ -20,9 +20,13 @@
 
 	需要 **Edge** 或 **Chrome** 浏览器
 	
+	
+	
 - First run may not open the webpage properly and report errors continuously. Please close the program and browser and run again.
 
 	第一次运行可能无法正常打开网页并连续报错，请关闭程序与浏览器并重新运行
+	
+	
 
 
 - Currently only tables in Simplified Chinese and English can be output.
@@ -44,13 +48,19 @@
 
   
 
-- 如果选择直接填写`Cookies`
+- If you provide `Cookies` directly
+
+  如果选择直接填写`Cookies`
+
+  
 
   - `Cookies` can be obtained via a browser extension such as **Cookie Editor**, available at:
 
-  	`Cookies`通过浏览器插件得到，例如**Cookie Editor**，下载地址：
+    `Cookies`通过浏览器插件得到，例如**Cookie Editor**，下载地址：
 
-  	https://chromewebstore.google.com/detail/ookdjilphngeeeghgngjabigmpepanpl?utm_source=item-share-cb
+    https://chromewebstore.google.com/detail/ookdjilphngeeeghgngjabigmpepanpl?utm_source=item-share-cb
+
+    
 
   - After installing the extension, log in to [blablalink](https://www.blablalink.com/) manually in your browser. Then open the extension, click **Copy**, choose **Header String**, and paste the copied content into **LoginIndex**.
 
@@ -74,19 +84,23 @@
 
   **SearchIndexChs** 用于提供主程序 **ExiaInvasion** 的角色搜索索引，包含我主观认为的 pve 强力角色，可添加或删除角色。
 
+  
+
   - `priority` is based on my personal subjective character priority, only for tabulation purposes, black>blue>yellow.
 
-  	`priority`是依据我个人主观的角色优先级，仅用于制表，黑>蓝>黄。
+    `priority`是依据我个人主观的角色优先级，仅用于制表，黑>蓝>黄。
 
+    
+  
   - Equipment Effects have 15 levels. Levels 1-5 are marked in red, levels 6-10 are marked in yellow, levels 11-14 are marked in blue, and level 15 are marked in black.
-
+  
   	装备词条有15级，1-5级为红色，6-10级标记为黄色，11-14级标记为蓝色，15级标记为黑色。
 
 
 
 ## [Nikkes in SearchIndex 角色索引中包含的Nikke](https://www.kdocs.cn/l/cqaoCnPqbPpM)
 
-![育成指南](育成指南.png)
+![育成指南](https://raw.githubusercontent.com/IsolateOB/ExiaInvasion/refs/heads/main/%E8%82%B2%E6%88%90%E6%8C%87%E5%8D%97.png)
 
 
 
