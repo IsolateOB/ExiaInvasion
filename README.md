@@ -1,8 +1,8 @@
 # ExiaInvasion
 
-**ExiaInvasion** is an open source crawler program that obtains Nikke character data in personal accounts from [blablalink](https://www.blablalink.com/) and generates progress tracker
+**ExiaInvasion** is an open source crawler program that obtains Nikke character data in personal accounts from [blablalink](https://www.blablalink.com/) and generates progress tracker.
 
-**ExiaInvasion** 是一个从 [blablalink](https://www.blablalink.com/) 获取个人账号中的Nikke人物数据并生成练度表的开源爬虫程序
+**ExiaInvasion** 是一个从 [blablalink](https://www.blablalink.com/) 获取个人账号中的Nikke人物数据并生成练度表的开源爬虫程序。
 
 
 
@@ -16,41 +16,39 @@
 
 ## Notice 注意
 
-- **Edge** or **Chrome** is required to run the program
+- **Edge** or **Chrome** is required to run the program.
 
-	需要 **Edge** 或 **Chrome** 浏览器
+	需要 **Edge** 或 **Chrome** 浏览器。
 	
 	
 	
 - First run may not open the webpage properly and report errors continuously. Please close the program and browser and run again.
 
-	第一次运行可能无法正常打开网页并连续报错，请关闭程序与浏览器并重新运行
+	第一次运行可能无法正常打开网页并连续报错，请关闭程序与浏览器并重新运行。
 	
 	
 
 
 - Currently only tables in Simplified Chinese and English can be output.
 
-  目前仅能输出简体中文和英文表格
+  目前仅能输出简体中文和英文表格。
 
 
 
 ## Usage 用法
 
-- Please fill in the account information in **LoginIndex**, and do not delete the first row (the header).
-   If you provide `E-mail` and `Password`, the program will log in through the browser to obtain `Cookies`.
-   Alternatively, you can directly fill in the `Cookies` field—in this case, `E-mail` and `Password` are not required.
-  Due to anti-bot mechanisms, some accounts may trigger human verification during browser login, which cannot be bypassed. In such cases, you must provide `Cookies` directly.
-
+- Please fill in the account information in **LoginIndex**, and do not delete the first row (the header). If you provide `E-mail` and `Password`, the program will log in through the browser to obtain `Cookies`. Alternatively, you can directly fill in the `Cookies` field—in this case, `E-mail` and `Password` are not required.
+   Due to anti-bot mechanisms, some accounts may trigger human verification during browser login, which cannot be bypassed. In such cases, you must provide `Cookies` directly.
+   
   请将账号信息填入 **LoginIndex** ，不要删去第一行表头。填写`E-mail` 和`Password`将使用浏览器登录获取`Cookies`。也可以直接填写`Cookies`，此时将不需要填写`E-mail` 和`Password`。
 
   由于反爬虫机制，部分账号使用浏览器登录时将弹人机验证并且无法通过，此时只能直接填写`Cookies`。
 
   
 
-- If you provide `Cookies` directly
+- If you provide `Cookies` directly.
 
-  如果选择直接填写`Cookies`
+  如果选择直接填写`Cookies`。
 
   
 
@@ -64,19 +62,19 @@
 
   - After installing the extension, log in to [blablalink](https://www.blablalink.com/) manually in your browser. Then open the extension, click **Copy**, choose **Header String**, and paste the copied content into **LoginIndex**.
 
-  	安装插件后，在浏览器中手动登录[blablalink](https://www.blablalink.com/)，打开插件，点击**复制**，选择 **Header String**，复制后填入 **LoginIndex**
+  	安装插件后，在浏览器中手动登录[blablalink](https://www.blablalink.com/)，打开插件，点击**复制**，选择 **Header String**，复制后填入 **LoginIndex**。
 
   	
 
 - If some accounts fail to be scraped, an **ErrorList.txt** file will be generated.
 
-  若有部分账号爬取失败会生成 **ErrorList.txt**
+  爬取成功时将会在 **output** 文件夹输出表格，若有部分账号爬取失败会生成 **ErrorList.txt**。
 
   
 
-- **merge** can merge all tables in the same directory.
+- **merge** will combine all spreadsheets from the **output** directory and generate the merged file outside of it.
 
-  **merge** 将合并同目录中的所有表格。
+  **merge** 将合并 **output** 目录中的所有表格并生成表格在外部。
 
   
 

@@ -58,23 +58,24 @@ print("请选择排序方式 [1-4]：")
 choice = input()
 print()
 
+output_dir = os.path.join(os.getcwd(), "output")
+
 match choice:
     case "1":
-        files = sorted(glob.glob(os.path.join(os.getcwd(), "*.xlsx")))
+        files = sorted(glob.glob(os.path.join(output_dir, "*.xlsx")))
     case "2":
-        files = sorted(glob.glob(os.path.join(os.getcwd(), "*.xlsx")), reverse=True)
+        files = sorted(glob.glob(os.path.join(output_dir, "*.xlsx")), reverse=True)
     case "3":
         files = sorted(
-            glob.glob(os.path.join(os.getcwd(), "*.xlsx")),
+            glob.glob(os.path.join(output_dir, "*.xlsx")),
             key=lambda x: load_workbook(x, data_only=True).active["C4"].value
         )
     case "4":
         files = sorted(
-            glob.glob(os.path.join(os.getcwd(), "*.xlsx")),
+            glob.glob(os.path.join(output_dir, "*.xlsx")),
             key=lambda x: load_workbook(x, data_only=True).active["C4"].value,
             reverse=True
         )
-
 
 
 files = [file for file in files if "merged" not in file]

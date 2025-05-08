@@ -8,6 +8,7 @@ import pandas as pd
 import chardet
 import time
 from http.cookies import SimpleCookie
+import os
 
 
 class ExiaInvasion:
@@ -758,8 +759,8 @@ class ExiaInvasion:
                                      strike=old_font.strike,
                                      color=old_font.color)
 
-
-        filename = f"{self.account_dict["name"]}.xlsx"
+        os.makedirs("output", exist_ok=True)
+        filename = os.path.join("output", f"{self.account_dict['name']}.xlsx")
         wb.save(filename)
 
         if self.language == 1:
@@ -768,9 +769,8 @@ class ExiaInvasion:
             print(f"数据已保存到 {filename}")
 
 
-
 if __name__ == "__main__":
-    print("ExiaInvasion v1.58  by 灵乌未默")
+    print("ExiaInvasion v1.60  by 灵乌未默")
     print()
     print("GitHub:")
     print("github.com/IsolateOB/ExiaInvasion")
