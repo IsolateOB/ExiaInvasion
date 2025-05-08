@@ -12,17 +12,12 @@ from http.cookies import SimpleCookie
 
 class ExiaInvasion:
     def __init__(self, language, browser, server, email, password, cookies):
-        def safe(val):
-            if isinstance(val, str) and val.strip().lower() == "nan":
-                return None
-            return val
-
         self.language = language
         self.browser = browser
         self.server = server
         self.email = email
-        self.password = safe(password)
-        self.cookies = safe(cookies)
+        self.password = password
+        self.cookies = cookies
 
         self.cube_dict_chs = {"遗迹突击魔方": {"cube_id": 1000301, "cube_level": 0},
                               "战术突击魔方": {"cube_id": 1000302, "cube_level": 0},
@@ -77,7 +72,7 @@ class ExiaInvasion:
                           "game_adult_status",
                           "OptanonConsent"]
 
-        if self.cookies:
+        if not pd.isna(self.cookies):
             cookie = SimpleCookie()
             cookie.load(self.cookies)
 
