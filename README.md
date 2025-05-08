@@ -10,7 +10,7 @@
 
 
 
-![示例输出](https://raw.githubusercontent.com/IsolateOB/ExiaInvasion/refs/heads/main/%E7%A4%BA%E4%BE%8B%E8%BE%93%E5%87%BA.png)
+![示例输出](main/示例输出.png)
 
 
 
@@ -100,7 +100,7 @@
 
 ## [Nikkes in SearchIndex 角色索引中包含的Nikke](https://www.kdocs.cn/l/cqaoCnPqbPpM)
 
-![育成指南](https://raw.githubusercontent.com/IsolateOB/ExiaInvasion/refs/heads/main/%E8%82%B2%E6%88%90%E6%8C%87%E5%8D%97.png)
+![育成指南](main/育成指南.png)
 
 
 
