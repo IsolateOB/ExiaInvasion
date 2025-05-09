@@ -66,7 +66,7 @@
 
   	
 
-- If some accounts fail to be scraped, an **ErrorList.txt** file will be generated.
+- When scraping is successful, spreadsheets will be saved in the **output** folder. If some accounts fail to be scraped, an **ErrorList.txt** file will be generated.
 
   爬取成功时将会在 **output** 文件夹输出表格，若有部分账号爬取失败会生成 **ErrorList.txt**。
 

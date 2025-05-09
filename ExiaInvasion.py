@@ -126,7 +126,8 @@ class ExiaInvasion:
             else:
                 print("正在获取cookie...")
 
-            while True:
+            for i in range(150):
+                time.sleep(0.1)
                 cookies = context.cookies()
                 filtered = {c['name']: c['value'] for c in cookies if c['name'] in important_keys}
                 if all(key in filtered for key in important_keys):
@@ -134,6 +135,16 @@ class ExiaInvasion:
                     context.close()
                     browser.close()
                     return cookie_str
+
+            if self.language == 1:
+                print("Failed to retrieve cookies")
+            else:
+                print("获取cookie失败")
+
+            context.close()
+            browser.close()
+
+            raise Exception("Failed to retrieve cookies")
 
 
     def get_header(self, content_length):
@@ -770,7 +781,7 @@ class ExiaInvasion:
 
 
 if __name__ == "__main__":
-    print("ExiaInvasion v1.60  by 灵乌未默")
+    print("ExiaInvasion v1.61  by 灵乌未默")
     print()
     print("GitHub:")
     print("github.com/IsolateOB/ExiaInvasion")
