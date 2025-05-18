@@ -1,6 +1,22 @@
 {
 	"name" : "",
 	"synchroLevel" : 0,
+	"cubes":{
+		"遗迹突击魔方": {"cube_id": 1000301, "cube_level": 0},
+        "战术突击魔方": {"cube_id": 1000302, "cube_level": 0},
+		"遗迹巨熊魔方": {"cube_id": 1000303, "cube_level": 0},
+		"战术巨熊魔方": {"cube_id": 1000304, "cube_level": 0},
+		"遗迹促进魔方": {"cube_id": 1000305, "cube_level": 0},
+		"战术促进魔方": {"cube_id": 1000306, "cube_level": 0},
+		"遗迹量子魔方": {"cube_id": 1000307, "cube_level": 0},
+		"体力神器魔方": {"cube_id": 1000308, "cube_level": 0},
+		"遗迹强韧魔方": {"cube_id": 1000309, "cube_level": 0},
+		"遗迹治疗魔方": {"cube_id": 1000310, "cube_level": 0},
+		"遗迹回火魔方": {"cube_id": 1000311, "cube_level": 0},
+		"遗迹辅助魔方": {"cube_id": 1000312, "cube_level": 0},
+		"遗迹毁灭魔方": {"cube_id": 1000313, "cube_level": 0},
+		"遗迹穿透魔方": {"cube_id": 1000314, "cube_level": 0}
+	},
 	"elements": {
 		"铁甲": {
 			"小红帽": {

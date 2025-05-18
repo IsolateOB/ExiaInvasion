@@ -1,6 +1,22 @@
 {
 	"name" : "",
 	"synchroLevel" : 0,
+	"cubes": {
+		"Assault Cube":     {"cube_id": 1000301, "cube_level": 0},
+		"Onslaught Cube":   {"cube_id": 1000302, "cube_level": 0},
+		"Resilience Cube":  {"cube_id": 1000303, "cube_level": 0},
+		"Bastion Cube":     {"cube_id": 1000304, "cube_level": 0},
+		"Adjutant Cube":    {"cube_id": 1000305, "cube_level": 0},
+		"Wingman Cube":     {"cube_id": 1000306, "cube_level": 0},
+		"Quantum Cube":     {"cube_id": 1000307, "cube_level": 0},
+		"Vigor Cube":       {"cube_id": 1000308, "cube_level": 0},
+		"Endurance Cube":   {"cube_id": 1000309, "cube_level": 0},
+		"Healing Cube":     {"cube_id": 1000310, "cube_level": 0},
+		"Tempering Cube":   {"cube_id": 1000311, "cube_level": 0},
+		"Relic Assist Cube":{"cube_id": 1000312, "cube_level": 0},
+		"Destruction Cube": {"cube_id": 1000313, "cube_level": 0},
+		"Piercing Cube":    {"cube_id": 1000314, "cube_level": 0}
+	},
 	"elements": {
 		"Iron": {
 			"Red Hood": {

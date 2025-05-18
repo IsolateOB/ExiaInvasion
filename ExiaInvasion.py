@@ -12,43 +12,13 @@ import os
 
 
 class ExiaInvasion:
-    def __init__(self, language, browser, server, email, password, cookies):
+    def __init__(self, language, browser, server, email, password, cookies, save_to_json):
         self.language = language
         self.browser = browser
         self.server = server
         self.email = email
         self.password = password
         self.cookies = cookies
-
-        self.cube_dict_chs = {"遗迹突击魔方": {"cube_id": 1000301, "cube_level": 0},
-                              "战术突击魔方": {"cube_id": 1000302, "cube_level": 0},
-                              "遗迹巨熊魔方": {"cube_id": 1000303, "cube_level": 0},
-                              "战术巨熊魔方": {"cube_id": 1000304, "cube_level": 0},
-                              "遗迹促进魔方": {"cube_id": 1000305, "cube_level": 0},
-                              "战术促进魔方": {"cube_id": 1000306, "cube_level": 0},
-                              "遗迹量子魔方": {"cube_id": 1000307, "cube_level": 0},
-                              "体力神器魔方": {"cube_id": 1000308, "cube_level": 0},
-                              "遗迹强韧魔方": {"cube_id": 1000309, "cube_level": 0},
-                              "遗迹治疗魔方": {"cube_id": 1000310, "cube_level": 0},
-                              "遗迹回火魔方": {"cube_id": 1000311, "cube_level": 0},
-                              "遗迹辅助魔方": {"cube_id": 1000312, "cube_level": 0},
-                              "遗迹毁灭魔方": {"cube_id": 1000313, "cube_level": 0}}
-
-
-        self.cube_dict_eng = {"Assault Cube": {"cube_id": 1000301, "cube_level": 0},
-                             "Onslaught Cube": {"cube_id": 1000302, "cube_level": 0},
-                             "Resilience Cube": {"cube_id": 1000303, "cube_level": 0},
-                             "Bastion Cube": {"cube_id": 1000304, "cube_level": 0},
-                             "Adjutant Cube": {"cube_id": 1000305, "cube_level": 0},
-                             "Wingman Cube": {"cube_id": 1000306, "cube_level": 0},
-                             "Quantum Cube": {"cube_id": 1000307, "cube_level": 0},
-                             "Vigor Cube": {"cube_id": 1000308, "cube_level": 0},
-                             "Endurance Cube": {"cube_id": 1000309, "cube_level": 0},
-                             "Healing Cube": {"cube_id": 1000310, "cube_level": 0},
-                             "Tempering Cube": {"cube_id": 1000311, "cube_level": 0},
-                              "Relic Assist Cube": {"cube_id": 1000312, "cube_level": 0},
-                              "Destruction Cube": {"cube_id": 1000313, "cube_level": 0}}
-
 
         self.cookie_str = self.get_cookies()
         if self.language == 1:
@@ -59,6 +29,8 @@ class ExiaInvasion:
         self.add_nikkes_details_to_dict()
         self.add_equipments_to_dict()
         self.save_dict_to_excel()
+        if save_to_json == "y":
+            self.save_dict_to_json()
 
 
     def get_cookies(self):
@@ -212,16 +184,10 @@ class ExiaInvasion:
                         details["limit_break"] = nikke_details["limit_break"]
                     if nikke_details["level"] > self.account_dict["synchroLevel"]:
                         self.account_dict["synchroLevel"] = nikke_details["level"]
-                    if self.language == 1:
-                        for cube_name, cube_data in self.cube_dict_eng.items():
-                            if nikke_details["cube_id"] == cube_data["cube_id"]:
-                                if nikke_details["cube_level"] > cube_data["cube_level"]:
-                                    self.cube_dict_eng[cube_name]["cube_level"] = nikke_details["cube_level"]
-                    else:
-                        for cube_name, cube_data in self.cube_dict_chs.items():
-                            if nikke_details["cube_id"] == cube_data["cube_id"]:
-                                if nikke_details["cube_level"] > cube_data["cube_level"]:
-                                    self.cube_dict_chs[cube_name]["cube_level"] = nikke_details["cube_level"]
+                    for cube_name, cube_data in self.account_dict["cubes"].items():
+                        if nikke_details["cube_id"] == cube_data["cube_id"]:
+                            if nikke_details["cube_level"] > cube_data["cube_level"]:
+                                self.account_dict["cubes"][cube_name]["cube_level"] = nikke_details["cube_level"]
 
 
 
@@ -412,6 +378,21 @@ class ExiaInvasion:
         else:
             limit_break_str = "MAX"
         return limit_break_str
+
+    def save_dict_to_json(self):
+        if self.language == 1:
+            print("Saving data to JSON...")
+        else:
+            print("正在保存数据到JSON...")
+
+        filename = os.path.join("output", f"{self.account_dict['name']}.json")
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump(self.account_dict, f, ensure_ascii=False, indent=4)
+
+        if self.language == 1:
+            print(f"Data saved to {filename}")
+        else:
+            print(f"数据已保存到 {filename}")
 
 
     def save_dict_to_excel(self):
@@ -705,7 +686,7 @@ class ExiaInvasion:
                     ws.column_dimensions[get_column_letter(col)].width = 10
 
         cube_start_col = col_cursor
-        cube_count = len(self.cube_dict_chs)
+        cube_count = len(self.account_dict["cubes"])
 
         ws.merge_cells(start_row=1, start_column=cube_start_col, end_row=1, end_column=cube_start_col + cube_count - 1)
         if self.language == 1:
@@ -717,12 +698,7 @@ class ExiaInvasion:
         self.set_outer_border(ws, 1, cube_start_col, 1, cube_start_col + cube_count - 1, medium_side)
 
 
-        if self.language == 1:
-            cube = self.cube_dict_eng
-        else:
-            cube = self.cube_dict_chs
-
-        for i, (cube_name, cube_data) in enumerate(cube.items()):
+        for i, (cube_name, cube_data) in enumerate(self.account_dict["cubes"].items()):
             col = cube_start_col + i
             ws.merge_cells(start_row=2, start_column=col, end_row=3, end_column=col)
             cell_cube_name = ws.cell(row=2, column=col, value=cube_name)
@@ -733,7 +709,7 @@ class ExiaInvasion:
 
         self.set_outer_border(ws, 2, cube_start_col, 3, cube_start_col + cube_count - 1, medium_side)
 
-        for i, (cube_name, cube_data) in enumerate(cube.items()):
+        for i, (cube_name, cube_data) in enumerate(self.account_dict["cubes"].items()):
             col = cube_start_col + i
             ws.merge_cells(start_row=4, start_column=col, end_row=8, end_column=col)
             cube_level_value = cube_data["cube_level"]
@@ -781,7 +757,7 @@ class ExiaInvasion:
 
 
 if __name__ == "__main__":
-    print("ExiaInvasion v1.61  by 灵乌未默")
+    print("ExiaInvasion v1.62  by 灵乌未默")
     print()
     print("GitHub:")
     print("github.com/IsolateOB/ExiaInvasion")
@@ -815,6 +791,12 @@ if __name__ == "__main__":
 
         server = int(input("Please enter the server number [1 or 2]:"))
         print()
+
+        save_to_json = input("Do you want to additionally save data to a JSON file? [y/n]: ")
+        if save_to_json.lower() != "y" and save_to_json.lower() != "n":
+            print("Invalid input, defaulting to 'n'")
+            save_to_json = "n"
+        print()
     else:
         print("第一次运行可能无法正常打开网页并连续报错，请关闭程序与浏览器并重新运行")
         print()
@@ -831,6 +813,12 @@ if __name__ == "__main__":
         print()
 
         server = int(input("请输入服务器编号[1或2]："))
+        print()
+
+        save_to_json = input("是否额外保存数据到JSON文件？[y/n]: ")
+        if save_to_json.lower() != "y" and save_to_json.lower() != "n":
+            print("输入无效，默认设置为 'n'")
+            save_to_json = "n"
         print()
 
 
@@ -872,7 +860,7 @@ if __name__ == "__main__":
         else:
             print(f"正在登录账号 ({i}/{len(loginIndex)}): {name}")
         try:
-            ExiaInvasion(language, browser, server, email, password, cookies)
+            ExiaInvasion(language, browser, server, email, password, cookies, save_to_json)
         except Exception:
             if language == 1:
                 print(f"Error occurred while processing account {i}: {name}")
