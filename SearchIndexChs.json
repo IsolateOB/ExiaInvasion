@@ -3,7 +3,7 @@
 	"synchroLevel" : 0,
 	"cubes": {
 		"遗迹突击魔方": {"cube_id": 1000301, "cube_level": 0},
-        "战术突击魔方": {"cube_id": 1000302, "cube_level": 0},
+		"战术突击魔方": {"cube_id": 1000302, "cube_level": 0},
 		"遗迹巨熊魔方": {"cube_id": 1000303, "cube_level": 0},
 		"战术巨熊魔方": {"cube_id": 1000304, "cube_level": 0},
 		"遗迹促进魔方": {"cube_id": 1000305, "cube_level": 0},
