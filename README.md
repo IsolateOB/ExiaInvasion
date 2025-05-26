@@ -10,7 +10,7 @@
 
 
 
-![示例输出](main/示例输出.png)
+![示例输出](python/main/示例输出.png)
 
 
 
@@ -98,7 +98,7 @@
 
 ## [Nikkes in SearchIndex 角色索引中包含的Nikke](https://www.kdocs.cn/l/cqaoCnPqbPpM)
 
-![育成指南](main/育成指南.png)
+![育成指南](python/main/育成指南.png)
 
 
 
