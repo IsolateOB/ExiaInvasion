@@ -1,5 +1,5 @@
 // src/accounts.jsx
-import React, { useEffect, useState, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   AppBar,
   Toolbar,
@@ -17,7 +17,7 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
-import LockPersonIcon from "@mui/icons-material/LockPerson";
+import DeleteIcon from "@mui/icons-material/Delete";
 
 /* ---------- 多语言 ---------- */
 const TRANSLATIONS = {
@@ -107,14 +107,29 @@ const AccountsPage = () => {
     await persist(cleaned);
   };
   
+  const deleteRow = async (idx) => {
+    setAccounts((prev) => {
+      const next = prev.filter((_, i) => i !== idx);
+      persist(next);
+      return next;
+    });
+    setEditing((prev) => prev.filter((_, i) => i !== idx));
+  };
+  
   const renderText = (txt) => (txt ? txt : "—");
+  
+  const iconUrl = useMemo(() => chrome.runtime.getURL("images/icon-128.png"), []);
   
   /* ---------- 渲染 ---------- */
   return (
     <>
       <AppBar position="static">
         <Toolbar>
-          <LockPersonIcon sx={{ mr: 1 }} />
+          <img
+            src={iconUrl}
+            alt="logo"
+            style={{ width: 32, height: 32, marginRight: 8 }}
+          />
           <Typography variant="h6">ExiaInvasion</Typography>
         </Toolbar>
       </AppBar>
@@ -212,18 +227,27 @@ const AccountsPage = () => {
                   
                   {/* Action */}
                   <TableCell align="right">
-                    {isEdit ? (
+                    <Box display="flex" flexDirection="row">
+                      {isEdit ? (
+                        <IconButton
+                          color="primary"
+                          onClick={() => saveRow(idx)}
+                        >
+                          <SaveIcon />
+                        </IconButton>
+                      ) : (
+                        <IconButton onClick={() => startEdit(idx)}>
+                          <EditIcon />
+                        </IconButton>
+                      )}
                       <IconButton
-                        color="primary"
-                        onClick={() => saveRow(idx)}
+                        color="error"
+                        onClick={() => deleteRow(idx)}
+                        sx={{ ml: 0.5 }}
                       >
-                        <SaveIcon />
+                        <DeleteIcon />
                       </IconButton>
-                    ) : (
-                      <IconButton onClick={() => startEdit(idx)}>
-                        <EditIcon />
-                      </IconButton>
-                    )}
+                    </Box>
                   </TableCell>
                 </TableRow>
               );

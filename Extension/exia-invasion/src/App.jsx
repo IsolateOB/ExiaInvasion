@@ -1,9 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   AppBar,
   Toolbar,
   Typography,
-  IconButton,
   Box,
   Container,
   Stack,
@@ -20,7 +19,6 @@ import {
   Snackbar,
   Paper,
 } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
 import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
@@ -575,14 +573,18 @@ export default function App() {
     return cookieStr;
   };
   
+  const iconUrl = useMemo(() => chrome.runtime.getURL("images/icon-128.png"), []);
+  
   /* ------ UI 渲染 ------ */
   return (
     <>
       <AppBar position="static">
         <Toolbar variant="dense">
-          <IconButton size="small" edge="start" color="inherit">
-            <AddIcon />
-          </IconButton>
+          <img
+            src={iconUrl}
+            alt="logo"
+            style={{ width: 32, height: 32, marginRight: 8 }}
+          />
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             ExiaInvasion
           </Typography>
