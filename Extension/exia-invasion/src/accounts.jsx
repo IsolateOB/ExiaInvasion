@@ -1,3 +1,4 @@
+// src/accounts.jsx
 import React, { useEffect, useState, useCallback } from "react";
 import {
   AppBar,
@@ -18,6 +19,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
 import LockPersonIcon from "@mui/icons-material/LockPerson";
 
+/* ---------- 多语言 ---------- */
 const TRANSLATIONS = {
   zh: {
     accountTable: "账号列表",
@@ -56,27 +58,19 @@ const AccountsPage = () => {
     chrome.storage.local.get("settings", (r) => {
       setLang(r.settings?.lang || "zh");
     });
-  }, []);
-  
-  useEffect(() => {
-    const handler = (changes, area) => {
-      if (area === "local" && changes.settings) {
-        setLang(changes.settings.newValue?.lang || "zh");
+    const handler = (c, area) => {
+      if (area === "local" && c.settings) {
+        setLang(c.settings.newValue?.lang || "zh");
       }
     };
     chrome.storage.onChanged.addListener(handler);
     return () => chrome.storage.onChanged.removeListener(handler);
   }, []);
   
-  const persist = (data) =>
-    new Promise((resolve) =>
-      chrome.storage.local.set({ accounts: data }, resolve)
-    );
-  
-  /* ---------- 初始化数据 ---------- */
+  /* ---------- 初始化 ---------- */
   useEffect(() => {
-    chrome.storage.local.get("accounts", (res) => {
-      const list = res.accounts || [];
+    chrome.storage.local.get("accounts", (r) => {
+      const list = r.accounts || [];
       if (list.length === 0) {
         setAccounts([defaultRow()]);
         setEditing([true]);
@@ -86,6 +80,9 @@ const AccountsPage = () => {
       }
     });
   }, []);
+  
+  const persist = (data) =>
+    new Promise((ok) => chrome.storage.local.set({ accounts: data }, ok));
   
   /* ---------- 工具函数 ---------- */
   const updateField = (idx, field, value) =>
@@ -104,20 +101,17 @@ const AccountsPage = () => {
     setEditing((prev) => prev.map((e, i) => (i === idx ? true : e)));
   
   const saveRow = async (idx) => {
-    // 退出编辑模式
     setEditing((prev) => prev.map((e, i) => (i === idx ? false : e)));
-    
-    // 兼容旧数据：剔除历史 mode 字段
+    // 清掉已废弃的 mode 字段
     const cleaned = accounts.map(({ mode, ...rest }) => rest);
     await persist(cleaned);
   };
   
-  const renderText = (text) => (text ? text : "—");
+  const renderText = (txt) => (txt ? txt : "—");
   
   /* ---------- 渲染 ---------- */
   return (
     <>
-      {/* HEADER */}
       <AppBar position="static">
         <Toolbar>
           <LockPersonIcon sx={{ mr: 1 }} />
@@ -219,7 +213,10 @@ const AccountsPage = () => {
                   {/* Action */}
                   <TableCell align="right">
                     {isEdit ? (
-                      <IconButton color="primary" onClick={() => saveRow(idx)}>
+                      <IconButton
+                        color="primary"
+                        onClick={() => saveRow(idx)}
+                      >
                         <SaveIcon />
                       </IconButton>
                     ) : (
@@ -250,4 +247,3 @@ const AccountsPage = () => {
 };
 
 export default AccountsPage;
-
