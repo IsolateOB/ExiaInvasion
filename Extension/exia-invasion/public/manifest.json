@@ -22,8 +22,7 @@
 
   "permissions": ["cookies", "tabs", "storage", "scripting", "downloads"],
   "host_permissions": [
-    "https://www.blablalink.com/*",
-    "https://api.blablalink.com/*"
+    "*://*.blablalink.com/*"
   ],
 
   "web_accessible_resources": [
