@@ -1,8 +1,7 @@
+// src/excel.js
 import ExcelJS from "exceljs";
 
-/* =================================================================== *
- *  通用工具
- * =================================================================== */
+
 const mediumSide = { style: "medium", color: { argb: "FF000000" } };
 const thinSide   = { style: "thin",   color: { argb: "FF000000" } };
 

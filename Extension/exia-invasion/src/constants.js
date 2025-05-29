@@ -14,7 +14,3 @@ export const IMPORTANT_KEYS = [
   "game_adult_status",
   "OptanonConsent",
 ];
-
-export const EXCEL_MIME =
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-

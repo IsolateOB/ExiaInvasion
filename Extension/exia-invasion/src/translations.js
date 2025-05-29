@@ -1,5 +1,11 @@
-export const TRANSLATIONS = {
+// src/translations.js
+const TRANSLATIONS = {
   zh: {
+    accountTable: "账号列表",
+    email: "邮箱",
+    password: "密码",
+    cookie: "Cookie（默认使用）",
+    saved: "已保存",
     start: "运行",
     saveCookie: "保存当前账号 Cookie",
     notLogin: "未登录",
@@ -14,7 +20,15 @@ export const TRANSLATIONS = {
     running: "正在处理账号：",
     loginWithCookie: "使用保存的 Cookie 登录...",
     loginWithPwd: "使用邮箱/密码登录...",
-    getCookie: "获取 Cookie...",
+    getCookie: "正在获取 Cookie...",
+    roleOk: "角色名：",
+    nikkeOk: "Nikke 详情已获取",
+    equipOk: "装备信息已获取",
+    openFolder: "打开输出文件",
+    exportJson: "导出 JSON",
+    manageAccounts: "管理账号",
+    cacheCookie: "运行时保存 Cookie",
+    processAccount: "处理账号：",
     noName: "（无名）",
     noPwd: "未填写密码，跳过",
     loginFail: "登录失败：",
@@ -29,6 +43,11 @@ export const TRANSLATIONS = {
     emptyAccounts: "请先添加账号"
   },
   en: {
+    accountTable: "Account Table",
+    email: "Email",
+    password: "Password",
+    cookie: "Cookie(default used)",
+    saved: "Saved",
     start: "Run",
     saveCookie: "Save Current Cookie",
     notLogin: "Not logged in",
@@ -43,20 +62,29 @@ export const TRANSLATIONS = {
     running: "Processing account: ",
     loginWithCookie: "Logging in with saved cookie...",
     loginWithPwd: "Logging in with email/password...",
-    getCookie: "Retrieving Cookie...",
-    noName: "(Unnamed)",
-    noPwd: "Password not provided, skip",
+    getCookie: "Retrieving cookies...",
+    roleOk: "Role name: ",
+    nikkeOk: "Nikke details fetched",
+    equipOk: "Equipments fetched",
+    openFolder: "Open output file",
+    exportJson: "Export JSON",
+    manageAccounts: "Manage Accounts",
+    cacheCookie: "Save Cookie during runtime",
+    processAccount: "Processing account: ",
+    noName: "(No name)",
+    noPwd: "No password, skipping",
     loginFail: "Login failed: ",
-    cookieExpired: "Cookie expired, re‑login...",
-    reloginFail: "Re‑login failed: ",
-    getRoleNameFail: "Failed to get role name: ",
-    dictFail: "Failed to get account data: ",
-    excelFail: "Failed to generate excel: ",
-    cacheUpdated: "Cookie has been updated to account",
+    cookieExpired: "Cookie expired, re-logging in...",
+    reloginFail: "Re-login failed: ",
+    getRoleNameFail: "Get role name failed: ",
+    dictFail: "Get account info failed: ",
+    excelFail: "Excel generation failed: ",
+    cacheUpdated: "Cookie written back to account",
     done: "All done!",
     fail: "Failed: ",
-    emptyAccounts: "Please add account first"
-  }
+    emptyAccounts: "Please add accounts first"
+  },
 };
 
-export const makeT = (lang) => (k) => TRANSLATIONS[lang][k] ?? k;
+export default TRANSLATIONS;
+

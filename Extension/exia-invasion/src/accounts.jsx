@@ -18,26 +18,7 @@ import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
 import DeleteIcon from "@mui/icons-material/Delete";
-
-/* ---------- 多语言 ---------- */
-const TRANSLATIONS = {
-  zh: {
-    accountTable: "账号列表",
-    username: "用户名",
-    email: "邮箱",
-    password: "密码",
-    cookie: "Cookie",
-    saved: "已保存",
-  },
-  en: {
-    accountTable: "Account Table",
-    username: "Username",
-    email: "Email",
-    password: "Password",
-    cookie: "Cookie",
-    saved: "Saved",
-  },
-};
+import TRANSLATIONS from "./translations.js";
 
 const defaultRow = () => ({
   username: "",
@@ -142,10 +123,10 @@ const AccountsPage = () => {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell width="18%">{t("username")}</TableCell>
-              <TableCell width="18%">{t("email")}</TableCell>
-              <TableCell width="18%">{t("password")}</TableCell>
-              <TableCell width="35%">{t("cookie")}</TableCell>
+              <TableCell width="15%">{t("username")}</TableCell>
+              <TableCell width="20%">{t("email")}</TableCell>
+              <TableCell width="15%">{t("password")}</TableCell>
+              <TableCell width="30%">{t("cookie")}</TableCell>
               <TableCell width="5%" align="right" />
             </TableRow>
           </TableHead>
