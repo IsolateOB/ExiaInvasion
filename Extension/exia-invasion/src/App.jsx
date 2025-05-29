@@ -603,7 +603,7 @@ export default function App() {
               </Button>
               <Box>
                 <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-                  {t("merge")}
+                  {t("mergeOption")}
                 </Typography>
                 <Select
                   size="small"

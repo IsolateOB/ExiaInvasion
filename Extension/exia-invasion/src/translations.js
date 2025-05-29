@@ -50,6 +50,7 @@ const TRANSLATIONS = {
     syncAsc: "同步器升序",
     syncDesc: "同步器降序",
     merge: "开始合并",
+    mergeOption: "合并选项",
   },
   en: {
     starting: "Running, please do not close the sidebar",
@@ -100,7 +101,8 @@ const TRANSLATIONS = {
     nameDesc: "Name Descending",
     syncAsc: "Sync Ascending",
     syncDesc: "Sync Descending",
-    merge: "Start Merging"
+    merge: "Start Merging",
+    mergeOption: "Merge Options",
   },
 };
 
