@@ -1,4 +1,7 @@
-import { SETTINGS_KEY, ACCOUNTS_KEY } from "./constants";
+// src/storage.js
+
+const SETTINGS_KEY  = "settings";
+const ACCOUNTS_KEY  = "accounts";
 
 export const getSettings = () =>
   new Promise((res) =>

@@ -19,19 +19,22 @@ import {
   DialogActions,
   Paper,
   CircularProgress,
+  ToggleButtonGroup,
+  ToggleButton,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import SaveIcon from "@mui/icons-material/Save";
 import SettingsIcon from "@mui/icons-material/Settings";
+import UploadFileIcon from "@mui/icons-material/UploadFile";
+import MergeIcon from "@mui/icons-material/Merge";
 import JSZip from "jszip";
 import saveDictToExcel from "./excel.js";
 import TRANSLATIONS from "./translations";
 import { getAccounts, setAccounts, getSettings, setSettings } from "./storage";
-import { IMPORTANT_KEYS } from "./constants.js";
-import { filterCookieStr, applyCookieStr, clearSiteCookies, delay } from "./cookie.js";
-import {loadBaseAccountDict, getRoleName, getPlayerNikkes, getEquipments } from "./api.js";
-
+import { applyCookieStr, clearSiteCookies } from "./cookie.js";
+import { loadBaseAccountDict, getRoleName, getPlayerNikkes, getEquipments } from "./api.js";
+import { mergeWorkbooks } from "./merge.js";
 
 /* ---------- React 组件 ---------- */
 export default function App() {
@@ -39,10 +42,13 @@ export default function App() {
   const [lang, setLang] = useState("zh");
   const t = useCallback((k) => TRANSLATIONS[lang][k] || k, [lang]);
   
+  const [tab, setTab] = useState("crawler");
   const [saveAsZip, setSaveAsZip] = useState(false);
   const [exportJson, setExportJson] = useState(false);
   const [cacheCookie, setCacheCookie] = useState(false);
   const [server, setServer] = useState("global");
+  const [sortFlag, setSortFlag] = useState("1");
+  const [filesToMerge, setFilesToMerge] = useState([]);
   const [dlgOpen, setDlgOpen] = useState(false);
   const [username, setUsername] = useState("");
   const [pendingCookieStr, setPendingCookieStr] = useState("");
@@ -59,13 +65,19 @@ export default function App() {
       setExportJson(Boolean(s.exportJson));
       setCacheCookie(Boolean(s.cacheCookie));
       setServer(s.server || "global");
+      setSortFlag(s.sortFlag || "1");
     })();
   }, []);
   
   const persistSettings = (upd) =>
-    setSettings({ lang, saveAsZip, exportJson, cacheCookie, server, ...upd });
+    setSettings({ lang, saveAsZip, exportJson, cacheCookie, server, sortFlag, ...upd });
   
   /* ------ UI 控制 ------ */
+  const handleTabChange = (event, newTab) => {
+    if (newTab !== null) {
+      setTab(newTab);
+    }
+  };
   const toggleLang = (e) => {
     const newLang = e.target.checked ? "en" : "zh";
     setLang(newLang);
@@ -81,6 +93,14 @@ export default function App() {
     setServer(v);
     persistSettings({ server: v });
   };
+  const handleSortChange = (e) => {
+    const v = e.target.value;
+    setSortFlag(v);
+    persistSettings({ sortFlag: v });
+  };
+  const handleFileSelect = (e) => {
+    setFilesToMerge(Array.from(e.target.files));
+  };
   
   /* ------ 保存当前 cookie ------ */
   const handleSaveCookie = () => {
@@ -88,7 +108,7 @@ export default function App() {
       console.log(cookies);
       const token = cookies.find((c) => c.name === "game_token");
       if (!token) {
-        setSnack(t("notLogin"));
+        addLog(t("notLogin"));
         return;
       }
       setPendingCookieStr(
@@ -111,6 +131,32 @@ export default function App() {
     setUsername("");
   };
   
+  /* ========== 主流程：合并 ========== */
+  const handleMerge = async () => {
+    if (!filesToMerge.length) {
+      addLog(t("upload"));
+      return;
+    }
+    setLogs([]);
+    setLoading(true);
+    try {
+      addLog(t("starting"));
+      const mergedBuffer = await mergeWorkbooks(filesToMerge, sortFlag, addLog);
+      const blob = new Blob([mergedBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      chrome.downloads.download({ url, filename: "merged.xlsx" }, () =>
+        URL.revokeObjectURL(url)
+      );
+      addLog(t("done"));
+    } catch (e) {
+      addLog(`${t("fail")} ${e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
   /* ========== 主流程：启动 ========== */
   const handleStart = async () => {
     setLogs([]);
@@ -120,16 +166,14 @@ export default function App() {
       /* ---------- 0. 读取账号列表 ---------- */
       const accounts = await getAccounts();
       if (!accounts.length) {
-        setSnack(t("emptyAccounts"));
+        addLog(t("emptyAccounts"));
         setLoading(false);
         return;
       }
       
       addLog(t("starting"));
-
-      const zip = new JSZip();
       
-      let cacheDirty = false;          // 是否需要把更新后的 Cookie 写回
+      const zip = new JSZip();
       const excelMime =
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
       
@@ -141,7 +185,7 @@ export default function App() {
         addLog(`${t("processAccount")}${acc.name || acc.username || t("noName")}`);
         
         /* 1-1. 获取可用的 Cookie —— 优先本地缓存，其次邮箱/密码登录 */
-        let cookieStr = acc.cookie?.trim() ? filterCookieStr(acc.cookie) : "";
+        let cookieStr = acc.cookie || "";
         let usedSavedCookie = false;
         
         if (cookieStr) {
@@ -157,15 +201,7 @@ export default function App() {
           }
           addLog(t("loginWithPwd"));
           try {
-            cookieStr = await loginAndGetCookie(acc, server);
-            // 更新账号信息
-            console.log("cookieStr：", cookieStr);
-            if (cacheCookie && cookieStr) {
-              acc.cookie = cookieStr;
-              accounts[i] = acc;
-              cacheDirty = true;
-            }
-            await applyCookieStr(cookieStr);
+            await loginAndGetCookie(acc, server);
           } catch (e) {
             addLog(`${t("loginFail")}${e}`);
             continue;
@@ -176,12 +212,15 @@ export default function App() {
         let roleName = "";
         try {
           roleName = await getRoleName();
-        } catch (err) {
+          console.log(`角色名：${roleName}`);
+          if (!roleName) {
+            throw new Error(t("cookieExpired"));
+          }
+        } catch (err) { // 获取角色名失败，可能是 Cookie 过期
           if (usedSavedCookie && acc.password) {
             addLog(t("cookieExpired"));
             try {
-              cookieStr = await loginAndGetCookie(acc, server);
-              await applyCookieStr(cookieStr);
+              await loginAndGetCookie(acc, server);
               roleName = await getRoleName();
             } catch (err2) {
               addLog(`${t("reloginFail")}${err2}`);
@@ -194,6 +233,16 @@ export default function App() {
         }
         addLog(`${t("roleOk")}${roleName}`);
         
+        /* 回写账号cookie */
+        if (cacheCookie) {
+          const cks = (await chrome.cookies.getAll({}))
+            .filter(c => c.domain.endsWith("blablalink.com"));
+          acc.cookie = cookieArrToStr(cks);
+          const all = await getAccounts();
+          all[i] = acc;
+          await setAccounts(all);
+          addLog(t("cacheUpdated"));
+        }
         
         /* ---------- 2. 构建 dict ---------- */
         let dict;
@@ -262,22 +311,14 @@ export default function App() {
         );
       }
       
-      /* ---------- 7. 回写更新后的 Cookie ---------- */
-      if (cacheDirty) {
-        await setAccounts(accounts);
-        addLog(t("cacheUpdated"));
-      }
-      
       addLog(t("done"));
     } catch (e) {
       setLogs((l) => [...l, `[异常] ${e}`]);
-      setSnack(`${t("fail")}${e}`);
+      addLog(`${t("fail")}${e}`);
     } finally {
       setLoading(false);
     }
   };
-  
-  
   
   /* ======= 辅助函数：填充 Nikke 详情 ======= */
   const addNikkesDetailsToDict = (dict, playerNikkes) => {
@@ -295,7 +336,7 @@ export default function App() {
           details.limit_break = nikke.limit_break;
           
           /* ---------- 同步器 ---------- */
-          if (nikke.level > dict.synchroLevel){
+          if (nikke.level > dict.synchroLevel) {
             dict.synchroLevel = nikke.level;
           }
           
@@ -325,15 +366,30 @@ export default function App() {
     }
   };
   
+  const cookieArrToStr = (cks) => {
+    const map = new Map();
+    
+    // 后出现的同名 cookie 会覆盖前面的
+    cks.forEach((c) => {
+      // 如果想优先保留 path 更短的（通常是根路径），可以加个简单判断
+      if (!map.has(c.name) || c.path === "/") {
+        map.set(c.name, c.value);
+      }
+    });
+    
+    return [...map.entries()]
+      .map(([k, v]) => `${k}=${v}`)
+      .join("; ");
+  };
+  
   /* ======= 登录并抓取 Cookie ======= */
   const loginAndGetCookie = async (acc, serverFlag) => {
     addLog(t("getCookie"));
-    const tab = await new Promise((resolve) =>
-      chrome.tabs.create(
-        { url: "https://www.blablalink.com/login", active: false },
-        resolve
-      )
-    );
+    
+    const tab = await chrome.tabs.create({
+      url: "https://www.blablalink.com/login",
+      active: false,
+    });
     
     await new Promise((resolve) => {
       const listener = (id, info) => {
@@ -389,27 +445,24 @@ export default function App() {
       args: [{ email: acc.email, password: acc.password, server: serverFlag }],
     });
     
-    let cookieStr = "";
-    for (let i = 0; i < 150; i++) {
-      await delay(100);
-      const cookies = await new Promise((res) =>
-        chrome.cookies.getAll({ domain: ".blablalink.com" }, res)
-      );
-      const filtered = Object.fromEntries(
-        cookies
-          .filter((c) => IMPORTANT_KEYS.includes(c.name))
-          .map((c) => [c.name, c.value])
-      );
-      if (IMPORTANT_KEYS.every((k) => filtered[k])) {
-        cookieStr = IMPORTANT_KEYS.map((k) => `${k}=${filtered[k]}`).join(
-          "; "
-        );
-        break;
-      }
-    }
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("login timeout")), 15000);
+      const onChanged = (chg) => {
+        const c = chg.cookie;
+        if (
+          !chg.removed &&
+          c.domain.endsWith("blablalink.com") &&
+          c.name === "game_token"
+        ) {
+          chrome.cookies.onChanged.removeListener(onChanged);
+          clearTimeout(timeout);
+          resolve();
+        }
+      };
+      chrome.cookies.onChanged.addListener(onChanged);
+    });
+    
     chrome.tabs.remove(tab.id);
-    await applyCookieStr(cookieStr); // 确保 API 请求也能带上
-    return cookieStr;
   };
   
   const iconUrl = useMemo(() => chrome.runtime.getURL("images/icon-128.png"), []);
@@ -436,92 +489,160 @@ export default function App() {
       </AppBar>
       
       <Container sx={{ mt: 2, width: 340, pb: 1 }}>
+        <ToggleButtonGroup
+          value={tab}
+          exclusive
+          fullWidth
+          onChange={handleTabChange}
+          sx={{ mb: 2 }}
+        >
+          <ToggleButton value="crawler">{t("crawlerTab")}</ToggleButton>
+          <ToggleButton value="merge">{t("mergeTab")}</ToggleButton>
+        </ToggleButtonGroup>
+        
         <Stack spacing={2}>
-          {/* 运行按钮 */}
-          <Button
-            variant="contained"
-            fullWidth
-            onClick={handleStart}
-            startIcon={
-              loading
-                ? <CircularProgress size={20} color="inherit" />
-                : <PlayArrowIcon />
-            }
-            disabled={loading}
-          >
-            {t("start")}
-          </Button>
-          
-          {/* 保存当前 Cookie */}
-          <Button
-            variant="outlined"
-            fullWidth
-            onClick={handleSaveCookie}
-            startIcon={<SaveIcon />}
-          >
-            {t("saveCookie")}
-          </Button>
-          <Button
-            variant="text"
-            fullWidth
-            onClick={() => chrome.runtime.openOptionsPage()}
-            startIcon={<SettingsIcon />}
-          >
-            {t("manageAccounts")}
-          </Button>
-          <Stack spacing={1}>
-            <FormControlLabel
-              control={<Switch checked={saveAsZip} onChange={toggleSaveZip} />}
-              label={t("saveAsZip")}
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={cacheCookie}
-                  onChange={(e) => {
-                    setCacheCookie(e.target.checked);
-                    persistSettings({ cacheCookie: e.target.checked });
-                  }}
+          {tab === "crawler" && (
+            <>
+              {/* 运行按钮 */}
+              <Button
+                variant="contained"
+                fullWidth
+                onClick={handleStart}
+                startIcon={
+                  loading ? (
+                    <CircularProgress size={20} color="inherit" />
+                  ) : (
+                    <PlayArrowIcon />
+                  )
+                }
+                disabled={loading}
+              >
+                {t("start")}
+              </Button>
+              
+              {/* 保存当前 Cookie */}
+              <Button
+                variant="outlined"
+                fullWidth
+                onClick={handleSaveCookie}
+                startIcon={<SaveIcon />}
+              >
+                {t("saveCookie")}
+              </Button>
+              <Button
+                variant="text"
+                fullWidth
+                onClick={() => chrome.runtime.openOptionsPage()}
+                startIcon={<SettingsIcon />}
+              >
+                {t("manageAccounts")}
+              </Button>
+              <Stack spacing={1}>
+                <FormControlLabel
+                  control={<Switch checked={saveAsZip} onChange={toggleSaveZip} />}
+                  label={t("saveAsZip")}
                 />
-              }
-              label={t("cacheCookie")}
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={exportJson}
-                  onChange={(e) => {
-                    setExportJson(e.target.checked);
-                    persistSettings({ exportJson: e.target.checked });
-                  }}
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={cacheCookie}
+                      onChange={(e) => {
+                        setCacheCookie(e.target.checked);
+                        persistSettings({ cacheCookie: e.target.checked });
+                      }}
+                    />
+                  }
+                  label={t("cacheCookie")}
                 />
-              }
-              label={t("exportJson")}
-            />
-          </Stack>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={exportJson}
+                      onChange={(e) => {
+                        setExportJson(e.target.checked);
+                        persistSettings({ exportJson: e.target.checked });
+                      }}
+                    />
+                  }
+                  label={t("exportJson")}
+                />
+              </Stack>
+              
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                  {t("server")}
+                </Typography>
+                <Select
+                  size="small"
+                  fullWidth
+                  value={server}
+                  onChange={changeServer}
+                >
+                  <MenuItem value="hmt">{t("hmt")}</MenuItem>
+                  <MenuItem value="global">{t("global")}</MenuItem>
+                </Select>
+              </Box>
+            </>
+          )}
           
-          <Box>
-            <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-              {t("server")}
-            </Typography>
-            <Select
-              size="small"
-              fullWidth
-              value={server}
-              onChange={changeServer}
-            >
-              <MenuItem value="hmt">{t("hmt")}</MenuItem>
-              <MenuItem value="global">{t("global")}</MenuItem>
-            </Select>
-          </Box>
+          {tab === "merge" && (
+            <>
+              <Button
+                component="label"
+                variant="outlined"
+                fullWidth
+                startIcon={<UploadFileIcon />}
+              >
+                {t("upload")} ({filesToMerge.length})
+                <input
+                  type="file"
+                  multiple
+                  hidden
+                  onChange={handleFileSelect}
+                  accept=".xlsx"
+                />
+              </Button>
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                  {t("merge")}
+                </Typography>
+                <Select
+                  size="small"
+                  fullWidth
+                  value={sortFlag}
+                  onChange={handleSortChange}
+                >
+                  <MenuItem value="1">{t("nameAsc")}</MenuItem>
+                  <MenuItem value="2">{t("nameDesc")}</MenuItem>
+                  <MenuItem value="3">{t("syncAsc")}</MenuItem>
+                  <MenuItem value="4">{t("syncDesc")}</MenuItem>
+                </Select>
+              </Box>
+              <Button
+                variant="contained"
+                fullWidth
+                onClick={handleMerge}
+                startIcon={
+                  loading ? (
+                    <CircularProgress size={20} color="inherit" />
+                  ) : (
+                    <MergeIcon />
+                  )
+                }
+                disabled={loading || !filesToMerge.length}
+              >
+                {t("merge")}
+              </Button>
+            </>
+          )}
           <Paper
             variant="outlined"
             sx={{
               p: 1,
-              height: 110,
+              height: 400,
               overflowY: "auto",
               whiteSpace: "pre-line",
-              fontSize: 12
+              fontSize: 12,
             }}
           >
             {logs.join("\n")}

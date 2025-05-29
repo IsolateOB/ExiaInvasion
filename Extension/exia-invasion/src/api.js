@@ -1,6 +1,5 @@
 // src/api.js
 
-
 /* ---------- 载入语言模板 ---------- */
 export const loadBaseAccountDict = async (lang) => {
   const fileName = lang === "en" ? "SearchIndexEng.json" : "SearchIndexChs.json";

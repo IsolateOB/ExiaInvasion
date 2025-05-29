@@ -1,6 +1,7 @@
 // src/translations.js
 const TRANSLATIONS = {
   zh: {
+    starting: "运行中，请勿关闭侧栏",
     accountTable: "账号列表",
     email: "邮箱",
     password: "密码",
@@ -40,9 +41,18 @@ const TRANSLATIONS = {
     cacheUpdated: "Cookie 已写回账号",
     done: "全部完成！",
     fail: "失败：",
-    emptyAccounts: "请先添加账号"
+    emptyAccounts: "请先添加账号",
+    crawlerTab: "爬虫",
+    mergeTab: "合并",
+    upload: "选择表格",
+    nameAsc: "名称升序",
+    nameDesc: "名称降序",
+    syncAsc: "同步器升序",
+    syncDesc: "同步器降序",
+    merge: "开始合并",
   },
   en: {
+    starting: "Running, please do not close the sidebar",
     accountTable: "Account Table",
     email: "Email",
     password: "Password",
@@ -82,9 +92,16 @@ const TRANSLATIONS = {
     cacheUpdated: "Cookie written back to account",
     done: "All done!",
     fail: "Failed: ",
-    emptyAccounts: "Please add accounts first"
+    emptyAccounts: "Please add accounts first",
+    crawlerTab: "Crawler",
+    mergeTab: "Merge",
+    upload: "Select Excel File",
+    nameAsc: "Name Ascending",
+    nameDesc: "Name Descending",
+    syncAsc: "Sync Ascending",
+    syncDesc: "Sync Descending",
+    merge: "Start Merging"
   },
 };
 
 export default TRANSLATIONS;
-
