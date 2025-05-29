@@ -503,23 +503,6 @@ export default function App() {
         <Stack spacing={2}>
           {tab === "crawler" && (
             <>
-              {/* 运行按钮 */}
-              <Button
-                variant="contained"
-                fullWidth
-                onClick={handleStart}
-                startIcon={
-                  loading ? (
-                    <CircularProgress size={20} color="inherit" />
-                  ) : (
-                    <PlayArrowIcon />
-                  )
-                }
-                disabled={loading}
-              >
-                {t("start")}
-              </Button>
-              
               {/* 保存当前 Cookie */}
               <Button
                 variant="outlined"
@@ -582,6 +565,22 @@ export default function App() {
                   <MenuItem value="global">{t("global")}</MenuItem>
                 </Select>
               </Box>
+              {/* 运行按钮 */}
+              <Button
+                variant="contained"
+                fullWidth
+                onClick={handleStart}
+                startIcon={
+                  loading ? (
+                    <CircularProgress size={20} color="inherit" />
+                  ) : (
+                    <PlayArrowIcon />
+                  )
+                }
+                disabled={loading}
+              >
+                {t("start")}
+              </Button>
             </>
           )}
           
