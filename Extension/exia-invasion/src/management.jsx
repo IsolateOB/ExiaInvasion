@@ -289,20 +289,22 @@ const AccountsPage = () => {
                         value={row.password}
                         onChange={(e) => updateField(idx, "password", e.target.value)}
                         fullWidth
-                        InputProps={{ // Changed from slotProps for wider compatibility, though slotProps might work in MUI v5+
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                size="small"
-                                onClick={() =>
-                                  setShowPwds((v) => v.map((f, i) => (i === idx ? !f : f)))
-                                }
-                                edge="end"
-                              >
-                                {showPwds[idx] ? <VisibilityOff /> : <Visibility />}
-                              </IconButton>
-                            </InputAdornment>
-                          ),
+                        slotProps={{
+                          input: {
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton
+                                  size="small"
+                                  onClick={() =>
+                                    setShowPwds((v) => v.map((f, i) => (i === idx ? !f : f)))
+                                  }
+                                  edge="end"
+                                >
+                                  {showPwds[idx] ? <VisibilityOff /> : <Visibility />}
+                                </IconButton>
+                              </InputAdornment>
+                            ),
+                          },
                         }}
                       />
                     ) : row.password ? (
