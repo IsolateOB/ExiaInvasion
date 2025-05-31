@@ -8,7 +8,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         popup: 'index.html',
-        options: 'accounts.html'
+        options: 'management.html'
       }
     }
   }

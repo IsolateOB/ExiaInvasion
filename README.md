@@ -6,99 +6,100 @@
 
 
 
-## Example output 示例输出
+
+
+## 示例输出 Example output
 
 
 
-![示例输出](python/main/示例输出.png)
+![示例输出](/示例输出.png)
 
 
 
-## Notice 注意
 
-- **Edge** or **Chrome** is required to run the program.
 
-	需要 **Edge** 或 **Chrome** 浏览器。
+## 注意 Notice
+
+- 需要 **Edge** 或 **Chrome** 浏览器。
+
+	**Edge** or **Chrome** is required to run the program.
 	
 	
 	
-- First run may not open the webpage properly and report errors continuously. Please close the program and browser and run again.
-
-	第一次运行可能无法正常打开网页并连续报错，请关闭程序与浏览器并重新运行。
-	
-	
 
 
-- Currently only tables in Simplified Chinese and English can be output.
+- 目前仅能输出简体中文和英文表格。
 
-  目前仅能输出简体中文和英文表格。
-
-
-
-## Usage 用法
-
-- Please fill in the account information in **LoginIndex**, and do not delete the first row (the header). If you provide `E-mail` and `Password`, the program will log in through the browser to obtain `Cookies`. Alternatively, you can directly fill in the `Cookies` field—in this case, `E-mail` and `Password` are not required.
-   Due to anti-bot mechanisms, some accounts may trigger human verification during browser login, which cannot be bypassed. In such cases, you must provide `Cookies` directly.
-   
-  请将账号信息填入 **LoginIndex** ，不要删去第一行表头。填写`E-mail` 和`Password`将使用浏览器登录获取`Cookies`。也可以直接填写`Cookies`，此时将不需要填写`E-mail` 和`Password`。
-
-  由于反爬虫机制，部分账号使用浏览器登录时将弹人机验证并且无法通过，此时只能直接填写`Cookies`。
-
+  Currently only tables in Simplified Chinese and English can be output.
+  
   
 
-- If you provide `Cookies` directly.
 
-  如果选择直接填写`Cookies`。
 
+## 用法 Usage
+
+- 解压压缩包，浏览器进入 `chrome://extensions/` 或 `edge://extensions/` 页，启用 **开发者模式** ，点击 **加载已解压的扩展程序** ，选择解压后的文件夹。
   
-
-  - `Cookies` can be obtained via a browser extension such as **Cookie Editor**, available at:
-
-    `Cookies`通过浏览器插件得到，例如**Cookie Editor**，下载地址：
-
-    https://chromewebstore.google.com/detail/ookdjilphngeeeghgngjabigmpepanpl?utm_source=item-share-cb
-
-    
-
-  - After installing the extension, log in to [blablalink](https://www.blablalink.com/) manually in your browser. Then open the extension, click **Copy**, choose **Header String**, and paste the copied content into **LoginIndex**.
-
-  	安装插件后，在浏览器中手动登录[blablalink](https://www.blablalink.com/)，打开插件，点击**复制**，选择 **Header String**，复制后填入 **LoginIndex**。
-
-  	
-
-- When scraping is successful, spreadsheets will be saved in the **output** folder. If some accounts fail to be scraped, an **ErrorList.txt** file will be generated.
-
-  爬取成功时将会在 **output** 文件夹输出表格，若有部分账号爬取失败会生成 **ErrorList.txt**。
-
+  Unzip the package. In your browser, go to `chrome://extensions/` or `edge://extensions/`, enable **Developer mode**, click **Load unpacked extension**, and select the extracted folder.
   
-
-- **merge** will combine all spreadsheets from the **output** directory and generate the merged file outside of it.
-
-  **merge** 将合并 **output** 目录中的所有表格并生成表格在外部。
-
   
-
-- **SearchIndexEng** is used to provide the role search index of the main program **ExiaInvasion**. It  includes characters I personally consider powerful for PvE. Roles can be added or deleted. The role name defaults to Simplified Chinese.
-
-  **SearchIndexChs** 用于提供主程序 **ExiaInvasion** 的角色搜索索引，包含我主观认为的 pve 强力角色，可添加或删除角色。
-
   
+- ### 主页面 Main Page
 
-  - `priority` is based on my personal subjective character priority, only for tabulation purposes, black>blue>yellow.
+	- #### 爬虫 CRAWLER
 
-    `priority`是依据我个人主观的角色优先级，仅用于制表，黑>蓝>黄。
+		- 点击 **管理账号** 可进入 **管理页**。
 
-    
-  
-  - Equipment Effects have 15 levels. Levels 1-5 are marked in red, levels 6-10 are marked in yellow, levels 11-14 are marked in blue, and level 15 are marked in black.
-  
-  	装备词条有15级，1-5级为红色，6-10级标记为黄色，11-14级标记为蓝色，15级标记为黑色。
+			Click **Manage Accounts** to enter the **Management Page**.
+
+			 
+
+		- **合并保存为 ZIP** 将在 **运行** 完毕后，把所有文件合并为一个 zip 格式的压缩文件提供下载。
+
+			**Merge and Save as ZIP** will merge all files into a ZIP archive for download after **Run** is completed
+
+			
+
+		- **运行时保存cookie** 将在 **运行** 时自动保存该账号的 **cookie** 以便下次运行时跳过登录步骤。 **管理账号** 页将看到保存的cookie。
+
+			**Save Cookie During Runtime** will automatically save the account’s **cookie** while running, so the next run can skip the login step. You will see the saved cookie on the **Manage Accounts** page.
+
+			
+
+		- **导出 JSON** 将在 **运行** 完毕后输出表格的同时输出用于制表的账号原始数据。
+
+			**Export JSON** will output the raw account data for tabulation alongside the table after **Run** is completed.
+
+			
+
+		- **运行时激活标签页** 将在 **运行** 时用 **账号密码** 登录时，切换到脚本操作的标签页。主要用于检查错误和手动操作人机验证。
+
+			**Activate Tab During Runtime** will switch to the script-operated tab. This is mainly for checking errors and handling manual human verification when logging in with **account and password** during **Run**.
+
+			
+
+		- **保存当前账号 COOKIE** 可保存当前浏览器在 [blablalink](https://www.blablalink.com/) 的登录cookie。**管理账号** 页将看到保存的cookie。
+
+		
+
+	- #### 合并
+
+		- **选择表格** 后，**开始合并** 会将这些表格纵向合并
 
 
 
-## [Nikkes in SearchIndex 角色索引中包含的Nikke](https://www.kdocs.cn/l/cqaoCnPqbPpM)
+- ### 管理页
 
-![育成指南](python/main/育成指南.png)
+	- 将 **账号密码** 或 **cookie** 填入并保存。
+	- **启用** 开关打开时，**运行** 将获取该行账号的数据。
+
+
+
+
+
+## 开发中功能
+
+- 可修改的 **nikke** 爬取列表。
 
 
 

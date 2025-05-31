@@ -35,6 +35,7 @@ import { getAccounts, setAccounts, getSettings, setSettings } from "./storage";
 import { applyCookieStr, clearSiteCookies } from "./cookie.js";
 import { loadBaseAccountDict, getRoleName, getPlayerNikkes, getEquipments } from "./api.js";
 import { mergeWorkbooks } from "./merge.js";
+import { v4 as uuidv4 } from "uuid";
 
 /* ---------- React 组件 ---------- */
 export default function App() {
@@ -46,6 +47,7 @@ export default function App() {
   const [saveAsZip, setSaveAsZip] = useState(false);
   const [exportJson, setExportJson] = useState(false);
   const [cacheCookie, setCacheCookie] = useState(false);
+  const [activateTab, setActivateTab] = useState(false);
   const [server, setServer] = useState("global");
   const [sortFlag, setSortFlag] = useState("1");
   const [filesToMerge, setFilesToMerge] = useState([]);
@@ -64,13 +66,14 @@ export default function App() {
       setSaveAsZip(Boolean(s.saveAsZip));
       setExportJson(Boolean(s.exportJson));
       setCacheCookie(Boolean(s.cacheCookie));
+      setActivateTab(Boolean(s.activateTab));
       setServer(s.server || "global");
       setSortFlag(s.sortFlag || "1");
     })();
   }, []);
   
   const persistSettings = (upd) =>
-    setSettings({ lang, saveAsZip, exportJson, cacheCookie, server, sortFlag, ...upd });
+    setSettings({ lang, saveAsZip, exportJson, cacheCookie, activateTab, server, sortFlag, ...upd });
   
   /* ------ UI 控制 ------ */
   const handleTabChange = (event, newTab) => {
@@ -121,10 +124,12 @@ export default function App() {
     if (!username.trim()) return;
     const accounts = await getAccounts();
     accounts.push({
+      id: uuidv4(),
       username: username.trim(),
       email: "",
       password: "",
       cookie: pendingCookieStr,
+      enabled: true,
     });
     await setAccounts(accounts);
     setDlgOpen(false);
@@ -164,7 +169,8 @@ export default function App() {
     
     try {
       /* ---------- 0. 读取账号列表 ---------- */
-      const accounts = await getAccounts();
+      const accountsAll = await getAccounts();
+      const accounts = accountsAll.filter((a) => a.enabled !== false);
       if (!accounts.length) {
         addLog(t("emptyAccounts"));
         setLoading(false);
@@ -239,7 +245,8 @@ export default function App() {
             .filter(c => c.domain.endsWith("blablalink.com"));
           acc.cookie = cookieArrToStr(cks);
           const all = await getAccounts();
-          all[i] = acc;
+          const idx = all.findIndex(a => a.id === acc.id);
+          if (idx !== -1) all[idx] = acc;
           await setAccounts(all);
           addLog(t("cacheUpdated"));
         }
@@ -332,7 +339,7 @@ export default function App() {
           details.skill2_level = nikke.skill2_level;
           details.skill_burst_level = nikke.skill_burst_level;
           details.item_rare = nikke.item_rare;
-          details.item_level = nikke.item_level;
+          details.item_level = nikke.item_level >= 0 ? nikke.item_level : "";
           details.limit_break = nikke.limit_break;
           
           /* ---------- 同步器 ---------- */
@@ -388,7 +395,7 @@ export default function App() {
     
     const tab = await chrome.tabs.create({
       url: "https://www.blablalink.com/login",
-      active: false,
+      active: activateTab,
     });
     
     await new Promise((resolve) => {
@@ -470,7 +477,7 @@ export default function App() {
   /* ------ UI 渲染 ------ */
   return (
     <>
-      <AppBar position="static">
+      <AppBar position="sticky">
         <Toolbar variant="dense">
           <img
             src={iconUrl}
@@ -548,6 +555,18 @@ export default function App() {
                     />
                   }
                   label={t("exportJson")}
+                />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={activateTab}
+                      onChange={(e) => {
+                        setActivateTab(e.target.checked);
+                        persistSettings({ activateTab: e.target.checked });
+                      }}
+                    />
+                  }
+                  label={t("activateTab")}
                 />
               </Stack>
               
