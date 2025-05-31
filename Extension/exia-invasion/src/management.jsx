@@ -36,7 +36,7 @@ const defaultRow = () => ({
   enabled: true
 });
 
-const AccountsPage = () => {
+const ManagementPage = () => {
   const [accounts, setAccounts] = useState([]);
   const [editing, setEditing] = useState([]);
   const [showPwds, setShowPwds] = useState([]);
@@ -382,4 +382,4 @@ const AccountsPage = () => {
   );
 };
 
-export default AccountsPage;
+export default ManagementPage;

@@ -525,7 +525,7 @@ export default function App() {
                 onClick={() => chrome.runtime.openOptionsPage()}
                 startIcon={<SettingsIcon />}
               >
-                {t("manageAccounts")}
+                {t("management")}
               </Button>
               <Stack spacing={1}>
                 <FormControlLabel
@@ -575,6 +575,7 @@ export default function App() {
                   {t("server")}
                 </Typography>
                 <Select
+                  variant="outlined"
                   size="small"
                   fullWidth
                   value={server}
@@ -625,6 +626,7 @@ export default function App() {
                   {t("mergeOption")}
                 </Typography>
                 <Select
+                  variant="outlined"
                   size="small"
                   fullWidth
                   value={sortFlag}
