@@ -116,9 +116,17 @@
 
 ## 开发中功能 Features in Development
 
-- 可修改的 **nikke** 爬取列表。
+- ### 管理页 Management Page
 
-	Editable **nikke** crawl list.
+	- 可修改的妮姬爬取列表。
+
+		Editable nikke crawl list.
+
+		
+
+	- 账号表拖动改变顺序的视觉动画。
+
+		Visual animation of dragging the account table to change the order.
 
 
 
