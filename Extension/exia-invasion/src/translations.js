@@ -57,7 +57,7 @@ const TRANSLATIONS = {
   },
   en: {
     starting: "Running, please do not close the sidebar",
-    accountTable: "Account Table",
+    accountTable: "Account List",
     enabled: "Enabled",
     no: "No.",
     email: "Email",
