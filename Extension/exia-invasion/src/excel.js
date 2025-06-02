@@ -1,5 +1,6 @@
 // src/excel.js
 import ExcelJS from "exceljs";
+import TRANSLATIONS from './translations.js';
 
 
 const mediumSide = { style: "medium", color: { argb: "FF000000" } };
@@ -53,20 +54,20 @@ const getFontByLevel = (lvl) => {
  *  主函数：saveDictToExcel
  * =================================================================== */
 export const saveDictToExcel = async (dict, lang = "en") => {
+  const t = (key) => TRANSLATIONS[lang][key] || key;
   const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet(lang === "en" ? "Player Info" : "玩家信息");
+  const ws = wb.addWorksheet(t("playerInfo"));
   
   // 行高
   [1,2,3].forEach(r => ws.getRow(r).height = 25);
   
   /* ---------------------------------------------------------------
    * 基本信息区：序号 / 名称 / 同步器
-   * ------------------------------------------------------------- */
-  // A1:B3  &  C1:C3  -> 表头
+   * ------------------------------------------------------------- */  // A1:B3  &  C1:C3  -> 表头
   ws.mergeCells(1,1,3,2);
   ws.mergeCells(1,3,3,3);
-  ws.getCell(1,1).value = lang === "en" ? "Name" : "名称";
-  ws.getCell(1,3).value = lang === "en" ? "Synchro" : "同步器";
+  ws.getCell(1,1).value = t("playerName");
+  ws.getCell(1,3).value = t("synchro");
   ["A1","C1"].forEach(addr=>{
     const cell = ws.getCell(addr);
     cell.font = { bold:true };
@@ -98,30 +99,45 @@ export const saveDictToExcel = async (dict, lang = "en") => {
     "item_rare","item_level",null,
     "IncElementDmg","StatAtk","StatAmmoLoad","StatChargeTime","StatChargeDamage",
     "StatCritical","StatCriticalDamage","StatAccuracyCircle","StatDef"
-  ];
-  const propertyLabels = lang === "en" ?
-    ["LB","Skill 1","Skill 2","Burst","Item",null,"T10","Elem","Atk","Ammo","Chg Spd","Chg DMG","Crit%","Crit DMG","Hit%","Def"] :
-    ["突破","技能1","技能2","爆裂","珍藏品",null,"T10","优越","攻击","弹夹","蓄速","蓄伤","暴击","暴伤","命中","防御"];
-  const equipRowLabels = lang === "en" ? ["Head","Body","Arm","Leg","Total"] : ["头","身","手","足","总和"];
+  ];  const propertyLabels = [
+    t("limitBreak"), t("skill1"), t("skill2"), t("burst"), t("item"), null, t("t10"),
+    t("elementAdvantage"), t("attack"), t("ammo"), t("chargeSpeed"), t("chargeDamage"),
+    t("critical"), t("criticalDamage"), t("hit"), t("defense")
+  ];  const equipRowLabels = [t("head"), t("body"), t("arm"), t("leg"), t("total")];    // Element name mapping for display with fixed ordering
+  const elementMapping = {
+    "Electronic": t("electronic"),
+    "Fire": t("fire"), 
+    "Wind": t("wind"),
+    "Water": t("water"),
+    "Iron": t("iron"),
+    "Utility": t("utility")
+  };
   
-  let startCol = 4;
-  for (const [elementName, charsDict] of Object.entries(dict.elements)) {
-    const totalWidth = Object.keys(charsDict).length * widthPerChar;
+  // Fixed element ordering
+  const elementOrder = ["Electronic", "Fire", "Wind", "Water", "Iron", "Utility"];
+    let startCol = 4;
+  for (const elementName of elementOrder) {
+    const charsArray = Array.isArray(dict.elements[elementName]) ? dict.elements[elementName] : [];
+    const totalWidth = charsArray.length * widthPerChar;
     
-    // 元素表头
+    if (charsArray.length === 0) continue; // Skip empty elements
+    
+    // 元素表头 - use mapped name
     ws.mergeCells(1,startCol,1,startCol+totalWidth-1);
     const elemCell = ws.getCell(1,startCol);
-    elemCell.value = elementName;
+    elemCell.value = elementMapping[elementName] || elementName;
     elemCell.alignment = { horizontal:"center", vertical:"middle" };
     elemCell.font = { bold:true };
     setOuterBorder(ws,1,startCol,1,startCol+totalWidth-1,mediumSide);
     
     let colCursor = startCol;
-    for (const [charName,charInfo] of Object.entries(charsDict)) {
+    for (const charInfo of charsArray) {
       /* --- 角色名行 --- */
       ws.mergeCells(2,colCursor,2,colCursor+widthPerChar-1);
       const cChar = ws.getCell(2,colCursor);
-      cChar.value = charName;
+      // Use appropriate language name from character data
+      const characterName = lang === "en" ? charInfo.name_en : charInfo.name_cn;
+      cChar.value = characterName || charInfo.id;
       cChar.alignment = { horizontal:"center", vertical:"middle" };
       // 下方细线
       setHorizontalBorder(ws,2,colCursor,colCursor+widthPerChar-1,thinSide,"bottom");
@@ -250,42 +266,43 @@ export const saveDictToExcel = async (dict, lang = "en") => {
     }
     
     startCol += totalWidth;
-  }
-  
-  /* ---------------------------------------------------------------
+  }  /* ---------------------------------------------------------------
    * 魔方区
    * ------------------------------------------------------------- */
   const cubeStartCol = startCol;
-  const cubeNames = Object.keys(dict.cubes);
+  const cubes = Array.isArray(dict.cubes) ? dict.cubes : [];
   
-  ws.mergeCells(1,cubeStartCol,1,cubeStartCol+cubeNames.length-1);
-  const cubeHeader = ws.getCell(1,cubeStartCol);
-  cubeHeader.value = lang === "en" ? "Cube" : "魔方";
-  cubeHeader.alignment = { horizontal:"center", vertical:"middle" };
-  cubeHeader.font = { bold:true };
-  setOuterBorder(ws,1,cubeStartCol,1,cubeStartCol+cubeNames.length-1,mediumSide);
-  
-  cubeNames.forEach((name,idx)=>{
-    const col = cubeStartCol+idx;
-    ws.mergeCells(2,col,3,col);
-    const nameCell = ws.getCell(2,col);
-    nameCell.value = name;
-    nameCell.alignment = { horizontal:"center", vertical:"middle" };
-    nameCell.font = { bold:true };
-    if(idx < cubeNames.length-1)
-      setVerticalBorder(ws,2,8,col,thinSide,"right");
+  if (cubes.length > 0) {
+    ws.mergeCells(1,cubeStartCol,1,cubeStartCol+cubes.length-1);
+    const cubeHeader = ws.getCell(1,cubeStartCol);
+    cubeHeader.value = t("cube");
+    cubeHeader.alignment = { horizontal:"center", vertical:"middle" };
+    cubeHeader.font = { bold:true };
+    setOuterBorder(ws,1,cubeStartCol,1,cubeStartCol+cubes.length-1,mediumSide);
     
-    ws.mergeCells(4,col,8,col);
-    let lvl = dict.cubes[name].cube_level;
-    if(lvl===0) lvl = lang==="en"?"Not found":"未找到";
-    const lvlCell = ws.getCell(4,col);
-    lvlCell.value = lvl;
-    lvlCell.alignment = { horizontal:"center", vertical:"middle" };
-  });
-  setOuterBorder(ws,2,cubeStartCol,3,cubeStartCol+cubeNames.length-1,mediumSide);
-  setOuterBorder(ws,4,cubeStartCol,8,cubeStartCol+cubeNames.length-1,mediumSide);
-  
-  /* 列宽 */
+    cubes.forEach((cubeData,idx)=>{
+      const col = cubeStartCol+idx;
+      ws.mergeCells(2,col,3,col);
+      const nameCell = ws.getCell(2,col);
+      // Use appropriate language name from cube data
+      const cubeName = lang === "en" ? cubeData.name_en : cubeData.name_cn;
+      nameCell.value = cubeName || cubeData.cube_id;
+      nameCell.alignment = { horizontal:"center", vertical:"middle" };
+      nameCell.font = { bold:true };
+      if(idx < cubes.length-1)
+        setVerticalBorder(ws,2,8,col,thinSide,"right");
+      
+      ws.mergeCells(4,col,8,col);      let lvl = cubeData.cube_level;
+      if(lvl===0) lvl = t("notFound");
+      const lvlCell = ws.getCell(4,col);
+      lvlCell.value = lvl;
+      lvlCell.alignment = { horizontal:"center", vertical:"middle" };
+    });
+    
+    setOuterBorder(ws,2,cubeStartCol,3,cubeStartCol+cubes.length-1,mediumSide);
+    setOuterBorder(ws,4,cubeStartCol,8,cubeStartCol+cubes.length-1,mediumSide);
+  }
+    /* 列宽 */
   if(lang === "en"){
     ws.getColumn(1).width = 5;
     ws.getColumn(2).width = 20;
@@ -304,9 +321,9 @@ export const saveDictToExcel = async (dict, lang = "en") => {
       else if(offset===6) ws.getColumn(col).width = 5;
       else ws.getColumn(col).width = 10;
     }
-  }
-  const cubeWidth = lang === "en" ? 19 : 14;
-  for(let col=cubeStartCol; col<cubeStartCol+cubeNames.length; ++col){
+  }  const cubeWidth = lang === "en" ? 19 : 14;
+  const cubeCount = Array.isArray(dict.cubes) ? dict.cubes.length : 0;
+  for(let col=cubeStartCol; col<cubeStartCol+cubeCount; ++col){
     ws.getColumn(col).width = cubeWidth;
   }
   

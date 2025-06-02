@@ -2,6 +2,7 @@
 
 const SETTINGS_KEY  = "settings";
 const ACCOUNTS_KEY  = "accounts";
+const CHARACTERS_KEY = "characters";
 
 export const getSettings = () =>
   new Promise((res) =>
@@ -21,5 +22,24 @@ export const getAccounts = () =>
 export const setAccounts = (arr) =>
   new Promise((res) =>
     chrome.storage.local.set({ [ACCOUNTS_KEY]: arr }, () => res())
+  );
+
+export const getCharacters = () =>
+  new Promise((res) =>
+    chrome.storage.local.get(CHARACTERS_KEY, (r) => res(r[CHARACTERS_KEY] || {
+      elements: {
+        Electronic: [],
+        Fire: [],
+        Wind: [],
+        Water: [],
+        Iron: [],
+        Utility: []
+      }
+    }))
+  );
+
+export const setCharacters = (obj) =>
+  new Promise((res) =>
+    chrome.storage.local.set({ [CHARACTERS_KEY]: obj }, () => res())
   );
 

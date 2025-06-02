@@ -1,11 +1,47 @@
 // src/api.js
+import { getCharacters } from "./storage.js";
 
 /* ---------- 载入语言模板 ---------- */
-export const loadBaseAccountDict = async (lang) => {
-  const fileName = lang === "en" ? "SearchIndexEng.json" : "SearchIndexChs.json";
-  const url = chrome.runtime.getURL(fileName);
-  const resp = await fetch(url);
-  return resp.json();
+export const loadBaseAccountDict = async () => {
+  // Load list.json for cube data
+  const listUrl = chrome.runtime.getURL("list.json");
+  const listResp = await fetch(listUrl);
+  const listData = await listResp.json();
+  
+  // Build cubes array with cube_id, level, and name info
+  const cubes = listData.cubes.map(cube => ({
+    cube_id: cube.cube_id,
+    cube_level: 0,
+    name_cn: cube.name_cn,
+    name_en: cube.name_en
+  }));
+    // Get character data from storage (character management system)
+  const charactersData = await getCharacters();
+  
+  // Ensure elements are arrays and apply migration if needed
+  const migratedElements = {};
+  ["Electronic", "Fire", "Wind", "Water", "Iron", "Utility"].forEach(element => {
+    if (charactersData.elements && charactersData.elements[element]) {
+      if (Array.isArray(charactersData.elements[element])) {
+        migratedElements[element] = charactersData.elements[element];
+      } else {
+        // Convert object to array for migration
+        migratedElements[element] = Object.values(charactersData.elements[element]);
+      }
+    } else {
+      migratedElements[element] = [];
+    }
+  });
+  
+  // Create base dictionary structure with unified element names and fixed ordering
+  const baseDict = {
+    name: "",
+    synchroLevel: 0,
+    cubes: cubes,
+    elements: migratedElements
+  };
+  
+  return baseDict;
 };
 
 /* ---------- API 工具 ---------- */

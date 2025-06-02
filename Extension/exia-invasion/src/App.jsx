@@ -254,8 +254,8 @@ export default function App() {
         /* ---------- 2. 构建 dict ---------- */
         let dict;
         try {
-          /* 2-1. 载入基础模板（按语言）并写入账号名 */
-          dict = await loadBaseAccountDict(lang);
+          /* 2-1. 载入基础模板并写入账号名 */
+          dict = await loadBaseAccountDict();
           dict.name = roleName;
           
           /* 2-2. 追加 Nikke 详情与装备信息 */
@@ -331,8 +331,11 @@ export default function App() {
   const addNikkesDetailsToDict = (dict, playerNikkes) => {
     const list = playerNikkes?.data?.player_nikkes || [];
     if (typeof dict.synchroLevel !== "number") dict.synchroLevel = 0;
-    for (const chars of Object.values(dict.elements)) {
-      for (const details of Object.values(chars)) {
+    
+    // Process each element array
+    Object.keys(dict.elements).forEach(elementKey => {
+      const characterArray = dict.elements[elementKey];
+      characterArray.forEach(details => {
         const nikke = list.find((n) => n.name_code === details.name_code);
         if (nikke) {
           details.skill1_level = nikke.skill1_level;
@@ -349,21 +352,21 @@ export default function App() {
           
           /* ---------- 魔方 ---------- */
           if (nikke.cube_id && nikke.cube_level) {
-            for (const [cubeName, cube] of Object.entries(dict.cubes)) {
-              if (cube.cube_id === nikke.cube_id && nikke.cube_level > cube.cube_level) {
-                cube.cube_level = nikke.cube_level;
-              }
+            const cube = dict.cubes.find(c => c.cube_id === nikke.cube_id);
+            if (cube && nikke.cube_level > cube.cube_level) {
+              cube.cube_level = nikke.cube_level;
             }
           }
         }
-      }
-    }
+      });
+    });
   };
   
   /* ======= 辅助函数：填充装备 ======= */
   const addEquipmentsToDict = async (dict) => {
-    for (const chars of Object.values(dict.elements)) {
-      for (const details of Object.values(chars)) {
+    // Process each element array
+    for (const characterArray of Object.values(dict.elements)) {
+      for (const details of characterArray) {
         const characterIds = Array.from(
           { length: 11 },
           (_, i) => details.id + i
