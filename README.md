@@ -114,24 +114,6 @@
 
 
 
-## 开发中功能 Features in Development
-
-- ### 管理页 Management Page
-
-	- 可修改的妮姬爬取列表。
-
-		Editable nikke crawl list.
-
-		
-
-	- 账号表拖动改变顺序的视觉动画。
-
-		Visual animation of dragging the account table to change the order.
-
-
-
-
-
 ## Communication and feedback 交流与反馈
 
 [Discord](https://discord.gg/rN7CrqmY)
