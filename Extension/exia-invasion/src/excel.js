@@ -261,7 +261,17 @@ export const saveDictToExcel = async (dict, lang = "en") => {
       setVerticalBorder(ws,3,8,colCursor+5,thinSide,"right");
       setVerticalBorder(ws,3,8,colCursor+6,thinSide,"right");
       setHorizontalBorder(ws,8,colCursor+6,colCursor+15,thinSide,"top");
-      
+
+      // Hide columns based on selected stats
+      if (Array.isArray(charInfo.showStats)) {
+        for (let i = 7; i < propertyKeys.length; i++) {
+          const key = propertyKeys[i];
+          if (!key) continue;
+          const colIdx = colCursor + i;
+          ws.getColumn(colIdx).hidden = !charInfo.showStats.includes(key);
+        }
+      }
+
       colCursor += widthPerChar;
     }
     

@@ -29,6 +29,7 @@ import {
   Select,
   MenuItem,
   Chip,
+  Checkbox,
   Paper,
   List,
   ListItem,
@@ -56,6 +57,18 @@ const defaultRow = () => ({
   cookie: "",
   enabled: true
 });
+
+const equipStatKeys = [
+  "IncElementDmg",
+  "StatAtk",
+  "StatAmmoLoad",
+  "StatChargeTime",
+  "StatChargeDamage",
+  "StatCritical",
+  "StatCriticalDamage",
+  "StatAccuracyCircle",
+  "StatDef"
+];
 
 const ManagementPage = () => {
   const [accounts, setAccounts] = useState([]);
@@ -126,6 +139,10 @@ const ManagementPage = () => {
           migratedData.elements[element] = [];
           needsMigration = true;
         }
+        // Ensure each character has showStats
+        migratedData.elements[element] = migratedData.elements[element].map(char => (
+          char.showStats ? char : { ...char, showStats: [...equipStatKeys] }
+        ));
       });
       
       // Save migrated data if needed
@@ -268,13 +285,25 @@ const ManagementPage = () => {
     "Supporter": "支援型"
   };
   
-  const corporationMapping = {
+const corporationMapping = {
     "ELYSION": "极乐净土",
     "MISSILIS": "米西利斯",
     "TETRA": "泰特拉",
     "PILGRIM": "朝圣者",
     "ABNORMAL": "反常"
   };
+
+  const equipStatLabels = [
+    t("elementAdvantage"),
+    t("attack"),
+    t("ammo"),
+    t("chargeSpeed"),
+    t("chargeDamage"),
+    t("critical"),
+    t("criticalDamage"),
+    t("hit"),
+    t("defense")
+  ];
   
   const getElementName = (element) => {
     return lang === "zh" ? (elementMapping[element] || element) : element;
@@ -340,7 +369,8 @@ const ManagementPage = () => {
             id: nikke.id,
             name_cn: nikke.name_cn,
             name_en: nikke.name_en,
-            priority: "yellow"
+            priority: "yellow",
+            showStats: [...equipStatKeys]
           }
         ]
       }
@@ -360,6 +390,21 @@ const ManagementPage = () => {
       }
     };
     
+    setCharactersData(newCharacters);
+    setCharacters(newCharacters);
+  };
+
+  const updateCharacterShowStats = (element, characterIndex, stats) => {
+    const newCharacters = {
+      ...characters,
+      elements: {
+        ...characters.elements,
+        [element]: characters.elements[element].map((char, index) =>
+          index === characterIndex ? { ...char, showStats: stats } : char
+        )
+      }
+    };
+
     setCharactersData(newCharacters);
     setCharacters(newCharacters);
   };
@@ -649,8 +694,9 @@ const ManagementPage = () => {
                               {/* Drag handle header */}
                             </TableCell>
                             <TableCell width="5%">{t("no")}</TableCell>
-                            <TableCell width="52%">{t("characterName")}</TableCell>
-                            <TableCell width="30%">{t("priority")}</TableCell>
+                            <TableCell width="45%">{t("characterName")}</TableCell>
+                            <TableCell width="20%">{t("priority")}</TableCell>
+                            <TableCell width="25%">{t("selectStats")}</TableCell>
                             <TableCell width="10%" align="right"></TableCell>
                           </TableRow>
                         </TableHead>
@@ -697,7 +743,25 @@ const ManagementPage = () => {
                                     <MenuItem value="blue" sx={getPriorityColor("blue")}>{t("blue")}</MenuItem>
                                     <MenuItem value="yellow" sx={getPriorityColor("yellow")}>{t("yellow")}</MenuItem>
                                   </Select>
-                                </FormControl>                              </TableCell>
+                                </FormControl>
+                              </TableCell>
+                              <TableCell>
+                                <FormControl size="small" sx={{ minWidth: 120 }}>
+                                  <Select
+                                    multiple
+                                    value={charData.showStats}
+                                    onChange={(e) => updateCharacterShowStats(element, index, e.target.value)}
+                                    renderValue={(selected) => selected.map(k => equipStatLabels[equipStatKeys.indexOf(k)]).join(', ')}
+                                  >
+                                    {equipStatKeys.map((key, idx) => (
+                                      <MenuItem key={key} value={key}>
+                                        <Checkbox checked={charData.showStats.indexOf(key) > -1} />
+                                        <ListItemText primary={equipStatLabels[idx]} />
+                                      </MenuItem>
+                                    ))}
+                                  </Select>
+                                </FormControl>
+                              </TableCell>
                               <TableCell align="right">
                                 <IconButton
                                   color="error"
@@ -710,7 +774,7 @@ const ManagementPage = () => {
                             </TableRow>
                           ))}
                             <TableRow>
-                            <TableCell colSpan={5} sx={{ pt: 2, borderBottom: 'none' }}>
+                            <TableCell colSpan={6} sx={{ pt: 2, borderBottom: 'none' }}>
                               <Box display="flex" justifyContent="center">
                                 <IconButton color="primary" onClick={() => openFilterDialog(element)}>
                                   <AddIcon />
