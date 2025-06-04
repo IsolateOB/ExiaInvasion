@@ -27,6 +27,7 @@ export async function mergeWorkbooks(files, sortFlag = "1", addLog = () => {}) {
     if (fileIdx === 0 && Array.isArray(inWs.columns)) {
       inWs.columns.forEach((col, i) => {
         if (col && col.width) outWs.getColumn(i + 1).width = col.width;
+        if (col && col.hidden) outWs.getColumn(i + 1).hidden = col.hidden;
       });
     }
     
