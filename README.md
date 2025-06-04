@@ -115,26 +115,16 @@
 	  	
 	
 	- #### 妮姬管理 NIKKE MANAGEMENT
-	
-<<<<<<< HEAD
+
 		- **优先级** 为主观评级可自行决定，它将决定该妮姬在表中的背景色。
 		
 			**Priority** is a subjective rating that you can decide for yourself, and it will determine the background color of that Nikke in the table.
-=======
-	  - **优先级** 为主观评级可自行决定，它将决定该妮姬在表中的背景色。
-		
-		  **Priority** is a subjective rating that you can decide for yourself, and it will determine the background color of that Nikke in the table.
->>>>>>> bb392a8dde3a0eab09109dbd8e129d7267a462f7
-	  
-		  
-	  
+			
+			
+			
 		- **选择词条** 时，不管是否选择词条都会获取并统计该词条，但未选择的词条将在制表时被隐藏，可自行展开查看。
 		
-<<<<<<< HEAD
-			When **Select Stats**, whether or not you select an attribute, it will still be collected and counted, but unselected attributes will be hidden during table generation and can be expanded for viewing.
-=======
 		  When **Select Stats**, whether or not you select an attribute, it will still be collected and counted, but unselected attributes will be hidden during table generation and can be expanded for viewing.
->>>>>>> bb392a8dde3a0eab09109dbd8e129d7267a462f7
 
 
 
