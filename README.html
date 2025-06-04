@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ExiaInvasion - Nikke角色数据爬虫工具</title>
+    <style>
+        body {
+            font-family: "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            border-left: 4px solid #3498db;
+            padding-left: 15px;
+            margin-top: 30px;
+        }
+        h3 {
+            color: #34495e;
+            margin-top: 25px;
+        }
+        h4 {
+            color: #2c3e50;
+            margin-top: 20px;
+        }
+        .language-toggle {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .lang-btn {
+            padding: 8px 16px;
+            margin: 0 5px;
+            border: 2px solid #3498db;
+            background: white;
+            color: #3498db;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .lang-btn.active {
+            background: #3498db;
+            color: white;
+        }
+        .example-image {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .example-image img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .notice {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .usage-section {
+            background: #e8f4fd;
+            border: 1px solid #b3d9ff;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: "Consolas", "Monaco", monospace;
+        }
+        .links {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #eee;
+        }
+        .links a {
+            display: inline-block;
+            margin: 0 15px;
+            padding: 10px 20px;
+            background: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+        .links a:hover {
+            background: #2980b9;
+        }
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .feature-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+        }
+        .lang-section {
+            display: none;
+        }
+        .lang-section.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ExiaInvasion</h1>
+        
+        <div class="language-toggle">
+            <a href="#" class="lang-btn active" onclick="switchLanguage('zh')">中文</a>
+            <a href="#" class="lang-btn" onclick="switchLanguage('en')">English</a>
+        </div>
+
+        <!-- 中文版本 -->
+        <div id="zh-content" class="lang-section active">
+            <p><strong>ExiaInvasion</strong> 是一个从 <a href="https://www.blablalink.com/" target="_blank">blablalink</a> 获取个人账号中的Nikke人物数据并生成练度表的开源爬虫程序。</p>
+
+            <h2>示例输出</h2>
+            <div class="example-image">
+                <img src="示例输出.png" alt="示例输出" />
+            </div>
+
+            <h2>注意事项</h2>
+            <div class="notice">
+                <ul>
+                    <li>需要 <strong>Edge</strong> 或 <strong>Chrome</strong> 浏览器。</li>
+                    <li>目前仅能输出简体中文和英文表格。</li>
+                </ul>
+            </div>
+
+            <h2>用法</h2>
+            <div class="usage-section">
+                <p>解压压缩包，浏览器进入 <code>chrome://extensions/</code> 或 <code>edge://extensions/</code> 页，启用 <strong>开发者模式</strong>，点击 <strong>加载已解压的扩展程序</strong>，选择解压后的文件夹。</p>
+
+                <h3>主页面</h3>
+                
+                <h4>爬虫</h4>
+                <div class="feature-list">
+                    <div class="feature-item">
+                        <strong>管理账号 & 妮姬</strong><br>
+                        点击可进入管理页面，配置账号和角色信息。
+                    </div>
+                    <div class="feature-item">
+                        <strong>合并保存为 ZIP</strong><br>
+                        运行完毕后，把所有文件合并为一个 zip 格式的压缩文件提供下载。
+                    </div>
+                    <div class="feature-item">
+                        <strong>运行时保存cookie</strong><br>
+                        自动保存该账号的 cookie 以便下次运行时跳过登录步骤。
+                    </div>
+                    <div class="feature-item">
+                        <strong>导出 JSON</strong><br>
+                        运行完毕后输出表格的同时输出用于制表的账号原始数据。
+                    </div>
+                    <div class="feature-item">
+                        <strong>运行时激活标签页</strong><br>
+                        用账号密码登录时，切换到脚本操作的标签页。主要用于检查错误和手动操作人机验证。
+                    </div>
+                    <div class="feature-item">
+                        <strong>保存当前账号 COOKIE</strong><br>
+                        保存当前浏览器在 blablalink 的登录cookie。
+                    </div>
+                </div>
+
+                <h4>合并</h4>
+                <div class="feature-item">
+                    <strong>选择表格</strong>后，<strong>开始合并</strong> 会将这些表格纵向合并。
+                </div>
+
+                <h3>管理页</h3>
+                <ul>
+                    <li>填入并保存 <strong>邮箱</strong> 和 <strong>密码</strong>。</li>
+                    <li>当同时存在<strong>邮箱</strong>、<strong>密码</strong>和 <strong>cookie</strong> 的时候，将默认使用 <strong>cookie</strong>。</li>
+                    <li><strong>启用</strong> 开关打开时，<strong>运行</strong> 将获取该行账号的数据。</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- English版本 -->
+        <div id="en-content" class="lang-section">
+            <p><strong>ExiaInvasion</strong> is an open source crawler program that obtains Nikke character data in personal accounts from <a href="https://www.blablalink.com/" target="_blank">blablalink</a> and generates progress tracker.</p>
+
+            <h2>Example Output</h2>
+            <div class="example-image">
+                <img src="示例输出.png" alt="Example Output" />
+            </div>
+
+            <h2>Notice</h2>
+            <div class="notice">
+                <ul>
+                    <li><strong>Edge</strong> or <strong>Chrome</strong> is required to run the program.</li>
+                    <li>Currently only tables in Simplified Chinese and English can be output.</li>
+                </ul>
+            </div>
+
+            <h2>Usage</h2>
+            <div class="usage-section">
+                <p>Unzip the package. In your browser, go to <code>chrome://extensions/</code> or <code>edge://extensions/</code>, enable <strong>Developer mode</strong>, click <strong>Load unpacked extension</strong>, and select the extracted folder.</p>
+
+                <h3>Main Page</h3>
+                
+                <h4>CRAWLER</h4>
+                <div class="feature-list">
+                    <div class="feature-item">
+                        <strong>MANAGE ACCOUNTS & NIKKES</strong><br>
+                        Click to enter the Management Page to configure accounts and character information.
+                    </div>
+                    <div class="feature-item">
+                        <strong>Merge and Save as ZIP</strong><br>
+                        Will merge all files into a ZIP archive for download after Run is completed.
+                    </div>
+                    <div class="feature-item">
+                        <strong>Save Cookie During Runtime</strong><br>
+                        Will automatically save the account's cookie while running, so the next run can skip the login step.
+                    </div>
+                    <div class="feature-item">
+                        <strong>Export JSON</strong><br>
+                        Will output the raw account data for tabulation alongside the table after Run is completed.
+                    </div>
+                    <div class="feature-item">
+                        <strong>Activate Tab During Runtime</strong><br>
+                        Will switch to the script-operated tab when logging in with account and password. This is mainly for checking errors and handling manual human verification.
+                    </div>
+                    <div class="feature-item">
+                        <strong>SAVE CURRENT ACCOUNT COOKIE</strong><br>
+                        Will save the current browser's login cookie for blablalink.
+                    </div>
+                </div>
+
+                <h4>Merge</h4>
+                <div class="feature-item">
+                    After <strong>SELECT EXCEL FILE</strong>, clicking <strong>START MERGING</strong> will vertically merge these tables.
+                </div>
+
+                <h3>Management Page</h3>
+                <ul>
+                    <li>Enter and save <strong>Email</strong> and <strong>Password</strong>.</li>
+                    <li>When <strong>email</strong>, <strong>password</strong>, and <strong>cookie</strong> are all present, the <strong>cookie</strong> will be used by default.</li>
+                    <li>When the <strong>Enable</strong> switch is turned on, <strong>Run</strong> will fetch data for that account row.</li>
+                </ul>
+            </div>
+        </div>
+
+        <h2>交流与反馈 / Communication and Feedback</h2>
+        <div class="links">
+            <a href="https://discord.gg/rN7CrqmY" target="_blank">Discord</a>
+            <a href="https://github.com/IsolateOB/ExiaInvasion" target="_blank">Github</a>
+            <a href="https://qm.qq.com/q/hznFzFRAf8" target="_blank">东南亚服交流QQ群</a>
+        </div>
+    </div>
+
+    <script>
+        function switchLanguage(lang) {
+            // Hide all content sections
+            document.getElementById('zh-content').classList.remove('active');
+            document.getElementById('en-content').classList.remove('active');
+            
+            // Show selected language content
+            document.getElementById(lang + '-content').classList.add('active');
+            
+            // Update button states
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>

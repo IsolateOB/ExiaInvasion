@@ -1,8 +1,8 @@
 # ExiaInvasion
 
-**ExiaInvasion** is an open source crawler program that obtains Nikke character data in personal accounts from [blablalink](https://www.blablalink.com/) and generates progress tracker.
+**ExiaInvasion** is an open source **Browser Extension** that obtains Nikke character data in personal accounts from [blablalink](https://www.blablalink.com/) and generates progress tracker.
 
-**ExiaInvasion** 是一个从 [blablalink](https://www.blablalink.com/) 获取个人账号中的Nikke人物数据并生成练度表的开源爬虫程序。
+**ExiaInvasion** 是一个从 [blablalink](https://www.blablalink.com/) 获取个人账号中的Nikke人物数据并生成练度表的开源 **浏览器插件**。
 
 
 
@@ -20,9 +20,9 @@
 
 ## 注意 Notice
 
-- 需要 **Edge** 或 **Chrome** 浏览器。
+- 需要 **Edge** 或 **Chrome** 浏览器或其他 **Chromium** 内核浏览器。
 
-	**Edge** or **Chrome** is required to run the program.
+	**Edge** or **Chrome** or another **Chromium**-based browser.
 	
 	
 	
@@ -100,7 +100,7 @@
 
 		
 
-	- 当同时存在**邮箱**， **密码**，和 **cookie** 的时候，将默认使用 **cookie**。
+	- 当同时存在 **邮箱**， **密码**，和 **cookie** 的时候，将默认使用 **cookie**。
 
 		When **email**, **password**, and **cookie** are all present, the **cookie** will be used by default.
 
@@ -114,7 +114,7 @@
 
 
 
-## Communication and feedback 交流与反馈
+## 交流与反馈 Communication and feedback
 
 [Discord](https://discord.gg/rN7CrqmY)
 
