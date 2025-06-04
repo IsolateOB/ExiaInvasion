@@ -124,7 +124,7 @@
 			
 		- **选择词条** 时，不管是否选择词条都会获取并统计该词条，但未选择的词条将在制表时被隐藏，可自行展开查看。
 		
-		  When **Select Stats**, whether or not you select an attribute, it will still be collected and counted, but unselected attributes will be hidden during table generation and can be expanded for viewing.
+			When **Select Stats**, whether or not you select an attribute, it will still be collected and counted, but unselected attributes will be hidden during table generation and can be expanded for viewing.
 
 
 
