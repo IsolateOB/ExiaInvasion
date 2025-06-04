@@ -31,13 +31,10 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Chip,
   Checkbox,
-  Paper,
   List,
   ListItem,
   ListItemText,
-  ListItemSecondaryAction,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
@@ -362,8 +359,7 @@ const corporationMapping = {
     setFilteredNikkes(filtered);
     
     setFilterDialogOpen(true);
-  };
-  const applyFilters = useCallback(() => {
+  };  const applyFilters = useCallback(() => {
     let filtered = nikkeList;
     
     Object.entries(filters).forEach(([key, value]) => {
@@ -375,6 +371,15 @@ const corporationMapping = {
             (nikke.name_cn && nikke.name_cn.toLowerCase().includes(searchTerm)) ||
             (nikke.name_en && nikke.name_en.toLowerCase().includes(searchTerm))
           );
+        } else if (key === "use_burst_skill") {
+          // Handle burst skill mapping: "1" -> "Step1", "2" -> "Step2", "3" -> "Step3"
+          const burstMapping = {
+            "1": "Step1",
+            "2": "Step2", 
+            "3": "Step3"
+          };
+          const mappedValue = burstMapping[value] || value;
+          filtered = filtered.filter(nikke => nikke[key] === mappedValue);
         } else {
           filtered = filtered.filter(nikke => nikke[key] === value);
         }
@@ -920,15 +925,13 @@ const corporationMapping = {
             
             <Typography variant="subtitle2">{t("filterResults")} ({filteredNikkes.length})</Typography>
             
-            <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
+            <Box sx={{ maxHeight: 400, overflow: 'auto' }}>              
               {filteredNikkes.length > 0 ? (
                 <List>
-                  {filteredNikkes.map((nikke) => (                    <ListItem key={nikke.id}>
-                      <ListItemText
-                        primary={lang === "zh" ? nikke.name_cn : nikke.name_en}
-                        secondary={`${getClassName(nikke.class)} | ${getElementName(nikke.element)} | ${getCorporationName(nikke.corporation)} | ${nikke.weapon_type} | ${nikke.original_rare}`}
-                      />
-                      <ListItemSecondaryAction>
+                  {filteredNikkes.map((nikke) => (
+                    <ListItem 
+                      key={nikke.id}
+                      secondaryAction={
                         <Button
                           variant="contained"
                           size="small"
@@ -936,7 +939,12 @@ const corporationMapping = {
                         >
                           {t("confirmAdd")}
                         </Button>
-                      </ListItemSecondaryAction>
+                      }
+                    >
+                      <ListItemText
+                        primary={lang === "zh" ? nikke.name_cn : nikke.name_en}
+                        secondary={`${getClassName(nikke.class)} | ${getElementName(nikke.element)} | ${getCorporationName(nikke.corporation)} | ${nikke.weapon_type} | ${nikke.original_rare}`}
+                      />
                     </ListItem>
                   ))}
                 </List>
