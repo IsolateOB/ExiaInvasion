@@ -94,21 +94,36 @@
 
 - ### 管理页 Management Page
 
-	- 填入并保存 **邮箱** 和 **密码**。
+	- #### 账号列表 Account List
 
-		Enter and save **Email** and **Password**.
+	  - 填入并保存 **邮箱** 和 **密码**。
 
-		
+	  	Enter and save **Email** and **Password**.
 
-	- 当同时存在 **邮箱**， **密码**，和 **cookie** 的时候，将默认使用 **cookie**。
+	  	
 
-		When **email**, **password**, and **cookie** are all present, the **cookie** will be used by default.
+	  - 当同时存在 **邮箱**， **密码**，和 **cookie** 的时候，将默认使用 **cookie**。
 
-		
+	  	When **email**, **password**, and **cookie** are all present, the **cookie** will be used by default.
 
-	- **启用** 开关打开时，**运行** 将获取该行账号的数据。
+	  	
 
-		When the **Enable** switch is turned on, **Run** will fetch data for that account row.
+	  - **启用** 开关打开时，**运行** 将获取该行账号的数据。
+	
+	  	When the **Enable** switch is turned on, **Run** will fetch data for that account row.
+	
+	  	
+	
+	- #### 妮姬管理 NIKKE MANAGEMENT
+	
+	  - **优先级** 为主观评级可自行决定，它将决定该妮姬在表中的背景色。
+		**Priority** is a subjective rating that you can decide for yourself, and it will determine the background color of that Nikke in the table.
+	
+	  	
+	
+	  - **选择词条** 时，不管是否选择词条都会获取并统计该词条，但未选择的词条将在制表时被隐藏，可自行展开查看。
+		When **Select Stats**, whether or not you select an attribute, it will still be collected and counted, but unselected attributes will be hidden during table generation and can be expanded for viewing.
+
 
 
 
