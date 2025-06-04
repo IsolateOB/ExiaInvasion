@@ -1,31 +1,32 @@
-// src/api.js
+// API接口和数据处理模块
 import { getCharacters } from "./storage.js";
 
-/* ---------- 载入语言模板 ---------- */
+/* ========== 载入基础账号数据模板 ========== */
 export const loadBaseAccountDict = async () => {
-  // Load list.json for cube data
+  // 加载魔方数据
   const listUrl = chrome.runtime.getURL("list.json");
   const listResp = await fetch(listUrl);
   const listData = await listResp.json();
   
-  // Build cubes array with cube_id, level, and name info
+  // 构建魔方数组，包含ID、等级和名称信息
   const cubes = listData.cubes.map(cube => ({
     cube_id: cube.cube_id,
     cube_level: 0,
     name_cn: cube.name_cn,
     name_en: cube.name_en
   }));
-    // Get character data from storage (character management system)
+  
+  // 从存储中获取角色数据（角色管理系统）
   const charactersData = await getCharacters();
   
-  // Ensure elements are arrays and apply migration if needed
+  // 确保所有元素都是数组格式，如需要则进行迁移
   const migratedElements = {};
   ["Electronic", "Fire", "Wind", "Water", "Iron", "Utility"].forEach(element => {
     if (charactersData.elements && charactersData.elements[element]) {
       if (Array.isArray(charactersData.elements[element])) {
         migratedElements[element] = charactersData.elements[element];
       } else {
-        // Convert object to array for migration
+        // 将对象转换为数组进行迁移
         migratedElements[element] = Object.values(charactersData.elements[element]);
       }
     } else {
@@ -33,7 +34,7 @@ export const loadBaseAccountDict = async () => {
     }
   });
   
-  // Create base dictionary structure with unified element names and fixed ordering
+  // 创建基础数据结构，统一元素名称和固定排序
   const baseDict = {
     name: "",
     synchroLevel: 0,
@@ -44,7 +45,7 @@ export const loadBaseAccountDict = async () => {
   return baseDict;
 };
 
-/* ---------- API 工具 ---------- */
+/* ========== HTTP请求工具函数 ========== */
 const buildHeader = () => ({
   "Content-Type": "application/json",
   Accept: "application/json",
@@ -55,13 +56,13 @@ const postJson = async (url, bodyObj) => {
     method: "POST",
     headers: buildHeader(),
     body: JSON.stringify(bodyObj),
-    credentials: "include", // 自动带 cookie
+    credentials: "include", // 自动携带Cookie
   });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json();
 };
 
-/* ---------- 游戏 API ---------- */
+/* ========== 游戏API接口 ========== */
 export const getRoleName = () =>
   postJson(
     "https://api.blablalink.com/api/ugc/direct/standalonesite/User/GetUserGamePlayerInfo",
@@ -82,6 +83,7 @@ export const getEquipments = (characterIds) =>
   ).then((j) => {
     const list = j?.data?.player_equip_contents || [];
     const finalSlots = [null, null, null, null];
+    // 反向遍历，确保获取最新的装备数据
     for (const record of [...list].reverse()) {
       record.equip_contents.forEach((slot, idx) => {
         if (
@@ -98,6 +100,7 @@ export const getEquipments = (characterIds) =>
         return;
       }
       const details = [];
+      // 处理装备词条数据
       slot.equip_effects.forEach((eff) => {
         eff.function_details.forEach((func) => {
           details.push({

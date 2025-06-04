@@ -1,5 +1,9 @@
-// src/cookie.js
+// Cookie管理模块
 
+/**
+ * 应用Cookie字符串到浏览器
+ * @param {string} cookieStr - Cookie字符串，格式为 "name=value; name2=value2"
+ */
 export const applyCookieStr = async (cookieStr) => {
   if (!cookieStr) return;
   
@@ -8,18 +12,21 @@ export const applyCookieStr = async (cookieStr) => {
     if (!name) continue;
     
     await chrome.cookies.set({
-      // 必须用能匹配 domain 的 URL，这里写裸域即可
+      // 使用能匹配域名的URL
       url: "https://blablalink.com/",
-      domain: ".blablalink.com",   // 关键：对子域也生效
+      domain: ".blablalink.com",   // 对子域也生效
       name,
       value,
       path: "/",
-      secure: true,                // 接口全是 HTTPS，安全起见
+      secure: true,                // HTTPS安全连接
       sameSite: "no_restriction",  // 跟随原站设置
     });
   }
 };
 
+/**
+ * 清除指定站点的所有Cookie
+ */
 export const clearSiteCookies = async () => {
   const all = await chrome.cookies.getAll({});
   await Promise.all(

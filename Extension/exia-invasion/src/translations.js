@@ -1,4 +1,6 @@
-// src/translations.js
+// ========== 多语言翻译文件 ==========
+// 支持中文和英文的界面文本翻译
+
 const TRANSLATIONS = {
   zh: {
     starting: "运行中，请勿关闭侧栏",

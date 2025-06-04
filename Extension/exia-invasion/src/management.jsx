@@ -1,5 +1,8 @@
-// src/management.jsx
+// ========== ExiaInvasion 管理页面组件 ==========
+// 主要功能：账户管理、角色数据管理、装备统计配置等
+
 import { useState, useEffect, useCallback, useMemo } from "react";
+// ========== 导入依赖 ==========
 import {
   AppBar,
   Toolbar,
@@ -49,6 +52,9 @@ import TRANSLATIONS from "./translations.js";
 import { v4 as uuidv4 } from "uuid";
 import { getCharacters, setCharacters } from "./storage.js";
 
+// ========== 常量定义 ==========
+// 默认账户行数据结构
+
 const defaultRow = () => ({
   id: uuidv4(),
   username: "",
@@ -58,25 +64,31 @@ const defaultRow = () => ({
   enabled: true
 });
 
+// 装备统计键名列表
 const equipStatKeys = [
-  "IncElementDmg",
-  "StatAtk",
-  "StatAmmoLoad",
-  "StatChargeTime",
-  "StatChargeDamage",
-  "StatCritical",
-  "StatCriticalDamage",
-  "StatAccuracyCircle",
-  "StatDef"
+  "IncElementDmg",    // 属性伤害
+  "StatAtk",          // 攻击力
+  "StatAmmoLoad",     // 弹药装载
+  "StatChargeTime",   // 充能时间
+  "StatChargeDamage", // 充能伤害
+  "StatCritical",     // 暴击率
+  "StatCriticalDamage", // 暴击伤害
+  "StatAccuracyCircle", // 精准度
+  "StatDef"           // 防御力
 ];
 
+// ========== 管理页面主组件 ==========
+
 const ManagementPage = () => {
+  // ========== 状态管理 ==========
+  // 账户管理相关状态
   const [accounts, setAccounts] = useState([]);
   const [editing, setEditing] = useState([]);
-  const [showPwds, setShowPwds] = useState([]);  const [draggedItemIndex, setDraggedItemIndex] = useState(null); // Added for drag and drop
+  const [showPwds, setShowPwds] = useState([]);
+  const [draggedItemIndex, setDraggedItemIndex] = useState(null); // 拖拽功能
 
-  // Character management states
-  const [tab, setTab] = useState(0); // 0 for accounts, 1 for characters
+  // 角色管理相关状态
+  const [tab, setTab] = useState(0); // 0: 账户管理, 1: 角色管理
   const [characters, setCharactersData] = useState({ 
     elements: { 
       Electronic: [], 
@@ -89,7 +101,8 @@ const ManagementPage = () => {
   });
   const [nikkeList, setNikkeList] = useState([]);
   const [filterDialogOpen, setFilterDialogOpen] = useState(false);
-  const [selectedElement, setSelectedElement] = useState("");  const [filters, setFilters] = useState({
+  const [selectedElement, setSelectedElement] = useState("");
+  const [filters, setFilters] = useState({
     name: "",
     class: "",
     element: "",
@@ -100,11 +113,11 @@ const ManagementPage = () => {
   });
   const [filteredNikkes, setFilteredNikkes] = useState([]);
   
-  // Character drag and drop states
+  // 角色拖拽状态
   const [draggedCharacterIndex, setDraggedCharacterIndex] = useState(null);
   const [draggedCharacterElement, setDraggedCharacterElement] = useState(null);
   
-  /* -------- 语言同步设置 -------- */
+  /* ========== 语言设置同步 ========== */
   const [lang, setLang] = useState("zh");
   const t = useCallback((k) => TRANSLATIONS[lang][k] || k, [lang]);
   
@@ -118,52 +131,54 @@ const ManagementPage = () => {
       }
     };
     chrome.storage.onChanged.addListener(handler);
-    return () => chrome.storage.onChanged.removeListener(handler);}, []);
-    /* ---------- 初始化角色数据 ---------- */
+    return () => chrome.storage.onChanged.removeListener(handler);
+  }, []);
+  
+  /* ========== 角色数据初始化 ========== */
   useEffect(() => {
-    // Load characters data with migration logic
+    // 加载角色数据并处理数据迁移
     getCharacters().then(data => {
-      // Check if we need to migrate from old object format to new array format
+      // 检查是否需要从旧的对象格式迁移到新的数组格式
       const migratedData = { ...data };
       let needsMigration = false;
       
-      // Check each element and convert object to array if needed
+      // 检查每个属性并在需要时转换为数组格式
       ["Electronic", "Fire", "Wind", "Water", "Iron", "Utility"].forEach(element => {
         if (migratedData.elements[element] && !Array.isArray(migratedData.elements[element])) {
-          // Convert object to array
+          // 将对象转换为数组
           const objectData = migratedData.elements[element];
           migratedData.elements[element] = Object.values(objectData);
           needsMigration = true;
         } else if (!migratedData.elements[element]) {
-          // Ensure all elements exist as arrays
+          // 确保所有属性都存在并为数组
           migratedData.elements[element] = [];
           needsMigration = true;
         }
-        // Ensure each character has showStats
+        // 确保每个角色都有 showStats 属性
         migratedData.elements[element] = migratedData.elements[element].map(char => (
           char.showStats ? char : { ...char, showStats: [...equipStatKeys] }
         ));
       });
       
-      // Save migrated data if needed
+      // 如需要则保存迁移后的数据
       if (needsMigration) {
         setCharacters(migratedData);
       }
-      
-      setCharactersData(migratedData);
+        setCharactersData(migratedData);
     });
     
-    // Load nikke list
+    // 加载角色列表数据
     fetch(chrome.runtime.getURL("list.json"))
       .then(response => response.json())
       .then(data => setNikkeList(data.nikkes || []))
       .catch(err => console.error("Failed to load nikke list:", err));
   }, []);
   
-  /* ---------- 初始化账号数据 ---------- */
+  /* ========== 账号数据初始化 ========== */
   useEffect(() => {
     chrome.storage.local.get("accounts", async (r) => {
       let list = r.accounts || [];
+      // 为没有 ID 的账号添加唯一标识符
       const updated = list.map(acc =>
         acc.id ? acc : { ...acc, id: uuidv4() }
       );
@@ -171,6 +186,8 @@ const ManagementPage = () => {
         await new Promise(res => chrome.storage.local.set({ accounts: updated }, res));
       }
       list = updated;
+      
+      // 如果没有账号，创建默认空行
       if (list.length === 0) {
         setAccounts([defaultRow()]);
         setEditing([true]);
@@ -183,6 +200,7 @@ const ManagementPage = () => {
     });
   }, []);
   
+  // 监听存储变化并同步状态
   useEffect(() => {
     const handler = (changes, area) => {
       if (area === "local" && changes.accounts) {
@@ -196,10 +214,12 @@ const ManagementPage = () => {
     return () => chrome.storage.onChanged.removeListener(handler);
   }, []);
   
+  // 持久化账号数据到存储
   const persist = (data) =>
     new Promise((ok) => chrome.storage.local.set({ accounts: data }, ok));
   
-  /* ---------- 账号管理工具函数 ---------- */
+  /* ========== 账号管理操作函数 ========== */
+  // 更新指定账号的字段值
   const updateField = (idx, field, value) =>
     setAccounts((prev) => {
       const next = [...prev];
@@ -207,6 +227,7 @@ const ManagementPage = () => {
       return next;
     });
   
+  // 添加新账号行
   const addRow = () => {
     const newRow = defaultRow();
     setAccounts((prev) => [...prev, newRow]);
@@ -214,14 +235,17 @@ const ManagementPage = () => {
     setShowPwds((prev) => [...prev, false]);
   };
   
+  // 开始编辑指定行
   const startEdit = (idx) =>
     setEditing((prev) => prev.map((e, i) => (i === idx ? true : e)));
   
+  // 保存指定行的修改
   const saveRow = async (idx) => {
     setEditing((prev) => prev.map((e, i) => (i === idx ? false : e)));
     await persist(accounts);
   };
   
+  // 删除指定行
   const deleteRow = async (idx) => {
     setAccounts((prev) => {
       const next = prev.filter((_, i) => i !== idx);
@@ -232,6 +256,7 @@ const ManagementPage = () => {
     setShowPwds((prev) => prev.filter((_, i) => i !== idx));
   };
   
+  // 渲染文本内容（空值显示占位符）
   const renderText = (txt) => (txt ? txt : "—");
   
   const iconUrl = useMemo(() => chrome.runtime.getURL("images/icon-128.png"), []);

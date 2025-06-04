@@ -1,4 +1,6 @@
-// src/App.jsx
+// ========== Exia Invasion 主应用组件 ==========
+// 主要功能：账户管理、数据爬取、Excel导出、文件合并等
+
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   AppBar,
@@ -37,9 +39,9 @@ import { loadBaseAccountDict, getRoleName, getPlayerNikkes, getEquipments } from
 import { mergeWorkbooks } from "./merge.js";
 import { v4 as uuidv4 } from "uuid";
 
-/* ---------- React 组件 ---------- */
+// ========== React 主组件 ==========
 export default function App() {
-  /* ------ 全局状态 ------ */
+  // ========== 全局状态管理 ==========
   const [lang, setLang] = useState("zh");
   const t = useCallback((k) => TRANSLATIONS[lang][k] || k, [lang]);
   
@@ -58,7 +60,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const addLog = (msg) => setLogs((prev) => [...prev, msg]);
   
-  /* ------ 初次载入设置 ------ */
+  // ========== 初始化设置加载 ==========
   useEffect(() => {
     (async () => {
       const s = await getSettings();
@@ -72,10 +74,11 @@ export default function App() {
     })();
   }, []);
   
+  // 持久化设置到存储
   const persistSettings = (upd) =>
     setSettings({ lang, saveAsZip, exportJson, cacheCookie, activateTab, server, sortFlag, ...upd });
   
-  /* ------ UI 控制 ------ */
+  // ========== UI 事件处理函数 ==========
   const handleTabChange = (event, newTab) => {
     if (newTab !== null) {
       setTab(newTab);
@@ -105,7 +108,7 @@ export default function App() {
     setFilesToMerge(Array.from(e.target.files));
   };
   
-  /* ------ 保存当前 cookie ------ */
+  // ========== Cookie 保存功能 ==========
   const handleSaveCookie = () => {
     chrome.cookies.getAll({ url: "https://www.blablalink.com" }, (cookies) => {
       console.log(cookies);
@@ -136,7 +139,7 @@ export default function App() {
     setUsername("");
   };
   
-  /* ========== 主流程：合并 ========== */
+  // ========== 文件合并主流程 ==========
   const handleMerge = async () => {
     if (!filesToMerge.length) {
       addLog(t("upload"));
@@ -162,13 +165,13 @@ export default function App() {
     }
   };
   
-  /* ========== 主流程：启动 ========== */
+  // ========== 数据爬取主流程 ==========
   const handleStart = async () => {
     setLogs([]);
     setLoading(true);
     
     try {
-      /* ---------- 0. 读取账号列表 ---------- */
+      // ========== 步骤0: 读取账号列表 ==========
       const accountsAll = await getAccounts();
       const accounts = accountsAll.filter((a) => a.enabled !== false);
       if (!accounts.length) {
@@ -183,14 +186,14 @@ export default function App() {
       const excelMime =
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
       
-      /* ---------- 1. 遍历每个账号 ---------- */
+      // ========== 步骤1: 遍历每个账号 ==========
       for (let i = 0; i < accounts.length; ++i) {
-        await clearSiteCookies(); // 清除之前的 Cookie，避免干扰
-        const acc = { ...accounts[i] }; // 浅拷贝，避免直接修改 state
+        await clearSiteCookies(); // 清除之前的Cookie，避免干扰
+        const acc = { ...accounts[i] }; // 浅拷贝，避免直接修改状态
         addLog(`----------------------------`);
         addLog(`${t("processAccount")}${acc.name || acc.username || t("noName")}`);
         
-        /* 1-1. 获取可用的 Cookie —— 优先本地缓存，其次邮箱/密码登录 */
+        // 1-1. 获取可用的Cookie——优先本地缓存，其次邮箱/密码登录
         let cookieStr = acc.cookie || "";
         let usedSavedCookie = false;
         
@@ -251,14 +254,14 @@ export default function App() {
           addLog(t("cacheUpdated"));
         }
         
-        /* ---------- 2. 构建 dict ---------- */
+        // ========== 步骤2: 构建数据字典 ==========
         let dict;
         try {
-          /* 2-1. 载入基础模板并写入账号名 */
+          // 2-1. 载入基础模板并写入账号名
           dict = await loadBaseAccountDict();
           dict.name = roleName;
           
-          /* 2-2. 追加 Nikke 详情与装备信息 */
+          // 2-2. 追加Nikke详情与装备信息
           const playerNikkes = await getPlayerNikkes();
           addNikkesDetailsToDict(dict, playerNikkes);
           addLog(t("nikkeOk"));
@@ -270,7 +273,7 @@ export default function App() {
           continue;
         }
         
-        /* ---------- 3. 生成 Excel ---------- */
+        // ========== 步骤3: 生成Excel文件 ==========
         let excelBuffer;
         try {
           excelBuffer = await saveDictToExcel(dict, lang);
@@ -279,7 +282,7 @@ export default function App() {
           continue;
         }
         
-        /* ---------- 4. 导出 JSON ---------- */
+        // ========== 步骤4: 导出JSON文件 ==========
         if (exportJson) {
           const jsonName = `${roleName || acc.name || acc.username}.json`;
           if (saveAsZip) {
@@ -296,7 +299,7 @@ export default function App() {
           }
         }
         
-        /* ---------- 5. 导出 Excel ---------- */
+        // ========== 步骤5: 导出Excel文件 ==========
         if (saveAsZip) {
           zip.file(`${roleName || acc.name || acc.username}.xlsx`, excelBuffer);
         } else {
@@ -308,7 +311,7 @@ export default function App() {
         }
       } // for-loop 结束
       
-      /* ---------- 6. 合并 Zip 并下载 ---------- */
+      /* ---------- 步骤6: 完成所有账号处理 ---------- */
       if (saveAsZip) {
         const zipBlob = await zip.generateAsync({ type: "blob" });
         const url = URL.createObjectURL(zipBlob);
@@ -327,12 +330,12 @@ export default function App() {
     }
   };
   
-  /* ======= 辅助函数：填充 Nikke 详情 ======= */
+  /* ========== 辅助函数：填充 Nikke 详情 ========== */
   const addNikkesDetailsToDict = (dict, playerNikkes) => {
     const list = playerNikkes?.data?.player_nikkes || [];
     if (typeof dict.synchroLevel !== "number") dict.synchroLevel = 0;
     
-    // Process each element array
+    // 处理每个属性数组中的角色数据
     Object.keys(dict.elements).forEach(elementKey => {
       const characterArray = dict.elements[elementKey];
       characterArray.forEach(details => {
@@ -345,12 +348,12 @@ export default function App() {
           details.item_level = nikke.item_level >= 0 ? nikke.item_level : "";
           details.limit_break = nikke.limit_break;
           
-          /* ---------- 同步器 ---------- */
+          /* 更新同步器等级 */
           if (nikke.level > dict.synchroLevel) {
             dict.synchroLevel = nikke.level;
           }
           
-          /* ---------- 魔方 ---------- */
+          /* 更新魔方等级 */
           if (nikke.cube_id && nikke.cube_level) {
             const cube = dict.cubes.find(c => c.cube_id === nikke.cube_id);
             if (cube && nikke.cube_level > cube.cube_level) {
@@ -362,9 +365,9 @@ export default function App() {
     });
   };
   
-  /* ======= 辅助函数：填充装备 ======= */
+  /* ========== 辅助函数：填充装备信息 ========== */
   const addEquipmentsToDict = async (dict) => {
-    // Process each element array
+    // 处理每个属性数组中的角色装备
     for (const characterArray of Object.values(dict.elements)) {
       for (const details of characterArray) {
         const characterIds = Array.from(
@@ -375,13 +378,13 @@ export default function App() {
       }
     }
   };
-  
+
+  /* ========== 辅助函数：Cookie 数组转字符串 ========== */
   const cookieArrToStr = (cks) => {
     const map = new Map();
     
-    // 后出现的同名 cookie 会覆盖前面的
+    // 后出现的同名 cookie 会覆盖前面的，优先保留根路径
     cks.forEach((c) => {
-      // 如果想优先保留 path 更短的（通常是根路径），可以加个简单判断
       if (!map.has(c.name) || c.path === "/") {
         map.set(c.name, c.value);
       }
@@ -392,7 +395,7 @@ export default function App() {
       .join("; ");
   };
   
-  /* ======= 登录并抓取 Cookie ======= */
+  /* ========== 登录并获取 Cookie ========== */
   const loginAndGetCookie = async (acc, serverFlag) => {
     addLog(t("getCookie"));
     
@@ -475,9 +478,10 @@ export default function App() {
     chrome.tabs.remove(tab.id);
   };
   
+  // 图标路径获取
   const iconUrl = useMemo(() => chrome.runtime.getURL("images/icon-128.png"), []);
   
-  /* ------ UI 渲染 ------ */
+  /* ========== UI 界面渲染 ========== */
   return (
     <>
       <AppBar position="sticky">
