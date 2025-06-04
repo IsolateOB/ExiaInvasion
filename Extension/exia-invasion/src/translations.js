@@ -2,7 +2,7 @@
 const TRANSLATIONS = {
   zh: {
     starting: "运行中，请勿关闭侧栏",
-    accountTable: "账号列表",
+    accountTable: "账号",
     enabled: "启用",
     no: "No.",
     email: "邮箱",
@@ -54,7 +54,7 @@ const TRANSLATIONS = {
     syncDesc: "同步器降序",
     merge: "开始合并",    
     mergeOption: "合并选项",
-    characterManagement: "妮姬管理",
+    characterManagement: "妮姬",
     elements: "元素",    
     iron: "铁甲",
     fire: "燃烧", 
@@ -118,7 +118,7 @@ const TRANSLATIONS = {
   },
   en: {
     starting: "Running, please do not close the sidebar",
-    accountTable: "Account List",
+    accountTable: "Accounts",
     enabled: "Enabled",
     no: "No.",
     email: "Email",
@@ -170,7 +170,7 @@ const TRANSLATIONS = {
     syncDesc: "Sync Descending",
     merge: "Start Merging",    
     mergeOption: "Merge Options",
-    characterManagement: "Nikke Management",
+    characterManagement: "Nikkes",
     elements: "Code",    
     iron: "Iron",
     fire: "Fire", 
