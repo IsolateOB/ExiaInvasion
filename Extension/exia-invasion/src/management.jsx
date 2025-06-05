@@ -19,9 +19,6 @@ import {
   Box,
   Tabs,
   Tab,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
   Button,
   Dialog,
   DialogTitle,
@@ -44,7 +41,6 @@ import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import InputAdornment from "@mui/material/InputAdornment";
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import TRANSLATIONS from "./translations.js";
 import { v4 as uuidv4 } from "uuid";
 import { getCharacters, setCharacters } from "./storage.js";
@@ -109,10 +105,12 @@ const ManagementPage = () => {
     original_rare: ""
   });
   const [filteredNikkes, setFilteredNikkes] = useState([]);
-  
-  // 角色拖拽状态
+    // 角色拖拽状态
   const [draggedCharacterIndex, setDraggedCharacterIndex] = useState(null);
   const [draggedCharacterElement, setDraggedCharacterElement] = useState(null);
+  
+  // 全选/全不选状态
+  const isAllEnabled = useMemo(() => accounts.every(acc => acc.enabled !== false), [accounts]);
   
   /* ========== 语言设置同步 ========== */
   const [lang, setLang] = useState("zh");
@@ -241,8 +239,7 @@ const ManagementPage = () => {
     setEditing((prev) => prev.map((e, i) => (i === idx ? false : e)));
     await persist(accounts);
   };
-  
-  // 删除指定行
+    // 删除指定行
   const deleteRow = async (idx) => {
     setAccounts((prev) => {
       const next = prev.filter((_, i) => i !== idx);
@@ -251,6 +248,17 @@ const ManagementPage = () => {
     });
     setEditing((prev) => prev.filter((_, i) => i !== idx));
     setShowPwds((prev) => prev.filter((_, i) => i !== idx));
+  };
+  
+  // 全选/全不选启用状态
+  const handleToggleAllEnabled = async () => {
+    const newEnabledState = !isAllEnabled;
+    const updatedAccounts = accounts.map(acc => ({
+      ...acc,
+      enabled: newEnabledState
+    }));
+    setAccounts(updatedAccounts);
+    await persist(updatedAccounts);
   };
   
   // 渲染文本内容（空值显示占位符）
@@ -520,12 +528,22 @@ const corporationMapping = {
           <Tab label={t("accountTable")} />
           <Tab label={t("characterManagement")} />
         </Tabs>
-        
-        {tab === 0 && (
+          {tab === 0 && (
           <>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              {t("accountTable")}
-            </Typography>
+            {/* 账户管理标题和启用全部按钮 */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">
+                {t("accountTable")}
+              </Typography>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={handleToggleAllEnabled}
+                sx={{ minWidth: 80 }}
+              >
+                {isAllEnabled ? t("deselectAll") : t("selectAll")}
+              </Button>
+            </Box>
             
             {/* Account management table */}
             <Table size="small">
@@ -708,115 +726,133 @@ const corporationMapping = {
             <Typography variant="h6" sx={{ mb: 2 }}>
               {t("characterManagement")}
             </Typography>
-            
-            {["Electronic", "Fire", "Wind", "Water", "Iron", "Utility"].map((element) => {
+              {["Electronic", "Fire", "Wind", "Water", "Iron", "Utility"].map((element) => {
               const elementChars = characters.elements[element] || [];
               return (
-                <Accordion key={element} sx={{ mb: 2 }}>
-                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                    <Typography>{getElementName(element)} ({elementChars.length})</Typography>
-                  </AccordionSummary>
-                  <AccordionDetails>
-                    <Box display="flex" flexDirection="column" gap={1}>
-                      {/* Character Table */}
-                      <Table size="small">                        <TableHead>
-                          <TableRow>                            <TableCell width="3%" sx={{ textAlign: 'center', paddingLeft: '2px', paddingRight: '2px' }}>
-                              {/* Drag handle header */}
+                <Box key={element} sx={{ mb: 3, border: '1px solid #e0e0e0', borderRadius: 1, p: 2 }}>
+                  <Typography variant="h6" sx={{ mb: 2 }}>
+                    {getElementName(element)} ({elementChars.length})
+                  </Typography>
+                  <Box display="flex" flexDirection="column" gap={1}>
+                    {/* Character Table */}
+                    <Table size="small">                      <TableHead>
+                        <TableRow>
+                          <TableCell width="3%" sx={{ textAlign: 'center', paddingLeft: '2px', paddingRight: '2px' }}>
+                            {/* Drag handle header */}
+                          </TableCell>
+                          <TableCell width="5%">{t("no")}</TableCell>
+                          <TableCell width="20%">{t("characterName")}</TableCell>
+                          <TableCell width="10%">{t("priority")}</TableCell>
+                          {/* 装备词条列标题 */}
+                          {equipStatKeys.map((key, idx) => (
+                            <TableCell key={key} width="6%" sx={{ textAlign: 'center', fontSize: '0.75rem' }}>
+                              {equipStatLabels[idx]}
                             </TableCell>
-                            <TableCell width="5%">{t("no")}</TableCell>
-                            <TableCell width="45%">{t("characterName")}</TableCell>
-                            <TableCell width="20%">{t("priority")}</TableCell>
-                            <TableCell width="25%">{t("selectStats")}</TableCell>
-                            <TableCell width="10%" align="right"></TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {elementChars.map((charData, index) => (
-                            <TableRow
-                              key={`${charData.id}-${index}`}
-                              draggable
-                              onDragStart={(e) => handleCharacterDragStart(e, element, index)}
-                              onDragOver={handleCharacterDragOver}
-                              onDrop={() => handleCharacterDrop(element, index)}                              sx={{
-                                "& > *": { verticalAlign: "top" },
-                                cursor: "grab",
-                                opacity: draggedCharacterIndex === index && draggedCharacterElement === element ? 0.7 : 1,
-                                transform: draggedCharacterIndex === index && draggedCharacterElement === element ? 'translateY(-4px)' : 'translateY(0)',
-                                transition: 'all 0.2s ease',
-                                backgroundColor: draggedCharacterIndex !== null && (draggedCharacterIndex !== index || draggedCharacterElement !== element) ? 'action.hover' : 'inherit',
-                                '&:hover': {
-                                  backgroundColor: draggedCharacterIndex === null ? 'action.hover' : 'inherit',
-                                  transform: draggedCharacterIndex === null ? 'translateY(-2px)' : 'translateY(0)',
-                                  boxShadow: draggedCharacterIndex === null ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
-                                },
-                                '&:active': {
-                                  cursor: 'grabbing',
-                                  transform: 'translateY(-4px)',
-                                }
-                              }}
-                            >                              <TableCell sx={{ textAlign: 'center', cursor: 'grab', paddingLeft: '2px', paddingRight: '2px' }}>
-                                <DragIndicatorIcon fontSize="small" />
-                              </TableCell>
-                              <TableCell>{index + 1}</TableCell>
-                              <TableCell>
-                                <Typography variant="body2">
-                                  {lang === "zh" ? charData.name_cn : charData.name_en}
-                                </Typography>
-                              </TableCell>                              <TableCell>
-                                <FormControl size="small" sx={{ minWidth: 100 }}>
-                                  <Select
-                                    value={charData.priority}
-                                    onChange={(e) => updateCharacterPriority(element, index, e.target.value)}
-                                    sx={getPriorityColor(charData.priority)}
-                                  >
-                                    <MenuItem value="black" sx={getPriorityColor("black")}>{t("black")}</MenuItem>
-                                    <MenuItem value="blue" sx={getPriorityColor("blue")}>{t("blue")}</MenuItem>
-                                    <MenuItem value="yellow" sx={getPriorityColor("yellow")}>{t("yellow")}</MenuItem>
-                                  </Select>
-                                </FormControl>
-                              </TableCell>
-                              <TableCell>
-                                <FormControl size="small" sx={{ minWidth: 120 }}>
-                                  <Select
-                                    multiple
-                                    value={charData.showStats}
-                                    onChange={(e) => updateCharacterShowStats(element, index, e.target.value)}
-                                    renderValue={(selected) => selected.map(k => equipStatLabels[equipStatKeys.indexOf(k)]).join(', ')}
-                                  >
-                                    {equipStatKeys.map((key, idx) => (
-                                      <MenuItem key={key} value={key}>
-                                        <Checkbox checked={charData.showStats.indexOf(key) > -1} />
-                                        <ListItemText primary={equipStatLabels[idx]} />
-                                      </MenuItem>
-                                    ))}
-                                  </Select>
-                                </FormControl>
-                              </TableCell>
-                              <TableCell align="right">
-                                <IconButton
-                                  color="error"
-                                  onClick={() => deleteCharacter(element, index)}
-                                  size="small"
-                                >
-                                  <DeleteIcon />
-                                </IconButton>
-                              </TableCell>
-                            </TableRow>
                           ))}
-                            <TableRow>
-                            <TableCell colSpan={6} sx={{ pt: 2, borderBottom: 'none' }}>
-                              <Box display="flex" justifyContent="center">
-                                <IconButton color="primary" onClick={() => openFilterDialog(element)}>
-                                  <AddIcon />
-                                </IconButton>
-                              </Box>
+                          <TableCell width="6%" align="right"></TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {elementChars.map((charData, index) => (
+                          <TableRow
+                            key={`${charData.id}-${index}`}
+                            draggable
+                            onDragStart={(e) => handleCharacterDragStart(e, element, index)}
+                            onDragOver={handleCharacterDragOver}
+                            onDrop={() => handleCharacterDrop(element, index)}
+                            sx={{
+                              "& > *": { verticalAlign: "top" },
+                              cursor: "grab",
+                              opacity: draggedCharacterIndex === index && draggedCharacterElement === element ? 0.7 : 1,
+                              transform: draggedCharacterIndex === index && draggedCharacterElement === element ? 'translateY(-4px)' : 'translateY(0)',
+                              transition: 'all 0.2s ease',
+                              backgroundColor: draggedCharacterIndex !== null && (draggedCharacterIndex !== index || draggedCharacterElement !== element) ? 'action.hover' : 'inherit',
+                              '&:hover': {
+                                backgroundColor: draggedCharacterIndex === null ? 'action.hover' : 'inherit',
+                                transform: draggedCharacterIndex === null ? 'translateY(-2px)' : 'translateY(0)',
+                                boxShadow: draggedCharacterIndex === null ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+                              },
+                              '&:active': {
+                                cursor: 'grabbing',
+                                transform: 'translateY(-4px)',
+                              }
+                            }}
+                          >
+                            <TableCell sx={{ textAlign: 'center', cursor: 'grab', paddingLeft: '2px', paddingRight: '2px' }}>
+                              <DragIndicatorIcon fontSize="small" />
+                            </TableCell>
+                            <TableCell>{index + 1}</TableCell>
+                            <TableCell>
+                              <Typography variant="body2">
+                                {lang === "zh" ? charData.name_cn : charData.name_en}
+                              </Typography>
+                            </TableCell>                            <TableCell>
+                              <FormControl size="small" sx={{ minWidth: 100 }}>
+                                <Select
+                                  value={charData.priority}
+                                  onChange={(e) => updateCharacterPriority(element, index, e.target.value)}
+                                  sx={getPriorityColor(charData.priority)}
+                                  MenuProps={{
+                                    PaperProps: {
+                                      style: {
+                                        maxHeight: 200,
+                                        width: 'auto',
+                                      },
+                                    },
+                                    anchorOrigin: {
+                                      vertical: 'bottom',
+                                      horizontal: 'left',
+                                    },
+                                    transformOrigin: {
+                                      vertical: 'top',
+                                      horizontal: 'left',
+                                    },
+                                  }}
+                                >
+                                  <MenuItem value="black" sx={getPriorityColor("black")}>{t("black")}</MenuItem>
+                                  <MenuItem value="blue" sx={getPriorityColor("blue")}>{t("blue")}</MenuItem>
+                                  <MenuItem value="yellow" sx={getPriorityColor("yellow")}>{t("yellow")}</MenuItem>
+                                </Select>
+                              </FormControl>
+                            </TableCell>
+                            {/* 装备词条复选框 */}
+                            {equipStatKeys.map((key) => (
+                              <TableCell key={key} sx={{ textAlign: 'center', padding: '4px' }}>
+                                <Checkbox
+                                  size="small"
+                                  checked={charData.showStats.includes(key)}
+                                  onChange={(e) => {
+                                    const newStats = e.target.checked
+                                      ? [...charData.showStats, key]
+                                      : charData.showStats.filter(stat => stat !== key);
+                                    updateCharacterShowStats(element, index, newStats);
+                                  }}
+                                />
+                              </TableCell>
+                            ))}
+                            <TableCell align="right">
+                              <IconButton
+                                color="error"
+                                onClick={() => deleteCharacter(element, index)}
+                                size="small"
+                              >
+                                <DeleteIcon />
+                              </IconButton>
                             </TableCell>
                           </TableRow>
-                        </TableBody>
-                      </Table>
-                    </Box>
-                  </AccordionDetails>
-                </Accordion>
+                        ))}                        <TableRow>
+                          <TableCell colSpan={4 + equipStatKeys.length + 1} sx={{ pt: 2, borderBottom: 'none' }}>
+                            <Box display="flex" justifyContent="center">
+                              <IconButton color="primary" onClick={() => openFilterDialog(element)}>
+                                <AddIcon />
+                              </IconButton>
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </Box>
+                </Box>
               );
             })}
           </>
@@ -834,14 +870,20 @@ const corporationMapping = {
               onChange={(e) => setFilters(prev => ({ ...prev, name: e.target.value }))}
               placeholder={t("searchPlaceholder")}
               fullWidth
-            />
-            <Box display="flex" gap={2} flexWrap="wrap">
+            />            <Box display="flex" gap={2} flexWrap="wrap">
               <FormControl size="small" sx={{ minWidth: 120 }}>
                 <InputLabel>{t("class")}</InputLabel>
                 <Select
                   value={filters.class}
                   onChange={(e) => setFilters(prev => ({ ...prev, class: e.target.value }))}
                   label={t("class")}
+                  MenuProps={{
+                    PaperProps: {
+                      style: { maxHeight: 200, width: 'auto' }
+                    },
+                    anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+                    transformOrigin: { vertical: 'top', horizontal: 'left' }
+                  }}
                 >
                   <MenuItem value="">All</MenuItem>
                   <MenuItem value="Attacker">{t("attacker")}</MenuItem>
@@ -849,12 +891,20 @@ const corporationMapping = {
                   <MenuItem value="Supporter">{t("supporter")}</MenuItem>
                 </Select>
               </FormControl>
-                <FormControl size="small" sx={{ minWidth: 120 }}>
+              
+              <FormControl size="small" sx={{ minWidth: 120 }}>
                 <InputLabel>{t("element")}</InputLabel>
                 <Select
                   value={filters.element}
                   onChange={(e) => setFilters(prev => ({ ...prev, element: e.target.value }))}
                   label={t("element")}
+                  MenuProps={{
+                    PaperProps: {
+                      style: { maxHeight: 200, width: 'auto' }
+                    },
+                    anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+                    transformOrigin: { vertical: 'top', horizontal: 'left' }
+                  }}
                 >
                   <MenuItem value="">All</MenuItem>
                   <MenuItem value="Iron">{t("iron")}</MenuItem>
@@ -863,12 +913,21 @@ const corporationMapping = {
                   <MenuItem value="Wind">{t("wind")}</MenuItem>
                   <MenuItem value="Electronic">{t("electronic")}</MenuItem>
                 </Select>
-              </FormControl>                <FormControl size="small" sx={{ minWidth: 120 }}>
+              </FormControl>
+              
+              <FormControl size="small" sx={{ minWidth: 120 }}>
                 <InputLabel>{t("burstSkill")}</InputLabel>
                 <Select
                   value={filters.use_burst_skill}
                   onChange={(e) => setFilters(prev => ({ ...prev, use_burst_skill: e.target.value }))}
                   label={t("burstSkill")}
+                  MenuProps={{
+                    PaperProps: {
+                      style: { maxHeight: 200, width: 'auto' }
+                    },
+                    anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+                    transformOrigin: { vertical: 'top', horizontal: 'left' }
+                  }}
                 >
                   <MenuItem value="">All</MenuItem>
                   <MenuItem value="1">1</MenuItem>
@@ -883,6 +942,13 @@ const corporationMapping = {
                   value={filters.corporation}
                   onChange={(e) => setFilters(prev => ({ ...prev, corporation: e.target.value }))}
                   label={t("corporation")}
+                  MenuProps={{
+                    PaperProps: {
+                      style: { maxHeight: 200, width: 'auto' }
+                    },
+                    anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+                    transformOrigin: { vertical: 'top', horizontal: 'left' }
+                  }}
                 >
                   <MenuItem value="">All</MenuItem>
                   <MenuItem value="ELYSION">{t("elysion")}</MenuItem>
@@ -892,12 +958,20 @@ const corporationMapping = {
                   <MenuItem value="ABNORMAL">{t("abnormal")}</MenuItem>
                 </Select>
               </FormControl>
-                <FormControl size="small" sx={{ minWidth: 120 }}>
+              
+              <FormControl size="small" sx={{ minWidth: 120 }}>
                 <InputLabel>{t("weaponType")}</InputLabel>
                 <Select
                   value={filters.weapon_type}
                   onChange={(e) => setFilters(prev => ({ ...prev, weapon_type: e.target.value }))}
                   label={t("weaponType")}
+                  MenuProps={{
+                    PaperProps: {
+                      style: { maxHeight: 200, width: 'auto' }
+                    },
+                    anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+                    transformOrigin: { vertical: 'top', horizontal: 'left' }
+                  }}
                 >
                   <MenuItem value="">All</MenuItem>
                   <MenuItem value="AR">AR</MenuItem>
@@ -908,12 +982,20 @@ const corporationMapping = {
                   <MenuItem value="RL">RL</MenuItem>
                 </Select>
               </FormControl>
-                <FormControl size="small" sx={{ minWidth: 120 }}>
+              
+              <FormControl size="small" sx={{ minWidth: 120 }}>
                 <InputLabel>{t("rarity")}</InputLabel>
                 <Select
                   value={filters.original_rare}
                   onChange={(e) => setFilters(prev => ({ ...prev, original_rare: e.target.value }))}
                   label={t("rarity")}
+                  MenuProps={{
+                    PaperProps: {
+                      style: { maxHeight: 200, width: 'auto' }
+                    },
+                    anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+                    transformOrigin: { vertical: 'top', horizontal: 'left' }
+                  }}
                 >
                   <MenuItem value="">All</MenuItem>
                   <MenuItem value="SSR">SSR</MenuItem>

@@ -33,8 +33,8 @@ import MergeIcon from "@mui/icons-material/Merge";
 import JSZip from "jszip";
 import saveDictToExcel from "./excel.js";
 import TRANSLATIONS from "./translations";
-import { getAccounts, setAccounts, getSettings, setSettings } from "./storage";
-import { applyCookieStr, clearSiteCookies } from "./cookie.js";
+import { getAccounts, setAccounts, getSettings, setSettings, getCharacters } from "./storage";
+import { applyCookieStr, clearSiteCookies, getCurrentCookies } from "./cookie.js";
 import { loadBaseAccountDict, getRoleName, getPlayerNikkes, getEquipments } from "./api.js";
 import { mergeWorkbooks } from "./merge.js";
 import { v4 as uuidv4 } from "uuid";
@@ -170,13 +170,30 @@ export default function App() {
     setLogs([]);
     setLoading(true);
     
+    // 保存当前的cookie，以便运行完成后恢复
+    let originalCookies = "";
+    
     try {
-      // ========== 步骤0: 读取账号列表 ==========
+      // 保存原始cookie
+      originalCookies = await getCurrentCookies();
+      
+      // ========== 步骤0: 检查妮姬列表配置 ==========
+      const characters = await getCharacters();
+      const allElementsEmpty = Object.values(characters.elements || {}).every(
+        elementArray => !elementArray || elementArray.length === 0
+      );
+      
+      if (allElementsEmpty) {
+        addLog(t("emptyNikkeList"));
+        addLog(t("pleaseAddNikkes"));
+        return;
+      }
+      
+      // ========== 步骤1: 读取账号列表 ==========
       const accountsAll = await getAccounts();
       const accounts = accountsAll.filter((a) => a.enabled !== false);
       if (!accounts.length) {
         addLog(t("emptyAccounts"));
-        setLoading(false);
         return;
       }
       
@@ -186,14 +203,14 @@ export default function App() {
       const excelMime =
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
       
-      // ========== 步骤1: 遍历每个账号 ==========
+      // ========== 步骤2: 遍历每个账号 ==========
       for (let i = 0; i < accounts.length; ++i) {
         await clearSiteCookies(); // 清除之前的Cookie，避免干扰
         const acc = { ...accounts[i] }; // 浅拷贝，避免直接修改状态
         addLog(`----------------------------`);
         addLog(`${t("processAccount")}${acc.name || acc.username || t("noName")}`);
         
-        // 1-1. 获取可用的Cookie——优先本地缓存，其次邮箱/密码登录
+        // 2-1. 获取可用的Cookie——优先本地缓存，其次邮箱/密码登录
         let cookieStr = acc.cookie || "";
         let usedSavedCookie = false;
         
@@ -217,7 +234,7 @@ export default function App() {
           }
         }
         
-        /* 1-2. 校验 Cookie 是否有效，顺带拿角色名 */
+        /* 2-2. 校验 Cookie 是否有效，顺带拿角色名 */
         let roleName = "";
         try {
           roleName = await getRoleName();
@@ -254,14 +271,14 @@ export default function App() {
           addLog(t("cacheUpdated"));
         }
         
-        // ========== 步骤2: 构建数据字典 ==========
+        // ========== 步骤3: 构建数据字典 ==========
         let dict;
         try {
-          // 2-1. 载入基础模板并写入账号名
+          // 3-1. 载入基础模板并写入账号名
           dict = await loadBaseAccountDict();
           dict.name = roleName;
           
-          // 2-2. 追加Nikke详情与装备信息
+          // 3-2. 追加Nikke详情与装备信息
           const playerNikkes = await getPlayerNikkes();
           addNikkesDetailsToDict(dict, playerNikkes);
           addLog(t("nikkeOk"));
@@ -273,7 +290,7 @@ export default function App() {
           continue;
         }
         
-        // ========== 步骤3: 生成Excel文件 ==========
+        // ========== 步骤4: 生成Excel文件 ==========
         let excelBuffer;
         try {
           excelBuffer = await saveDictToExcel(dict, lang);
@@ -282,7 +299,7 @@ export default function App() {
           continue;
         }
         
-        // ========== 步骤4: 导出JSON文件 ==========
+        // ========== 步骤5: 导出JSON文件 ==========
         if (exportJson) {
           const jsonName = `${roleName || acc.name || acc.username}.json`;
           if (saveAsZip) {
@@ -299,7 +316,7 @@ export default function App() {
           }
         }
         
-        // ========== 步骤5: 导出Excel文件 ==========
+        // ========== 步骤6: 导出Excel文件 ==========
         if (saveAsZip) {
           zip.file(`${roleName || acc.name || acc.username}.xlsx`, excelBuffer);
         } else {
@@ -326,6 +343,11 @@ export default function App() {
       setLogs((l) => [...l, `[异常] ${e}`]);
       addLog(`${t("fail")}${e}`);
     } finally {
+      // 恢复原始cookie
+      if (originalCookies) {
+        await clearSiteCookies();
+        await applyCookieStr(originalCookies);
+      }
       setLoading(false);
     }
   };

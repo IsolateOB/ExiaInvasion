@@ -41,3 +41,13 @@ export const clearSiteCookies = async () => {
       })
   );
 };
+
+/**
+ * 获取当前站点的所有Cookie并转换为字符串
+ * @returns {Promise<string>} Cookie字符串
+ */
+export const getCurrentCookies = async () => {
+  const all = await chrome.cookies.getAll({});
+  const siteCookies = all.filter(c => c.domain.endsWith("blablalink.com"));
+  return siteCookies.map(c => `${c.name}=${c.value}`).join("; ");
+};
