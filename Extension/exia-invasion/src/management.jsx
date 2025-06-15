@@ -378,8 +378,7 @@ const corporationMapping = {
           filtered = filtered.filter(nikke => 
             (nikke.name_cn && nikke.name_cn.toLowerCase().includes(searchTerm)) ||
             (nikke.name_en && nikke.name_en.toLowerCase().includes(searchTerm))
-          );
-        } else if (key === "use_burst_skill") {
+          );        } else if (key === "use_burst_skill") {
           // Handle burst skill mapping: "1" -> "Step1", "2" -> "Step2", "3" -> "Step3"
           const burstMapping = {
             "1": "Step1",
@@ -387,7 +386,10 @@ const corporationMapping = {
             "3": "Step3"
           };
           const mappedValue = burstMapping[value] || value;
-          filtered = filtered.filter(nikke => nikke[key] === mappedValue);
+          // "AllStep" 角色应该能被所有 Step 筛选条件匹配到
+          filtered = filtered.filter(nikke => 
+            nikke[key] === mappedValue || nikke[key] === "AllStep"
+          );
         } else {
           filtered = filtered.filter(nikke => nikke[key] === value);
         }

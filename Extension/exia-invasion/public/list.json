@@ -1,12 +1,12 @@
 {
     "cubes": [
-		{
-            "cube_id": 1000301, 
+        {
+            "cube_id": 1000301,
             "name_cn": "遗迹突击魔方",
             "name_en": "Assault Cube"
         },
         {
-            "cube_id": 1000302, 
+            "cube_id": 1000302,
             "name_cn": "战术突击魔方",
             "name_en": "Onslaught Cube"
         },
@@ -70,7 +70,7 @@
             "name_cn": "遗迹穿透魔方",
             "name_en": "Piercing Cube"
         }
-	],
+    ],
     "nikkes": [
         {
             "id": 209001,
@@ -223,6 +223,18 @@
             "name_cn": "D",
             "name_en": "D",
             "element": "Wind",
+            "use_burst_skill": "Step3",
+            "corporation": "ELYSION",
+            "weapon_type": "SMG",
+            "original_rare": "SSR"
+        },
+        {
+            "id": 204101,
+            "name_code": 5141,
+            "class": "Attacker",
+            "name_cn": "K",
+            "name_en": "K",
+            "element": "Electronic",
             "use_burst_skill": "Step3",
             "corporation": "ELYSION",
             "weapon_type": "SMG",
@@ -1633,6 +1645,30 @@
             "original_rare": "SSR"
         },
         {
+            "id": 585001,
+            "name_code": 5142,
+            "class": "Attacker",
+            "name_cn": "伊芙",
+            "name_en": "EVE",
+            "element": "Iron",
+            "use_burst_skill": "Step3",
+            "corporation": "ABNORMAL",
+            "weapon_type": "AR",
+            "original_rare": "SSR"
+        },
+        {
+            "id": 585101,
+            "name_code": 5143,
+            "class": "Attacker",
+            "name_cn": "蕾雯",
+            "name_en": "Raven",
+            "element": "Iron",
+            "use_burst_skill": "Step3",
+            "corporation": "ABNORMAL",
+            "weapon_type": "RL",
+            "original_rare": "SSR"
+        },
+        {
             "id": 201001,
             "name_code": 3001,
             "class": "Attacker",
@@ -1820,6 +1856,18 @@
             "name_en": "Sakura",
             "element": "Water",
             "use_burst_skill": "Step1",
+            "corporation": "ABNORMAL",
+            "weapon_type": "SMG",
+            "original_rare": "SR"
+        },
+        {
+            "id": 585201,
+            "name_code": 3016,
+            "class": "Supporter",
+            "name_cn": "百合",
+            "name_en": "Lily",
+            "element": "Wind",
+            "use_burst_skill": "Step2",
             "corporation": "ABNORMAL",
             "weapon_type": "SMG",
             "original_rare": "SR"
