@@ -32,6 +32,8 @@ import {
   List,
   ListItem,
   ListItemText,
+  Snackbar,
+  Alert,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
@@ -41,6 +43,8 @@ import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import InputAdornment from "@mui/material/InputAdornment";
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import FileUploadIcon from '@mui/icons-material/FileUpload';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import TRANSLATIONS from "./translations.js";
 import { v4 as uuidv4 } from "uuid";
 import { getCharacters, setCharacters } from "./storage.js";
@@ -108,6 +112,7 @@ const ManagementPage = () => {
     // 角色拖拽状态
   const [draggedCharacterIndex, setDraggedCharacterIndex] = useState(null);
   const [draggedCharacterElement, setDraggedCharacterElement] = useState(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
   
   // 全选/全不选状态
   const isAllEnabled = useMemo(() => accounts.every(acc => acc.enabled !== false), [accounts]);
@@ -508,6 +513,54 @@ const corporationMapping = {
     setDraggedCharacterElement(null);
   };
   
+  /* ---------- Import/Export Handlers ---------- */
+  const handleExport = () => {
+    const dataStr = JSON.stringify(characters, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "characters.json";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const importedData = JSON.parse(e.target.result);
+        // Basic validation
+        if (importedData && importedData.elements && typeof importedData.elements === 'object') {
+          setCharactersData(importedData);
+          setCharacters(importedData);
+          setSnackbar({ open: true, message: t("importSuccess"), severity: "success" });
+        } else {
+          throw new Error("Invalid file format");
+        }
+      } catch (error) {
+        console.error("Import failed:", error);
+        setSnackbar({ open: true, message: t("importError"), severity: "error" });
+      }
+    };
+    reader.readAsText(file);
+    // Reset file input
+    event.target.value = null;
+  };
+
+  const triggerImport = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = handleImport;
+    input.click();
+  };
+
   useEffect(() => {
     applyFilters();
   }, [applyFilters]);
@@ -725,9 +778,30 @@ const corporationMapping = {
         )}
           {tab === 1 && (
           <>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              {t("characterManagement")}
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h6">
+                {t("characterManagement")}
+              </Typography>
+              <Box>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<FileUploadIcon />}
+                  onClick={triggerImport}
+                  sx={{ mr: 1 }}
+                >
+                  {t("importCharacters")}
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<FileDownloadIcon />}
+                  onClick={handleExport}
+                >
+                  {t("exportCharacters")}
+                </Button>
+              </Box>
+            </Box>
               {["Electronic", "Fire", "Wind", "Water", "Iron", "Utility"].map((element) => {
               const elementChars = characters.elements[element] || [];
               return (
@@ -1042,6 +1116,21 @@ const corporationMapping = {
           <Button onClick={() => setFilterDialogOpen(false)}>{t("cancel")}</Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </>
   );
 };

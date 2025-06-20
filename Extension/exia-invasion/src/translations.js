@@ -121,6 +121,10 @@ const TRANSLATIONS = {
     total: "总和",
     cube: "魔方",
     notFound: "未找到",
+    importCharacters: "导入角色列表",
+    exportCharacters: "导出角色列表",
+    importSuccess: "导入成功",
+    importError: "导入失败，请检查文件格式",
   },
   en: {
     starting: "Running, please do not close the sidebar",
@@ -241,6 +245,10 @@ const TRANSLATIONS = {
     total: "Total",
     cube: "Cube",
     notFound: "Not found",
+    importCharacters: "Import Characters",
+    exportCharacters: "Export Characters",
+    importSuccess: "Import Successful",
+    importError: "Import failed, please check file format",
   },
 };
 
