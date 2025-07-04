@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Chrome Extension Private Key - NEVER COMMIT!
+private-key.pem
+*.pem
+
+# Temporary build files
+dist.crx

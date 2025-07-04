@@ -77,8 +77,14 @@ const getLimitBreakStr = (lb) => {
   return "";
 };
 
-const itemRareToStr = (rare) => (rare === 3 ? "SSR" : rare === 2 ? "SR" : rare === 1 ? "R" : "");
-const getItemLevelStr = (rare, lvl) => (rare === 3 ? `${lvl + 1}★` : lvl);
+
+const getItemLevelStr = (rare, lvl) => {
+  // 支持字符串和数字两种格式
+  if (rare === "SSR") {
+    return `${lvl + 1}★`;
+  }
+  return lvl;
+};
 
 /* ========== 装备词条颜色配置 ========== */
 const getFillByLevel = (lvl) => {
@@ -222,16 +228,17 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
         skill1_level = 0,
         skill2_level = 0,
         skill_burst_level = 0,
-        item_rare = 0,
+        item_rare = "",
         item_level = 0,
-        equipments = {}      } = charInfo;
+        equipments = {}      
+      } = charInfo;
       
       // 填入基础数据
       ws.getCell(4,colCursor).value = getLimitBreakStr(limit_break);
       ws.getCell(4,colCursor+1).value = skill1_level;
       ws.getCell(4,colCursor+2).value = skill2_level;
       ws.getCell(4,colCursor+3).value = skill_burst_level;
-      ws.getCell(4,colCursor+4).value = itemRareToStr(item_rare);
+      ws.getCell(4,colCursor+4).value = item_rare || "";
       ws.getCell(4,colCursor+5).value = getItemLevelStr(item_rare,item_level);
       
       // 设置居中对齐

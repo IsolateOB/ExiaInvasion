@@ -387,8 +387,29 @@ export default function App() {
             
             // 更新珍藏品信息
             details.item_level = charDetail.favorite_item_lv >= 0 ? charDetail.favorite_item_lv : "";
-            // 珍藏品稀有度暂时跳过，按用户要求
-            details.item_rare = "";
+            
+            // 根据favorite_item_tid判断珍藏品稀有度
+            if (charDetail.favorite_item_tid) {
+              const tidStr = charDetail.favorite_item_tid.toString();
+              const firstDigit = parseInt(tidStr.charAt(0));
+              const lastDigit = parseInt(tidStr.charAt(tidStr.length - 1));
+              
+              if (firstDigit === 2) {
+                details.item_rare = "SSR";
+              } else if (firstDigit === 1) {
+                if (lastDigit === 1) {
+                  details.item_rare = "R";
+                } else if (lastDigit === 2) {
+                  details.item_rare = "SR";
+                } else {
+                  details.item_rare = "";
+                }
+              } else {
+                details.item_rare = "";
+              }
+            } else {
+              details.item_rare = "";
+            }
             
             // 更新突破信息（新格式）
             details.limit_break = {

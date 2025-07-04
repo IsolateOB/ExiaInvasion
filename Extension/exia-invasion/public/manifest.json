@@ -1,8 +1,9 @@
 {
   "name": "ExiaInvasion",
   "description": "A crawler that obtains Nikke character data from blablalink and generates progress tracker.",
-  "version": "2.4.3",
+  "version": "2.4.5",
   "manifest_version": 3,
+  "update_url": "https://cdn.jsdelivr.net/gh/IsolateOB/ExiaInvasion@main/updates.xml",
 
   "action": {
     "default_icon": {

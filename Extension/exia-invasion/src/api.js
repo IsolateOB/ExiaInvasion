@@ -94,73 +94,89 @@ export const getSyncroLevel = () =>
     {}
   ).then((j) => j?.data?.outpost_detail?.sychro_level || 0);
 
-// 获取角色详情和装备信息（合并接口）
+// 获取角色详情和装备信息（逐个获取以避免API错误）
 export const getCharacterDetails = async (areaId, nameCodes) => {
   const intlOpenId = await getIntlOpenId();
-  return postJson(
-    "https://api.blablalink.com/api/game/proxy/Game/GetUserCharacterDetails",
-    {
-      intl_open_id: intlOpenId,
-      nikke_area_id: parseInt(areaId),
-      name_codes: nameCodes
+  const allCharacterDetails = [];
+  const allStateEffects = [];
+  
+  // 逐个获取角色信息，避免因包含不存在的角色而导致整个请求失败
+  for (const nameCode of nameCodes) {
+    try {
+      const response = await postJson(
+        "https://api.blablalink.com/api/game/proxy/Game/GetUserCharacterDetails",
+        {
+          intl_open_id: intlOpenId,
+          nikke_area_id: parseInt(areaId),
+          name_codes: [nameCode] // 单个角色请求
+        }
+      );
+      
+      if (response?.data?.character_details) {
+        allCharacterDetails.push(...response.data.character_details);
+      }
+      if (response?.data?.state_effects) {
+        allStateEffects.push(...response.data.state_effects);
+      }
+    } catch (error) {
+      // 如果单个角色获取失败，记录但继续处理其他角色
+      console.warn(`获取角色 ${nameCode} 详情失败:`, error.message);
     }
-  ).then((j) => {
-    const characterDetails = j?.data?.character_details || [];
-    const stateEffects = j?.data?.state_effects || [];
+  }
+  
+  // 创建state_effects的映射表，便于查找
+  const effectsMap = {};
+  allStateEffects.forEach(effect => {
+    effectsMap[effect.id] = effect;
+  });
+  
+  return allCharacterDetails.map(char => {
+    // 处理突破信息（新格式：grade + core）
+    const limitBreak = {
+      grade: char.grade || 0,
+      core: char.core || 0
+    };
     
-    // 创建state_effects的映射表，便于查找
-    const effectsMap = {};
-    stateEffects.forEach(effect => {
-      effectsMap[effect.id] = effect;
-    });
+    // 处理装备词条
+    const equipments = {};
+    const equipSlots = ['head', 'torso', 'arm', 'leg'];
     
-    return characterDetails.map(char => {
-      // 处理突破信息（新格式：grade + core）
-      const limitBreak = {
-        grade: char.grade || 0,
-        core: char.core || 0
-      };
-      
-      // 处理装备词条
-      const equipments = {};
-      const equipSlots = ['head', 'torso', 'arm', 'leg'];
-      
-      equipSlots.forEach((slot, idx) => {
-        const details = [];
-        for (let i = 1; i <= 3; i++) {
-          const optionKey = `${slot}_equip_option${i}_id`;
-          const optionId = char[optionKey];
-          if (optionId && optionId !== 0) {
-            const effect = effectsMap[optionId.toString()];
-            if (effect && effect.function_details) {
-              effect.function_details.forEach(func => {
-                details.push({
-                  function_type: func.function_type,
-                  function_value: Math.abs(func.function_value) / 100,
-                  level: func.level,
-                });
+    equipSlots.forEach((slot, idx) => {
+      const details = [];
+      for (let i = 1; i <= 3; i++) {
+        const optionKey = `${slot}_equip_option${i}_id`;
+        const optionId = char[optionKey];
+        if (optionId && optionId !== 0) {
+          const effect = effectsMap[optionId.toString()];
+          if (effect && effect.function_details) {
+            effect.function_details.forEach(func => {
+              details.push({
+                function_type: func.function_type,
+                function_value: Math.abs(func.function_value) / 100,
+                level: func.level,
               });
-            }
+            });
           }
         }
-        equipments[idx] = details;
-      });
-      
-      return {
-        name_code: char.name_code,
-        lv: char.lv || 1,
-        skill1_lv: char.skill1_lv || 1,
-        skill2_lv: char.skill2_lv || 1,
-        ulti_skill_lv: char.ulti_skill_lv || 1,
-        favorite_item_lv: char.favorite_item_lv || 0,
-        combat: char.combat || 0,
-        limitBreak: limitBreak,
-        equipments: equipments,
-        // 魔方信息
-        cube_id: char.harmony_cube_tid || 0,
-        cube_level: char.harmony_cube_lv || 0
-      };
+      }
+      equipments[idx] = details;
     });
+    
+    return {
+      name_code: char.name_code,
+      lv: char.lv || 1,
+      skill1_lv: char.skill1_lv || 1,
+      skill2_lv: char.skill2_lv || 1,
+      ulti_skill_lv: char.ulti_skill_lv || 1,
+      favorite_item_lv: char.favorite_item_lv || 0,
+      favorite_item_tid: char.favorite_item_tid || 0,
+      combat: char.combat || 0,
+      limitBreak: limitBreak,
+      equipments: equipments,
+      // 魔方信息
+      cube_id: char.harmony_cube_tid || 0,
+      cube_level: char.harmony_cube_lv || 0
+    };
   });
 };
 
