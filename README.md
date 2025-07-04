@@ -38,12 +38,23 @@
 
 ## 用法 Usage
 
-- 解压压缩包，浏览器进入 `chrome://extensions/` 或 `edge://extensions/` 页，启用 **开发者模式** ，点击 **加载已解压的扩展程序** ，选择解压后的文件夹。
+- ### 安装 Install
   
-	Unzip the package. In your browser, go to `chrome://extensions/` or `edge://extensions/`, enable **Developer mode**, click **Load unpacked extension**, and select the extracted folder.
+	解压压缩包，浏览器进入 `chrome://extensions/` 或 `edge://extensions/` 页，启用 **开发者模式** ，点击 **加载已解压的扩展程序** ，选择解压后的文件夹。
+  
+  Unzip the package. In your browser, go to `chrome://extensions/` or `edge://extensions/`, enable **Developer mode**, click **Load unpacked extension**, and select the extracted folder.
   
   
   
+-  ### 更新 Update
+
+	清空插件所在的文件夹，解压新版本插件的压缩包进该文件夹。**请勿重新安装**，否则将丢失已经保存的账号与妮姬
+
+	Clear the folder where the plug-in is located, and unzip the compressed package of the new version of the plug-in into the folder. **Do not reinstall**, otherwise you will lose your saved accounts and Nikkes.
+
+  
+
+
 - ### 主页面 Main Page
 
 	- #### 爬虫 CRAWLER
