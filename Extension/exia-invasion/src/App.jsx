@@ -35,7 +35,7 @@ import saveDictToExcel from "./excel.js";
 import TRANSLATIONS from "./translations";
 import { getAccounts, setAccounts, getSettings, setSettings, getCharacters } from "./storage";
 import { applyCookieStr, clearSiteCookies, getCurrentCookies } from "./cookie.js";
-import { loadBaseAccountDict, getRoleName, getPlayerNikkes, getEquipments } from "./api.js";
+import { loadBaseAccountDict, getRoleName, getSyncroLevel, getCharacterDetails } from "./api.js";
 import { mergeWorkbooks } from "./merge.js";
 import { v4 as uuidv4 } from "uuid";
 
@@ -234,12 +234,12 @@ export default function App() {
           }
         }
         
-        /* 2-2. 校验 Cookie 是否有效，顺带拿角色名 */
-        let roleName = "";
+        /* 2-2. 校验 Cookie 是否有效，顺带拿角色名和区域ID */
+        let roleInfo = { role_name: "", area_id: "" };
         try {
-          roleName = await getRoleName();
-          console.log(`角色名：${roleName}`);
-          if (!roleName) {
+          roleInfo = await getRoleName();
+          console.log(`角色名：${roleInfo.role_name}, 区域ID：${roleInfo.area_id}`);
+          if (!roleInfo.role_name) {
             throw new Error(t("cookieExpired"));
           }
         } catch (err) { // 获取角色名失败，可能是 Cookie 过期
@@ -247,7 +247,7 @@ export default function App() {
             addLog(t("cookieExpired"));
             try {
               await loginAndGetCookie(acc, server);
-              roleName = await getRoleName();
+              roleInfo = await getRoleName();
             } catch (err2) {
               addLog(`${t("reloginFail")}${err2}`);
               continue;
@@ -257,7 +257,7 @@ export default function App() {
             continue;
           }
         }
-        addLog(`${t("roleOk")}${roleName}`);
+        addLog(`${t("roleOk")}${roleInfo.role_name}`);
         
         /* 回写账号cookie */
         if (cacheCookie) {
@@ -276,15 +276,15 @@ export default function App() {
         try {
           // 3-1. 载入基础模板并写入账号名
           dict = await loadBaseAccountDict();
-          dict.name = roleName;
+          dict.name = roleInfo.role_name;
           
-          // 3-2. 追加Nikke详情与装备信息
-          const playerNikkes = await getPlayerNikkes();
-          addNikkesDetailsToDict(dict, playerNikkes);
-          addLog(t("nikkeOk"));
+          // 3-2. 获取同步器等级
+          const syncroLevel = await getSyncroLevel();
+          dict.synchroLevel = syncroLevel;
           
-          await addEquipmentsToDict(dict);
-          addLog(t("equipOk"));
+          // 3-3. 获取角色详情和装备信息（合并请求）
+          await addCharacterDetailsToDict(dict, roleInfo.area_id);
+          addLog(t("characterDetailsOk"));
         } catch (err) {
           addLog(`${t("dictFail")}${err}`);
           continue;
@@ -301,7 +301,7 @@ export default function App() {
         
         // ========== 步骤5: 导出JSON文件 ==========
         if (exportJson) {
-          const jsonName = `${roleName || acc.name || acc.username}.json`;
+          const jsonName = `${roleInfo.role_name || acc.name || acc.username}.json`;
           if (saveAsZip) {
             zip.file(jsonName, JSON.stringify(dict, null, 4));
           } else {
@@ -318,11 +318,11 @@ export default function App() {
         
         // ========== 步骤6: 导出Excel文件 ==========
         if (saveAsZip) {
-          zip.file(`${roleName || acc.name || acc.username}.xlsx`, excelBuffer);
+          zip.file(`${roleInfo.role_name || acc.name || acc.username}.xlsx`, excelBuffer);
         } else {
           const url = URL.createObjectURL(new Blob([excelBuffer], { type: excelMime }));
           chrome.downloads.download(
-            { url, filename: `${roleName || acc.name || acc.username}.xlsx` },
+            { url, filename: `${roleInfo.role_name || acc.name || acc.username}.xlsx` },
             () => URL.revokeObjectURL(url)
           );
         }
@@ -352,52 +352,66 @@ export default function App() {
     }
   };
   
-  /* ========== 辅助函数：填充 Nikke 详情 ========== */
-  const addNikkesDetailsToDict = (dict, playerNikkes) => {
-    const list = playerNikkes?.data?.player_nikkes || [];
-    if (typeof dict.synchroLevel !== "number") dict.synchroLevel = 0;
-    
-    // 处理每个属性数组中的角色数据
-    Object.keys(dict.elements).forEach(elementKey => {
-      const characterArray = dict.elements[elementKey];
+  /* ========== 辅助函数：填充角色详情和装备信息（新API） ========== */
+  const addCharacterDetailsToDict = async (dict, areaId) => {
+    // 收集所有需要查询的name_codes
+    const allNameCodes = [];
+    Object.values(dict.elements).forEach(characterArray => {
       characterArray.forEach(details => {
-        const nikke = list.find((n) => n.name_code === details.name_code);
-        if (nikke) {
-          details.skill1_level = nikke.skill1_level;
-          details.skill2_level = nikke.skill2_level;
-          details.skill_burst_level = nikke.skill_burst_level;
-          details.item_rare = nikke.item_rare;
-          details.item_level = nikke.item_level >= 0 ? nikke.item_level : "";
-          details.limit_break = nikke.limit_break;
-          
-          /* 更新同步器等级 */
-          if (nikke.level > dict.synchroLevel) {
-            dict.synchroLevel = nikke.level;
-          }
-          
-          /* 更新魔方等级 */
-          if (nikke.cube_id && nikke.cube_level) {
-            const cube = dict.cubes.find(c => c.cube_id === nikke.cube_id);
-            if (cube && nikke.cube_level > cube.cube_level) {
-              cube.cube_level = nikke.cube_level;
-            }
-          }
-        }
+        allNameCodes.push(details.name_code);
       });
     });
-  };
-  
-  /* ========== 辅助函数：填充装备信息 ========== */
-  const addEquipmentsToDict = async (dict) => {
-    // 处理每个属性数组中的角色装备
-    for (const characterArray of Object.values(dict.elements)) {
-      for (const details of characterArray) {
-        const characterIds = Array.from(
-          { length: 11 },
-          (_, i) => details.id + i
-        );
-        details.equipments = await getEquipments(characterIds);
-      }
+    
+    if (allNameCodes.length === 0) return;
+    
+    try {
+      // 批量获取角色详情和装备信息
+      const characterDetails = await getCharacterDetails(areaId, allNameCodes);
+      
+      // 创建name_code到详情的映射
+      const detailsMap = {};
+      characterDetails.forEach(detail => {
+        detailsMap[detail.name_code] = detail;
+      });
+      
+      // 更新dict中的角色信息
+      Object.keys(dict.elements).forEach(elementKey => {
+        const characterArray = dict.elements[elementKey];
+        characterArray.forEach(details => {
+          const charDetail = detailsMap[details.name_code];
+          if (charDetail) {
+            // 更新技能等级
+            details.skill1_level = charDetail.skill1_lv;
+            details.skill2_level = charDetail.skill2_lv;
+            details.skill_burst_level = charDetail.ulti_skill_lv;
+            
+            // 更新珍藏品信息
+            details.item_level = charDetail.favorite_item_lv >= 0 ? charDetail.favorite_item_lv : "";
+            // 珍藏品稀有度暂时跳过，按用户要求
+            details.item_rare = "";
+            
+            // 更新突破信息（新格式）
+            details.limit_break = {
+              grade: charDetail.limitBreak.grade,
+              core: charDetail.limitBreak.core
+            };
+            
+            // 更新装备信息
+            details.equipments = charDetail.equipments;
+            
+            // 更新魔方等级（如果角色有魔方信息）
+            if (charDetail.cube_id && charDetail.cube_level) {
+              const cube = dict.cubes.find(c => c.cube_id === charDetail.cube_id);
+              if (cube && charDetail.cube_level > cube.cube_level) {
+                cube.cube_level = charDetail.cube_level;
+              }
+            }
+          }
+        });
+      });
+    } catch (error) {
+      console.error("获取角色详情失败:", error);
+      throw error;
     }
   };
 

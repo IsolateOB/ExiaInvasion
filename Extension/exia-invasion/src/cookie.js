@@ -7,14 +7,37 @@
 export const applyCookieStr = async (cookieStr) => {
   if (!cookieStr) return;
   
+  // 首先获取当前所有的blablalink.com相关的Cookie，建立域名映射
+  const existingCookies = await chrome.cookies.getAll({});
+  const domainMap = {};
+  
+  existingCookies.forEach(cookie => {
+    if (cookie.domain.endsWith("blablalink.com")) {
+      domainMap[cookie.name] = cookie.domain;
+    }
+  });
+  
   for (const kv of cookieStr.split(/;\s*/)) {
     const [name, value] = kv.split("=");
     if (!name) continue;
     
+    // 根据Cookie名称确定正确的域名
+    let domain = ".blablalink.com"; // 默认域名
+    let url = "https://blablalink.com/";
+    
+    // 特殊处理所有以__ss_storage_cookie_cache_开头的Cookie，它们的域名是.www.blablalink.com
+    if (/^__ss_storage_cookie_cache_/.test(name)) {
+      domain = ".www.blablalink.com";
+      url = "https://www.blablalink.com/";
+    } else if (domainMap[name]) {
+      // 使用已存在Cookie的域名
+      domain = domainMap[name];
+      url = "https://" + domain.replace(/^\./, "") + "/";
+    }
+    
     await chrome.cookies.set({
-      // 使用能匹配域名的URL
-      url: "https://blablalink.com/",
-      domain: ".blablalink.com",   // 对子域也生效
+      url,
+      domain,
       name,
       value,
       path: "/",

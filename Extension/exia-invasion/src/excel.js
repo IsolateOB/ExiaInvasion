@@ -44,10 +44,37 @@ const setHorizontalBorder = (ws, row, c1, c2, side = thinSide, pos = "bottom") =
 
 /* ========== 数据格式化函数 ========== */
 const getLimitBreakStr = (lb) => {
-  if (lb < 0) return "";
-  if (lb <= 3) return `${lb} ★`;
-  if (lb < 10) return `+ ${lb - 3}`;
-  return "MAX";
+  // 新格式：lb是一个对象 {grade: number, core: number}
+  if (typeof lb === 'object' && lb !== null) {
+    const { grade = 0, core = 0 } = lb;
+    if (grade < 0) return "";
+    
+    // grade未满3时，显示grade ★
+    if (grade < 3) return `${grade} ★`;
+    
+    // grade满3时，如果core > 0，显示 + core，否则显示 3 ★
+    if (grade === 3) {
+      if (core > 0) {
+        if (core >= 7) return "MAX";
+        return `+ ${core}`;
+      } else {
+        return `${grade} ★`;
+      }
+    }
+    
+    // grade > 3的情况（理论上不应该发生，但保险起见）
+    return "MAX";
+  }
+  
+  // 兼容旧格式
+  if (typeof lb === 'number') {
+    if (lb < 0) return "";
+    if (lb <= 3) return `${lb} ★`;
+    if (lb < 10) return `+ ${lb - 3}`;
+    return "MAX";
+  }
+  
+  return "";
 };
 
 const itemRareToStr = (rare) => (rare === 3 ? "SSR" : rare === 2 ? "SR" : rare === 1 ? "R" : "");
@@ -117,7 +144,7 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
     t("critical"), t("criticalDamage"), t("hit"), t("defense")
   ];
 
-  const equipRowLabels = [t("head"), t("body"), t("arm"), t("leg"), t("total")];
+  const equipRowLabels = [t("head"), t("torso"), t("arm"), t("leg"), t("total")];
 
   // 元素名称映射，用于显示，固定排序
   const elementMapping = {

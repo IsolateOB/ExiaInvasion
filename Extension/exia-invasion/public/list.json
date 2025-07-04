@@ -433,6 +433,18 @@
             "original_rare": "SSR"
         },
         {
+            "id": 253201,
+            "name_code": 5144,
+            "class": "Supporter",
+            "name_cn": "索拉",
+            "name_en": "Sora",
+            "element": "Wind",
+            "use_burst_skill": "Step1",
+            "corporation": "ELYSION",
+            "weapon_type": "RL",
+            "original_rare": "SSR"
+        },
+        {
             "id": 110201,
             "name_code": 5001,
             "class": "Attacker",

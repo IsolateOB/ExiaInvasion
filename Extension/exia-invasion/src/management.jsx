@@ -786,7 +786,7 @@ const corporationMapping = {
                 <Button
                   variant="outlined"
                   size="small"
-                  startIcon={<FileUploadIcon />}
+                  startIcon={<FileDownloadIcon />}
                   onClick={triggerImport}
                   sx={{ mr: 1 }}
                 >
@@ -795,7 +795,7 @@ const corporationMapping = {
                 <Button
                   variant="outlined"
                   size="small"
-                  startIcon={<FileDownloadIcon />}
+                  startIcon={<FileUploadIcon/>}
                   onClick={handleExport}
                 >
                   {t("exportCharacters")}

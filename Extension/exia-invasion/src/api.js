@@ -63,55 +63,115 @@ const postJson = async (url, bodyObj) => {
 };
 
 /* ========== 游戏API接口 ========== */
+
+// 从Cookie中获取intl_open_id
+const getIntlOpenId = async () => {
+  // 使用Chrome API获取cookie，而不是document.cookie
+  const cookies = await chrome.cookies.getAll({ domain: ".blablalink.com" });
+  const gameOpenIdCookie = cookies.find(cookie => cookie.name === 'game_openid');
+  
+  if (gameOpenIdCookie) {
+    return gameOpenIdCookie.value;
+  }
+  
+  throw new Error("未找到 game_openid cookie");
+};
+
+// 获取角色名和area_id
 export const getRoleName = () =>
   postJson(
     "https://api.blablalink.com/api/ugc/direct/standalonesite/User/GetUserGamePlayerInfo",
     {}
-  ).then((j) => j?.data?.role_name || "");
+  ).then((j) => ({
+    role_name: j?.data?.role_name || "",
+    area_id: j?.data?.area_id || ""
+  }));
 
-export const getPlayerNikkes = () =>
+// 获取同步器等级
+export const getSyncroLevel = () =>
   postJson(
-    "https://api.blablalink.com/api/game/proxy/Tools/GetPlayerNikkes",
+    "https://api.blablalink.com/api/game/proxy/Tools/GetPlayerBattleInfo",
     {}
-  );
+  ).then((j) => j?.data?.outpost_detail?.sychro_level || 0);
 
-
-export const getEquipments = (characterIds) =>
-  postJson(
-    "https://api.blablalink.com/api/game/proxy/Tools/GetPlayerEquipContents",
-    { character_ids: characterIds }
-  ).then((j) => {
-    const list = j?.data?.player_equip_contents || [];
-    const finalSlots = [null, null, null, null];
-    // 反向遍历，确保获取最新的装备数据
-    for (const record of [...list].reverse()) {
-      record.equip_contents.forEach((slot, idx) => {
-        if (
-          !finalSlots[idx] &&
-          (slot.equip_id !== -99 || slot.equip_effects?.length)
-        )
-          finalSlots[idx] = slot;
-      });
+// 获取角色详情和装备信息（合并接口）
+export const getCharacterDetails = async (areaId, nameCodes) => {
+  const intlOpenId = await getIntlOpenId();
+  return postJson(
+    "https://api.blablalink.com/api/game/proxy/Game/GetUserCharacterDetails",
+    {
+      intl_open_id: intlOpenId,
+      nikke_area_id: parseInt(areaId),
+      name_codes: nameCodes
     }
-    const result = {};
-    finalSlots.forEach((slot, idx) => {
-      if (!slot) {
-        result[idx] = [];
-        return;
-      }
-      const details = [];
-      // 处理装备词条数据
-      slot.equip_effects.forEach((eff) => {
-        eff.function_details.forEach((func) => {
-          details.push({
-            function_type: func.function_type,
-            function_value: Math.abs(func.function_value) / 100,
-            level: func.level,
-          });
-        });
-      });
-      result[idx] = details;
+  ).then((j) => {
+    const characterDetails = j?.data?.character_details || [];
+    const stateEffects = j?.data?.state_effects || [];
+    
+    // 创建state_effects的映射表，便于查找
+    const effectsMap = {};
+    stateEffects.forEach(effect => {
+      effectsMap[effect.id] = effect;
     });
-    return result;
+    
+    return characterDetails.map(char => {
+      // 处理突破信息（新格式：grade + core）
+      const limitBreak = {
+        grade: char.grade || 0,
+        core: char.core || 0
+      };
+      
+      // 处理装备词条
+      const equipments = {};
+      const equipSlots = ['head', 'torso', 'arm', 'leg'];
+      
+      equipSlots.forEach((slot, idx) => {
+        const details = [];
+        for (let i = 1; i <= 3; i++) {
+          const optionKey = `${slot}_equip_option${i}_id`;
+          const optionId = char[optionKey];
+          if (optionId && optionId !== 0) {
+            const effect = effectsMap[optionId.toString()];
+            if (effect && effect.function_details) {
+              effect.function_details.forEach(func => {
+                details.push({
+                  function_type: func.function_type,
+                  function_value: Math.abs(func.function_value) / 100,
+                  level: func.level,
+                });
+              });
+            }
+          }
+        }
+        equipments[idx] = details;
+      });
+      
+      return {
+        name_code: char.name_code,
+        lv: char.lv || 1,
+        skill1_lv: char.skill1_lv || 1,
+        skill2_lv: char.skill2_lv || 1,
+        ulti_skill_lv: char.ulti_skill_lv || 1,
+        favorite_item_lv: char.favorite_item_lv || 0,
+        combat: char.combat || 0,
+        limitBreak: limitBreak,
+        equipments: equipments,
+        // 魔方信息
+        cube_id: char.harmony_cube_tid || 0,
+        cube_level: char.harmony_cube_lv || 0
+      };
+    });
   });
+};
+
+// 保持兼容性的旧接口（已废弃，但保留以防其他地方调用）
+export const getPlayerNikkes = () => {
+  console.warn("getPlayerNikkes 接口已废弃，请使用 getCharacterDetails");
+  return Promise.resolve({ data: { nikkes: [] } });
+};
+
+export const getEquipments = () => {
+  console.warn("getEquipments 接口已废弃，请使用 getCharacterDetails");
+  return Promise.resolve({});
+};
 
