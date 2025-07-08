@@ -14,17 +14,11 @@ import {
   FormControlLabel,
   Select,
   MenuItem,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  TextField,
-  DialogActions,
   Paper,
   CircularProgress,
   ToggleButtonGroup,
   ToggleButton,
 } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import SaveIcon from "@mui/icons-material/Save";
 import SettingsIcon from "@mui/icons-material/Settings";
@@ -35,7 +29,7 @@ import saveDictToExcel from "./excel.js";
 import TRANSLATIONS from "./translations";
 import { getAccounts, setAccounts, getSettings, setSettings, getCharacters } from "./storage";
 import { applyCookieStr, clearSiteCookies, getCurrentCookies } from "./cookie.js";
-import { loadBaseAccountDict, getRoleName, getSyncroLevel, getCharacterDetails } from "./api.js";
+import { loadBaseAccountDict, getRoleName, getSyncroLevel, getCharacterDetails, getUserCharacters } from "./api.js";
 import { mergeWorkbooks } from "./merge.js";
 import { v4 as uuidv4 } from "uuid";
 
@@ -48,14 +42,15 @@ export default function App() {
   const [tab, setTab] = useState("crawler");
   const [saveAsZip, setSaveAsZip] = useState(false);
   const [exportJson, setExportJson] = useState(false);
-  const [cacheCookie, setCacheCookie] = useState(false);
+  const [autoSaveData, setAutoSaveData] = useState(false);
   const [activateTab, setActivateTab] = useState(false);
   const [server, setServer] = useState("global");
   const [sortFlag, setSortFlag] = useState("1");
   const [filesToMerge, setFilesToMerge] = useState([]);
-  const [dlgOpen, setDlgOpen] = useState(false);
-  const [username, setUsername] = useState("");
-  const [pendingCookieStr, setPendingCookieStr] = useState("");
+  // 移除了不再需要的弹窗相关状态变量
+  // const [dlgOpen, setDlgOpen] = useState(false);
+  // const [username, setUsername] = useState("");
+  // const [pendingCookieStr, setPendingCookieStr] = useState("");
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const addLog = (msg) => setLogs((prev) => [...prev, msg]);
@@ -67,7 +62,7 @@ export default function App() {
       setLang(s.lang || (navigator.language.startsWith("zh") ? "zh" : "en"));
       setSaveAsZip(Boolean(s.saveAsZip));
       setExportJson(Boolean(s.exportJson));
-      setCacheCookie(Boolean(s.cacheCookie));
+      setAutoSaveData(Boolean(s.autoSaveData || s.cacheCookie)); // 兼容旧设置
       setActivateTab(Boolean(s.activateTab));
       setServer(s.server || "global");
       setSortFlag(s.sortFlag || "1");
@@ -76,7 +71,7 @@ export default function App() {
   
   // 持久化设置到存储
   const persistSettings = (upd) =>
-    setSettings({ lang, saveAsZip, exportJson, cacheCookie, activateTab, server, sortFlag, ...upd });
+    setSettings({ lang, saveAsZip, exportJson, autoSaveData, activateTab, server, sortFlag, ...upd });
   
   // ========== UI 事件处理函数 ==========
   const handleTabChange = (event, newTab) => {
@@ -109,34 +104,69 @@ export default function App() {
   };
   
   // ========== Cookie 保存功能 ==========
-  const handleSaveCookie = () => {
-    chrome.cookies.getAll({ url: "https://www.blablalink.com" }, (cookies) => {
+  const handleSaveCookie = async () => {
+    chrome.cookies.getAll({ url: "https://www.blablalink.com" }, async (cookies) => {
       console.log(cookies);
       const token = cookies.find((c) => c.name === "game_token");
       if (!token) {
         addLog(t("notLogin"));
         return;
       }
-      setPendingCookieStr(
-        cookies.map((c) => `${c.name}=${c.value}`).join("; ")
-      );
-      setDlgOpen(true);
+      
+      // 自动获取用户名
+      let autoUsername = "";
+      try {
+        const roleInfo = await getRoleName();
+        autoUsername = roleInfo.role_name || "";
+        addLog(`${t("autoGetUsername")}: ${autoUsername}`);
+      } catch (error) {
+        console.warn("自动获取用户名失败:", error);
+        addLog(t("autoGetUsernameFail"));
+        autoUsername = t("noName"); // 使用默认名称
+      }
+      
+      // 直接保存账号，无需弹窗
+      const cookieStr = cookies.map((c) => `${c.name}=${c.value}`).join("; ");
+      
+      // 提取game_uid
+      const gameUidCookie = cookies.find(c => c.name === "game_uid");
+      const gameUid = gameUidCookie ? gameUidCookie.value : "";
+      
+      const accounts = await getAccounts();
+      
+      // 检查是否已存在相同game_uid或cookie的账号
+      let existingIndex = -1;
+      if (gameUid) {
+        // 优先按game_uid查找
+        existingIndex = accounts.findIndex(acc => acc.game_uid === gameUid);
+      }
+      if (existingIndex === -1) {
+        // 如果没有game_uid或找不到，则按cookie查找
+        existingIndex = accounts.findIndex(acc => acc.cookie === cookieStr);
+      }
+      
+      if (existingIndex !== -1) {
+        // 更新现有账号
+        accounts[existingIndex].username = autoUsername;
+        accounts[existingIndex].cookie = cookieStr;
+        if (gameUid) accounts[existingIndex].game_uid = gameUid;
+        addLog(`${t("accountUpdated")}: ${autoUsername}`);
+      } else {
+        // 添加新账号
+        accounts.push({
+          id: uuidv4(),
+          username: autoUsername,
+          email: "",
+          password: "",
+          cookie: cookieStr,
+          game_uid: gameUid,
+          enabled: true,
+        });
+        addLog(`${t("accountSaved")}: ${autoUsername}`);
+      }
+      
+      await setAccounts(accounts);
     });
-  };
-  const handleDlgSave = async () => {
-    if (!username.trim()) return;
-    const accounts = await getAccounts();
-    accounts.push({
-      id: uuidv4(),
-      username: username.trim(),
-      email: "",
-      password: "",
-      cookie: pendingCookieStr,
-      enabled: true,
-    });
-    await setAccounts(accounts);
-    setDlgOpen(false);
-    setUsername("");
   };
   
   // ========== 文件合并主流程 ==========
@@ -259,16 +289,24 @@ export default function App() {
         }
         addLog(`${t("roleOk")}${roleInfo.role_name}`);
         
-        /* 回写账号cookie */
-        if (cacheCookie) {
+        /* 回写账号cookie、用户名和game_uid */
+        if (autoSaveData) {
           const cks = (await chrome.cookies.getAll({}))
             .filter(c => c.domain.endsWith("blablalink.com"));
           acc.cookie = cookieArrToStr(cks);
+          acc.username = roleInfo.role_name; // 回写用户名
+          
+          // 提取并保存game_uid
+          const gameUidCookie = cks.find(c => c.name === "game_uid");
+          if (gameUidCookie) {
+            acc.game_uid = gameUidCookie.value;
+          }
+          
           const all = await getAccounts();
           const idx = all.findIndex(a => a.id === acc.id);
           if (idx !== -1) all[idx] = acc;
           await setAccounts(all);
-          addLog(t("cacheUpdated"));
+          addLog(t("dataUpdated"));
         }
         
         // ========== 步骤3: 构建数据字典 ==========
@@ -365,6 +403,15 @@ export default function App() {
     if (allNameCodes.length === 0) return;
     
     try {
+      // 首先获取所有角色的基础信息（包含core和grade）
+      const userCharacters = await getUserCharacters(areaId);
+      
+      // 创建name_code到基础信息的映射
+      const userCharMap = {};
+      userCharacters.forEach(char => {
+        userCharMap[char.name_code] = char;
+      });
+      
       // 批量获取角色详情和装备信息
       const characterDetails = await getCharacterDetails(areaId, allNameCodes);
       
@@ -411,11 +458,25 @@ export default function App() {
               details.item_rare = "";
             }
             
-            // 更新突破信息（新格式）
-            details.limit_break = {
-              grade: charDetail.limitBreak.grade,
-              core: charDetail.limitBreak.core
-            };
+            // 更新突破信息（优先使用getUserCharacters的数据）
+            const userChar = userCharMap[details.name_code];
+            if (userChar) {
+              details.limit_break = {
+                grade: userChar.grade,
+                core: userChar.core
+              };
+            } else if (charDetail) {
+              // 如果getUserCharacters没有数据，使用详情API的数据作为备用
+              details.limit_break = {
+                grade: charDetail.limitBreak?.grade || 0,
+                core: charDetail.limitBreak?.core || 0
+              };
+            } else {
+              details.limit_break = {
+                grade: 0,
+                core: 0
+              };
+            }
             
             // 更新装备信息
             details.equipments = charDetail.equipments;
@@ -599,14 +660,14 @@ export default function App() {
                 <FormControlLabel
                   control={
                     <Switch
-                      checked={cacheCookie}
+                      checked={autoSaveData}
                       onChange={(e) => {
-                        setCacheCookie(e.target.checked);
-                        persistSettings({ cacheCookie: e.target.checked });
+                        setAutoSaveData(e.target.checked);
+                        persistSettings({ autoSaveData: e.target.checked });
                       }}
                     />
                   }
-                  label={t("cacheCookie")}
+                  label={t("autoSaveData")}
                 />
                 <FormControlLabel
                   control={
@@ -734,32 +795,6 @@ export default function App() {
         </Stack>
       </Container>
       
-      {/* 用户名保存对话框 */}
-      <Dialog open={dlgOpen} onClose={() => setDlgOpen(false)}>
-        <DialogTitle>{t("username")}</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            fullWidth
-            margin="dense"
-            label={t("username")}
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDlgOpen(false)} startIcon={<CloseIcon />}>
-            {t("cancel")}
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleDlgSave}
-            startIcon={<SaveIcon />}
-          >
-            {t("save")}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </>
   );
 }

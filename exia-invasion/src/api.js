@@ -180,6 +180,37 @@ export const getCharacterDetails = async (areaId, nameCodes) => {
   });
 };
 
+// 获取用户所有角色的基础信息（包含core和grade）
+export const getUserCharacters = async (areaId) => {
+  const intlOpenId = await getIntlOpenId();
+  
+  try {
+    const response = await postJson(
+      "https://api.blablalink.com/api/game/proxy/Game/GetUserCharacters",
+      {
+        intl_open_id: intlOpenId,
+        nikke_area_id: parseInt(areaId)
+      }
+    );
+    
+    if (response?.data?.characters) {
+      return response.data.characters.map(char => ({
+        name_code: char.name_code,
+        lv: char.lv || 1,
+        combat: char.combat || 0,
+        core: char.core || 0,
+        grade: char.grade || 0,
+        costume_id: char.costume_id || 0
+      }));
+    }
+    
+    return [];
+  } catch (error) {
+    console.error("获取用户角色列表失败:", error);
+    throw error;
+  }
+};
+
 // 保持兼容性的旧接口（已废弃，但保留以防其他地方调用）
 export const getPlayerNikkes = () => {
   console.warn("getPlayerNikkes 接口已废弃，请使用 getCharacterDetails");

@@ -2,6 +2,7 @@
 // 主要功能：账户管理、角色数据管理、装备统计配置等
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import ExcelJS from 'exceljs';
 // ========== 导入依赖 ==========
 import {
   AppBar,
@@ -265,10 +266,173 @@ const ManagementPage = () => {
     setAccounts(updatedAccounts);
     await persist(updatedAccounts);
   };
-  
+
+  // 导出账号到Excel
+  const handleExportAccounts = async () => {
+    try {
+      // 创建工作簿
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Accounts');
+
+      // 设置列标题（中英文双语）
+      worksheet.columns = [
+        { header: 'Game UID', key: 'game_uid', width: 20 },
+        { header: '账号 Username', key: 'username', width: 25 },
+        { header: '邮箱 Email', key: 'email', width: 30 },
+        { header: '密码 Password', key: 'password', width: 25 },
+        { header: 'Cookie', key: 'cookie', width: 50 },
+      ];
+
+      // 添加数据
+      accounts.forEach(acc => {
+        worksheet.addRow({
+          game_uid: acc.game_uid || '',
+          username: acc.username || '',
+          email: acc.email || '',
+          password: acc.password || '',
+          cookie: acc.cookie || ''
+        });
+      });
+
+      // 下载文件
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+      const filename = `ExiaInvasion_Accounts_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      downloadFile(blob, filename);
+      
+      showMessage(t("exportSuccess"), "success");
+    } catch (error) {
+      console.error("导出失败:", error);
+      showMessage(t("exportError"), "error");
+    }
+  };
+
+  // 导入账号从Excel
+  const handleImportAccounts = () => {
+    selectFile('.xlsx,.xls', async (file) => {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(arrayBuffer);
+        
+        const worksheet = workbook.getWorksheet(1); // 第一个工作表
+        if (!worksheet) {
+          showMessage(t("importError"), "error");
+          return;
+        }
+
+        // 处理导入的数据
+        const currentAccounts = [...accounts];
+        let addedCount = 0;
+        let updatedCount = 0;
+
+        // 获取表头行以识别列位置
+        const headerRow = worksheet.getRow(1);
+        let gameUidCol = 1, usernameCol = 2, emailCol = 3, passwordCol = 4, cookieCol = 5;
+        
+        // 尝试根据表头内容智能识别列位置
+        headerRow.eachCell((cell, colNumber) => {
+          const cellValue = cell.value ? String(cell.value).toLowerCase() : '';
+          if (cellValue.includes('game') && cellValue.includes('uid')) {
+            gameUidCol = colNumber;
+          } else if (cellValue.includes('账号') || cellValue.includes('username')) {
+            usernameCol = colNumber;
+          } else if (cellValue.includes('邮箱') || cellValue.includes('email')) {
+            emailCol = colNumber;
+          } else if (cellValue.includes('密码') || cellValue.includes('password')) {
+            passwordCol = colNumber;
+          } else if (cellValue.includes('cookie')) {
+            cookieCol = colNumber;
+          }
+        });
+
+        // 跳过标题行，从第2行开始
+        worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+          if (rowNumber === 1) return; // 跳过标题行
+
+          const gameUid = row.getCell(gameUidCol).value ? String(row.getCell(gameUidCol).value).trim() : '';
+          const username = row.getCell(usernameCol).value ? String(row.getCell(usernameCol).value).trim() : '';
+          const email = row.getCell(emailCol).value ? String(row.getCell(emailCol).value).trim() : '';
+          const password = row.getCell(passwordCol).value ? String(row.getCell(passwordCol).value).trim() : '';
+          const cookie = row.getCell(cookieCol).value ? String(row.getCell(cookieCol).value).trim() : '';
+
+          // 查找是否存在相同game_uid的账号（game_uid不能为空）
+          let existingIndex = -1;
+          if (gameUid) {
+            existingIndex = currentAccounts.findIndex(acc => acc.game_uid === gameUid);
+          }
+
+          if (existingIndex !== -1) {
+            // 更新现有账号
+            currentAccounts[existingIndex] = {
+              ...currentAccounts[existingIndex],
+              username: username || currentAccounts[existingIndex].username,
+              email: email || currentAccounts[existingIndex].email,
+              password: password || currentAccounts[existingIndex].password,
+              cookie: cookie || currentAccounts[existingIndex].cookie,
+              game_uid: gameUid || currentAccounts[existingIndex].game_uid,
+            };
+            updatedCount++;
+          } else {
+            // 添加新账号
+            currentAccounts.push({
+              id: uuidv4(),
+              username: username,
+              email: email,
+              password: password,
+              cookie: cookie,
+              game_uid: gameUid,
+              enabled: true,
+            });
+            addedCount++;
+          }
+        });
+
+        setAccounts(currentAccounts);
+        await persist(currentAccounts);
+        
+        showMessage(t("importSuccess") + ` (${t("added")}: ${addedCount}, ${t("updated")}: ${updatedCount})`, "success");
+      } catch (error) {
+        console.error("导入失败:", error);
+        showMessage(t("importError"), "error");
+      }
+    });
+  };
+
+  // 显示提示消息（统一）
+  const showMessage = (message, severity = "success") => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  // 通用文件下载函数
+  const downloadFile = (blob, filename) => {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  // 通用文件选择函数
+  const selectFile = (accept, onFileSelected) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = accept;
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        onFileSelected(file);
+      }
+    };
+    input.click();
+  };
+
   // 渲染文本内容（空值显示占位符）
   const renderText = (txt) => (txt ? txt : "—");
-  
+
   const iconUrl = useMemo(() => chrome.runtime.getURL("images/icon-128.png"), []);
   
   /* ---------- Drag and Drop Handlers ---------- */
@@ -304,7 +468,9 @@ const ManagementPage = () => {
     setShowPwds(reorderedShowPwds);
     persist(reorderedAccounts);
     
-    setDraggedItemIndex(null);  };  /* ---------- 角色管理工具函数 ---------- */
+    setDraggedItemIndex(null);  };
+    
+/* ---------- 角色管理工具函数 ---------- */
   const elementMapping = {
     "Electronic": "电击",
     "Fire": "燃烧", 
@@ -514,23 +680,20 @@ const corporationMapping = {
   };
   
   /* ---------- Import/Export Handlers ---------- */
-  const handleExport = () => {
-    const dataStr = JSON.stringify(characters, null, 2);
-    const blob = new Blob([dataStr], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "characters.json";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  const handleExportCharacters = () => {
+    try {
+      const dataStr = JSON.stringify(characters, null, 2);
+      const blob = new Blob([dataStr], { type: "application/json" });
+      const filename = `ExiaInvasion_Characters_${new Date().toISOString().slice(0, 10)}.json`;
+      downloadFile(blob, filename);
+      showMessage(t("exportSuccess"), "success");
+    } catch (error) {
+      console.error("导出失败:", error);
+      showMessage(t("exportError"), "error");
+    }
   };
 
-  const handleImport = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
+  const handleImportCharacters = (file) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -539,26 +702,20 @@ const corporationMapping = {
         if (importedData && importedData.elements && typeof importedData.elements === 'object') {
           setCharactersData(importedData);
           setCharacters(importedData);
-          setSnackbar({ open: true, message: t("importSuccess"), severity: "success" });
+          showMessage(t("importSuccess"), "success");
         } else {
           throw new Error("Invalid file format");
         }
       } catch (error) {
         console.error("Import failed:", error);
-        setSnackbar({ open: true, message: t("importError"), severity: "error" });
+        showMessage(t("importError"), "error");
       }
     };
     reader.readAsText(file);
-    // Reset file input
-    event.target.value = null;
   };
 
-  const triggerImport = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = handleImport;
-    input.click();
+  const triggerCharacterImport = () => {
+    selectFile('.json', handleImportCharacters);
   };
 
   useEffect(() => {
@@ -585,19 +742,37 @@ const corporationMapping = {
         </Tabs>
           {tab === 0 && (
           <>
-            {/* 账户管理标题和启用全部按钮 */}
+            {/* 账户管理标题和操作按钮 */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6">
                 {t("accountTable")}
               </Typography>
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={handleToggleAllEnabled}
-                sx={{ minWidth: 80 }}
-              >
-                {isAllEnabled ? t("deselectAll") : t("selectAll")}
-              </Button>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={handleToggleAllEnabled}
+                  sx={{ minWidth: 80 }}
+                >
+                  {isAllEnabled ? t("deselectAll") : t("selectAll")}
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={handleImportAccounts}
+                  sx={{ minWidth: 80 }}
+                >
+                  {t("import")}
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={handleExportAccounts}
+                  sx={{ minWidth: 80 }}
+                >
+                  {t("export")}
+                </Button>
+              </Box>
             </Box>
             
             {/* Account management table */}
@@ -787,18 +962,18 @@ const corporationMapping = {
                   variant="outlined"
                   size="small"
                   startIcon={<FileDownloadIcon />}
-                  onClick={triggerImport}
+                  onClick={triggerCharacterImport}
                   sx={{ mr: 1 }}
                 >
-                  {t("importCharacters")}
+                  {t("import")}
                 </Button>
                 <Button
                   variant="outlined"
                   size="small"
                   startIcon={<FileUploadIcon/>}
-                  onClick={handleExport}
+                  onClick={handleExportCharacters}
                 >
-                  {t("exportCharacters")}
+                  {t("export")}
                 </Button>
               </Box>
             </Box>
