@@ -759,6 +759,7 @@ const corporationMapping = {
                 <Button
                   size="small"
                   variant="outlined"
+                  startIcon={<FileDownloadIcon />}
                   onClick={handleImportAccounts}
                   sx={{ minWidth: 80 }}
                 >
@@ -767,6 +768,7 @@ const corporationMapping = {
                 <Button
                   size="small"
                   variant="outlined"
+                  startIcon={<FileUploadIcon />}
                   onClick={handleExportAccounts}
                   sx={{ minWidth: 80 }}
                 >
@@ -957,13 +959,13 @@ const corporationMapping = {
               <Typography variant="h6">
                 {t("characterManagement")}
               </Typography>
-              <Box>
+              <Box sx={{ display: 'flex', gap: 1 }}>
                 <Button
                   variant="outlined"
                   size="small"
                   startIcon={<FileDownloadIcon />}
                   onClick={triggerCharacterImport}
-                  sx={{ mr: 1 }}
+                  sx={{ minWidth: 80 }}
                 >
                   {t("import")}
                 </Button>
@@ -972,6 +974,7 @@ const corporationMapping = {
                   size="small"
                   startIcon={<FileUploadIcon/>}
                   onClick={handleExportCharacters}
+                  sx={{ minWidth: 80 }}
                 >
                   {t("export")}
                 </Button>
