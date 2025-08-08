@@ -229,18 +229,6 @@
             "original_rare": "SSR"
         },
         {
-            "id": 204101,
-            "name_code": 5141,
-            "class": "Attacker",
-            "name_cn": "K",
-            "name_en": "K",
-            "element": "Electronic",
-            "use_burst_skill": "Step3",
-            "corporation": "ELYSION",
-            "weapon_type": "SMG",
-            "original_rare": "SSR"
-        },
-        {
             "id": 235201,
             "name_code": 5066,
             "class": "Attacker",
@@ -418,6 +406,18 @@
             "use_burst_skill": "Step2",
             "corporation": "ELYSION",
             "weapon_type": "RL",
+            "original_rare": "SSR"
+        },
+        {
+            "id": 204101,
+            "name_code": 5141,
+            "class": "Attacker",
+            "name_cn": "K",
+            "name_en": "K",
+            "element": "Electronic",
+            "use_burst_skill": "Step3",
+            "corporation": "ELYSION",
+            "weapon_type": "SMG",
             "original_rare": "SSR"
         },
         {
@@ -790,6 +790,18 @@
             "use_burst_skill": "Step2",
             "corporation": "MISSILIS",
             "weapon_type": "AR",
+            "original_rare": "SSR"
+        },
+        {
+            "id": 150201,
+            "name_code": 5146,
+            "class": "Attacker",
+            "name_cn": "伊莱格：BOOM与惊吓",
+            "name_en": "Elegg: Boom and Shock",
+            "element": "Water",
+            "use_burst_skill": "Step3",
+            "corporation": "MISSILIS",
+            "weapon_type": "MG",
             "original_rare": "SSR"
         },
         {
@@ -1522,6 +1534,18 @@
             "use_burst_skill": "Step1",
             "corporation": "PILGRIM",
             "weapon_type": "SMG",
+            "original_rare": "SSR"
+        },
+        {
+            "id": 423401,
+            "name_code": 5145,
+            "class": "Attacker",
+            "name_cn": "桃乐丝：机缘巧遇",
+            "name_en": "Dorothy: Serendipity",
+            "element": "Water",
+            "use_burst_skill": "Step3",
+            "corporation": "PILGRIM",
+            "weapon_type": "SG",
             "original_rare": "SSR"
         },
         {
