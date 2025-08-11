@@ -148,5 +148,5 @@
 
 [Github](https://github.com/IsolateOB/ExiaInvasion)
 
-[东南亚服交流QQ群](https://qm.qq.com/q/hznFzFRAf8)
+[ExiaInvasion & 伤害估算器 交流与反馈](https://qm.qq.com/q/CDQMjjV1Li)
 
