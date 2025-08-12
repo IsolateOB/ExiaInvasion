@@ -328,13 +328,31 @@ const ManagementPage = () => {
         let addedCount = 0;
         let updatedCount = 0;
 
+        // 辅助函数：将单元格值安全转换为字符串，处理富文本/公式等情况，避免 [object Object]
+        const getCellString = (cell) => {
+          if (!cell) return '';
+            const v = cell.value;
+            if (v == null) return '';
+            if (typeof v === 'object') {
+              // 富文本 { richText: [...] }
+              if (Array.isArray(v.richText)) {
+                return v.richText.map(r => r.text || '').join('').trim();
+              }
+              // 公式 { formula, result }
+              if (v.result != null) return String(v.result).trim();
+              // 直接文本 { text: 'xxx' }
+              if (v.text != null) return String(v.text).trim();
+            }
+            return String(v).trim();
+        };
+
         // 获取表头行以识别列位置
         const headerRow = worksheet.getRow(1);
         let gameUidCol = 1, usernameCol = 2, emailCol = 3, passwordCol = 4, cookieCol = 5;
         
-        // 尝试根据表头内容智能识别列位置
+        // 尝试根据表头内容智能识别列位置（使用 getCellString 处理富文本）
         headerRow.eachCell((cell, colNumber) => {
-          const cellValue = cell.value ? String(cell.value).toLowerCase() : '';
+          const cellValue = getCellString(cell).toLowerCase();
           if (cellValue.includes('game') && cellValue.includes('uid')) {
             gameUidCol = colNumber;
           } else if (cellValue.includes('账号') || cellValue.includes('username')) {
@@ -352,11 +370,11 @@ const ManagementPage = () => {
         worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
           if (rowNumber === 1) return; // 跳过标题行
 
-          const gameUid = row.getCell(gameUidCol).value ? String(row.getCell(gameUidCol).value).trim() : '';
-          const username = row.getCell(usernameCol).value ? String(row.getCell(usernameCol).value).trim() : '';
-          const email = row.getCell(emailCol).value ? String(row.getCell(emailCol).value).trim() : '';
-          const password = row.getCell(passwordCol).value ? String(row.getCell(passwordCol).value).trim() : '';
-          const cookie = row.getCell(cookieCol).value ? String(row.getCell(cookieCol).value).trim() : '';
+          const gameUid = getCellString(row.getCell(gameUidCol));
+          const username = getCellString(row.getCell(usernameCol));
+          const email = getCellString(row.getCell(emailCol));
+          const password = getCellString(row.getCell(passwordCol));
+          const cookie = getCellString(row.getCell(cookieCol));
 
           // 查找是否存在相同game_uid的账号（game_uid不能为空）
           let existingIndex = -1;
