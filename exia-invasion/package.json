@@ -2,6 +2,7 @@
   "name": "exia-invasion",
   "private": true,
   "version": "0.0.0",
+  "license": "LGPL-2.1-or-later",
   "type": "module",
   "scripts": {
     "dev": "vite",
