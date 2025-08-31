@@ -269,10 +269,8 @@ export default function App() {
         try {
           roleInfo = await getRoleName();
           console.log(`角色名：${roleInfo.role_name}, 区域ID：${roleInfo.area_id}`);
-          if (!roleInfo.role_name) {
-            throw new Error(t("cookieExpired"));
-          }
-        } catch (err) { // 获取角色名失败，可能是 Cookie 过期
+          // 空昵称不再直接判定为 Cookie 失效
+        } catch (err) { // 请求异常才认为 Cookie 失效
           if (usedSavedCookie && acc.password) {
             addLog(t("cookieExpired"));
             try {
@@ -317,9 +315,13 @@ export default function App() {
           dict.name = roleInfo.role_name;
           
           // 3-2. 获取同步器等级 + 前哨基地等级
-          const { synchroLevel, outpostLevel } = await getOutpostInfo(roleInfo.area_id);
-          dict.synchroLevel = synchroLevel;
-          dict.outpostLevel = outpostLevel;
+          if (roleInfo.area_id) {
+            const { synchroLevel, outpostLevel } = await getOutpostInfo(roleInfo.area_id);
+            dict.synchroLevel = synchroLevel;
+            dict.outpostLevel = outpostLevel;
+          } else {
+            addLog(t("getRoleNameFail") + "area_id empty");
+          }
           
           // 3-3. 获取角色详情和装备信息（合并请求）
           await addCharacterDetailsToDict(dict, roleInfo.area_id);

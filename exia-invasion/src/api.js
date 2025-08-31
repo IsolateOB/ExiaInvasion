@@ -78,15 +78,39 @@ const getIntlOpenId = async () => {
   throw new Error("未找到 game_openid cookie");
 };
 
-// 获取角色名和area_id
-export const getRoleName = () =>
-  postJson(
+// 获取最新昵称（优先 BasicInfo.nickname，回退旧 role_name）；不因空昵称判定 Cookie 失效
+export const getRoleName = async () => {
+  const oldPromise = postJson(
     "https://api.blablalink.com/api/ugc/direct/standalonesite/User/GetUserGamePlayerInfo",
     {}
-  ).then((j) => ({
-    role_name: j?.data?.role_name || "",
-    area_id: j?.data?.area_id || ""
-  }));
+  ).catch(err => ({ error: err }));
+
+  const oldResp = await oldPromise;
+  const areaId = (!oldResp.error && (oldResp?.data?.area_id)) ? oldResp.data.area_id : "";
+  const oldName = !oldResp.error ? (oldResp?.data?.role_name || "") : "";
+
+
+  if (areaId) {
+    let intlOpenId = "";
+    intlOpenId = await getIntlOpenId();
+    const payload = { nikke_area_id: parseInt(areaId) };
+    if (intlOpenId) payload.intl_open_id = intlOpenId;
+    const basicResp = await postJson(
+      "https://api.blablalink.com/api/game/proxy/Game/GetUserProfileBasicInfo",
+      payload
+    ).catch(err => ({ error: err }));
+    if (!basicResp.error) {
+      const info = basicResp?.data?.basic_info || {};
+      const finalName = info.nickname || oldName || "";
+      return {
+        role_name: finalName,
+        area_id: info.area_id || areaId
+      };
+    }
+  }
+  if (!oldResp.error) return { role_name: oldName || "", area_id: areaId };
+  return { role_name: "", area_id: areaId };
+};
 
 // 获取同步器等级：必须传入从 getRoleName 获得的 area_id
 export const getSyncroLevel = (areaId) => {
