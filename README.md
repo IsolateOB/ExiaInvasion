@@ -148,5 +148,5 @@
 
 [Github](https://github.com/IsolateOB/ExiaInvasion)
 
-[ExiaInvasion & 伤害估算器 交流与反馈](https://qm.qq.com/q/CDQMjjV1Li)
+[ExiaInvasion & ArcanaDivination 交流与反馈](https://qm.qq.com/q/CDQMjjV1Li)
 
