@@ -22,8 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+*.zip
 
-# Chrome Extension Private Key - NEVER COMMIT!
+# Chrome Extension Private Key
 private-key.pem
 *.pem
 

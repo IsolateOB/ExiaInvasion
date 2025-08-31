@@ -363,6 +363,28 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
     setOuterBorder(ws,4,cubeStartCol,8,cubeStartCol+cubes.length-1,mediumSide);
   }
 
+  /* ========== 前哨基地等级列（放在魔方区右侧） ========== */
+  const outpostCol = cubeStartCol + (cubes.length > 0 ? cubes.length : 0);
+  ws.mergeCells(1,outpostCol,1,outpostCol);
+  const outHead = ws.getCell(1,outpostCol);
+  outHead.value = t("outpostLevel");
+  outHead.alignment = { horizontal:"center", vertical:"middle" };
+  outHead.font = { bold:true };
+  setOuterBorder(ws,1,outpostCol,1,outpostCol,mediumSide);
+
+  ws.mergeCells(2,outpostCol,3,outpostCol);
+  const outLabel = ws.getCell(2,outpostCol);
+  outLabel.value = t("outpostLevel");
+  outLabel.alignment = { horizontal:"center", vertical:"middle" };
+  outLabel.font = { bold:true };
+  setOuterBorder(ws,2,outpostCol,3,outpostCol,mediumSide);
+
+  ws.mergeCells(4,outpostCol,8,outpostCol);
+  const outVal = ws.getCell(4,outpostCol);
+  outVal.value = dict.outpostLevel ?? 0;
+  outVal.alignment = { horizontal:"center", vertical:"middle" };
+  setOuterBorder(ws,4,outpostCol,8,outpostCol,mediumSide);
+
   /* ========== 设置列宽 ========== */
   if(lang === "en"){
     ws.getColumn(1).width = 5;
@@ -392,6 +414,8 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
   for(let col=cubeStartCol; col<cubeStartCol+cubeCount; ++col){
     ws.getColumn(col).width = cubeWidth;
   }
+  // Outpost 列宽
+  ws.getColumn(outpostCol).width = cubeWidth;
   
   // 设置默认字体
   const defaultFontName = "Microsoft YaHei";

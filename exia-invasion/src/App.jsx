@@ -29,7 +29,7 @@ import saveDictToExcel from "./excel.js";
 import TRANSLATIONS from "./translations";
 import { getAccounts, setAccounts, getSettings, setSettings, getCharacters } from "./storage";
 import { applyCookieStr, clearSiteCookies, getCurrentCookies } from "./cookie.js";
-import { loadBaseAccountDict, getRoleName, getSyncroLevel, getCharacterDetails, getUserCharacters } from "./api.js";
+import { loadBaseAccountDict, getRoleName, getOutpostInfo, getCharacterDetails, getUserCharacters } from "./api.js";
 import { mergeWorkbooks } from "./merge.js";
 import { v4 as uuidv4 } from "uuid";
 
@@ -316,9 +316,10 @@ export default function App() {
           dict = await loadBaseAccountDict();
           dict.name = roleInfo.role_name;
           
-          // 3-2. 获取同步器等级
-          const syncroLevel = await getSyncroLevel();
-          dict.synchroLevel = syncroLevel;
+          // 3-2. 获取同步器等级 + 前哨基地等级
+          const { synchroLevel, outpostLevel } = await getOutpostInfo(roleInfo.area_id);
+          dict.synchroLevel = synchroLevel;
+          dict.outpostLevel = outpostLevel;
           
           // 3-3. 获取角色详情和装备信息（合并请求）
           await addCharacterDetailsToDict(dict, roleInfo.area_id);

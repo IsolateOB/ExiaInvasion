@@ -38,6 +38,7 @@ export const loadBaseAccountDict = async () => {
   const baseDict = {
     name: "",
     synchroLevel: 0,
+  outpostLevel: 0,
     cubes: cubes,
     elements: migratedElements
   };
@@ -87,12 +88,45 @@ export const getRoleName = () =>
     area_id: j?.data?.area_id || ""
   }));
 
-// 获取同步器等级
-export const getSyncroLevel = () =>
-  postJson(
-    "https://api.blablalink.com/api/game/proxy/Tools/GetPlayerBattleInfo",
-    {}
-  ).then((j) => j?.data?.outpost_detail?.sychro_level || 0);
+// 获取同步器等级：必须传入从 getRoleName 获得的 area_id
+export const getSyncroLevel = (areaId) => {
+  if (areaId === undefined || areaId === null || areaId === "") {
+    return Promise.reject(new Error("缺少 areaId，需先调用 getRoleName 获取"));
+  }
+  return postJson(
+    "https://api.blablalink.com/api/game/proxy/Game/GetUserProfileOutpostInfo",
+    { nikke_area_id: parseInt(areaId) }
+  )
+    .then((j) => {
+      const level = j?.data?.outpost_info?.synchro_level;
+      return Number.isFinite(level) ? level : 0;
+    })
+    .catch((err) => {
+      console.warn("获取同步器等级失败", err);
+      return 0;
+    });
+};
+// 获取前哨信息（同步器等级 + 前哨基地等级）
+export const getOutpostInfo = (areaId) => {
+  if (areaId === undefined || areaId === null || areaId === "") {
+    return Promise.reject(new Error("缺少 areaId，需先调用 getRoleName 获取"));
+  }
+  return postJson(
+    "https://api.blablalink.com/api/game/proxy/Game/GetUserProfileOutpostInfo",
+    { nikke_area_id: parseInt(areaId) }
+  )
+    .then((j) => {
+      const info = j?.data?.outpost_info || {};
+      return {
+        synchroLevel: Number.isFinite(info.synchro_level) ? info.synchro_level : 0,
+        outpostLevel: Number.isFinite(info.outpost_battle_level) ? info.outpost_battle_level : 0,
+      };
+    })
+    .catch((err) => {
+      console.warn("获取前哨信息失败", err);
+      return { synchroLevel: 0, outpostLevel: 0 };
+    });
+};
 
 // 获取角色详情和装备信息（逐个获取以避免API错误）
 export const getCharacterDetails = async (areaId, nameCodes) => {
