@@ -285,6 +285,28 @@ export default function App() {
             continue;
           }
         }
+
+        // 二次校验：若 area_id 缺失或（昵称与旧名都缺）视为 Cookie 失效，尝试重登一次
+        const invalidRole = !roleInfo.area_id || roleInfo.area_id === "";
+        if (invalidRole) {
+          if (usedSavedCookie && acc.password) {
+            addLog(t("cookieExpired"));
+            try {
+              await loginAndGetCookie(acc, server);
+              roleInfo = await getRoleName();
+              if (!roleInfo.area_id) {
+                addLog(t("getRoleNameFail") + "area_id empty after relogin");
+                continue;
+              }
+            } catch (e) {
+              addLog(t("reloginFail") + e);
+              continue;
+            }
+          } else {
+            addLog(t("getRoleNameFail") + "area_id empty");
+            continue;
+          }
+        }
         addLog(`${t("roleOk")}${roleInfo.role_name}`);
         
         /* 回写账号cookie、用户名和game_uid */
@@ -292,7 +314,9 @@ export default function App() {
           const cks = (await chrome.cookies.getAll({}))
             .filter(c => c.domain.endsWith("blablalink.com"));
           acc.cookie = cookieArrToStr(cks);
-          acc.username = roleInfo.role_name; // 回写用户名
+          if (roleInfo.role_name) {
+            acc.username = roleInfo.role_name; // 仅在非空时覆盖用户名
+          }
           
           // 提取并保存game_uid
           const gameUidCookie = cks.find(c => c.name === "game_uid");
