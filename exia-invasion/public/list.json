@@ -1369,6 +1369,30 @@
             "original_rare": "SSR"
         },
         {
+            "id": 314301,
+            "name_code": 5150,
+            "class": "Attacker",
+            "name_cn": "米尔克：花漾兔女郎",
+            "name_en": "Milk: Blooming Bunny",
+            "element": "Iron",
+            "use_burst_skill": "Step3",
+            "corporation": "TETRA",
+            "weapon_type": "SR",
+            "original_rare": "SSR"
+        },
+        {
+            "id": 331501,
+            "name_code": 5151,
+            "class": "Supporter",
+            "name_cn": "爱德：特务兔女郎",
+            "name_en": "Ade: Agent Bunny",
+            "element": "Iron",
+            "use_burst_skill": "Step2",
+            "corporation": "TETRA",
+            "weapon_type": "SR",
+            "original_rare": "SSR"
+        },
+        {
             "id": 422001,
             "name_code": 5012,
             "class": "Attacker",
