@@ -138,38 +138,15 @@ const ManagementPage = () => {
   
   /* ========== 角色数据初始化 ========== */
   useEffect(() => {
-    // 加载角色数据并处理数据迁移
+    // 直接读取并设置；若没有数据，则使用空模板
     getCharacters().then(data => {
-      // 检查是否需要从旧的对象格式迁移到新的数组格式
-      const migratedData = { ...data };
-      let needsMigration = false;
-      
-      // 检查每个属性并在需要时转换为数组格式
-      ["Electronic", "Fire", "Wind", "Water", "Iron", "Utility"].forEach(element => {
-        if (migratedData.elements[element] && !Array.isArray(migratedData.elements[element])) {
-          // 将对象转换为数组
-          const objectData = migratedData.elements[element];
-          migratedData.elements[element] = Object.values(objectData);
-          needsMigration = true;
-        } else if (!migratedData.elements[element]) {
-          // 确保所有属性都存在并为数组
-          migratedData.elements[element] = [];
-          needsMigration = true;
+      const fallback = {
+        elements: {
+          Electronic: [], Fire: [], Wind: [], Water: [], Iron: [], Utility: []
         }
-        // 确保每个角色都有 showStats 属性；不再兼容旧字段 enableAtkElemLbScore
-        migratedData.elements[element] = migratedData.elements[element].map(char => {
-          const showStats = Array.isArray(char.showStats)
-            ? [...char.showStats]
-            : ["AtkElemLbScore", ...equipStatKeys];
-          return { ...char, showStats };
-        });
-      });
-      
-      // 如需要则保存迁移后的数据
-      if (needsMigration) {
-        setCharacters(migratedData);
-      }
-        setCharactersData(migratedData);
+      };
+      const valid = (data && data.elements && typeof data.elements === 'object') ? data : fallback;
+      setCharactersData(valid);
     });
     
     // 加载人物目录：优先在线获取并写入本地，其次回退缓存
@@ -710,6 +687,7 @@ const corporationMapping = {
   };
   
   /* ---------- Import/Export Handlers ---------- */
+  // 导出角色 JSON：内存字典已不包含 enableAtkElemLbScore，直接序列化即可
   const handleExportCharacters = () => {
     try {
       const dataStr = JSON.stringify(characters, null, 2);
@@ -728,7 +706,7 @@ const corporationMapping = {
     reader.onload = (e) => {
       try {
         const importedData = JSON.parse(e.target.result);
-        // Basic validation
+        // 基本校验
         if (importedData && importedData.elements && typeof importedData.elements === 'object') {
           setCharactersData(importedData);
           setCharacters(importedData);

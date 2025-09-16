@@ -26,6 +26,7 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
 import MergeIcon from "@mui/icons-material/Merge";
 import JSZip from "jszip";
 import saveDictToExcel from "./excel.js";
+import { computeAELForDict } from "./ael.js";
 import TRANSLATIONS from "./translations";
 import { getAccounts, setAccounts, getSettings, setSettings, getCharacters } from "./storage";
 import { applyCookieStr, clearSiteCookies, getCurrentCookies } from "./cookie.js";
@@ -361,6 +362,8 @@ export default function App() {
           
           // 3-3. 获取角色详情和装备信息（合并请求）
           await addCharacterDetailsToDict(dict, roleInfo.area_id);
+          // 3-4. 计算 AEL 分并写入字典，便于 JSON 导出携带同样数值
+          computeAELForDict(dict);
           addLog(t("characterDetailsOk"));
         } catch (err) {
           addLog(`${t("dictFail")}${err}`);

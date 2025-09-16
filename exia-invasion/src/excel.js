@@ -1,5 +1,6 @@
 // Excel表格生成模块
 import ExcelJS from "exceljs";
+import { computeAELScore, isUnowned, getEquipSumStats } from './ael.js';
 import TRANSLATIONS from './translations.js';
 
 // 边框样式定义
@@ -240,18 +241,13 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
         equipments = {}      
       } = charInfo;
 
-      // 判断该角色是否“未拥有/无数据”：四项均为无效时视为未拥有
-      const hasLB = (typeof limit_break === 'object' && limit_break && typeof limit_break.grade === 'number' && limit_break.grade >= 0)
-                 || (typeof limit_break === 'number' && limit_break > 0);
-      const hasSkills = [skill1_level, skill2_level, skill_burst_level].some(v => typeof v === 'number' && v > 0);
-      const hasItem = (item_rare && item_rare !== "") || (typeof item_level === 'number' && item_level > 0);
-      const hasEquips = Object.values(equipments || {}).some(arr => Array.isArray(arr) && arr.length > 0);
-      const isUnowned = !(hasLB || hasSkills || hasItem || hasEquips);
+      // 统一复用公共判定逻辑
+      const unowned = isUnowned(charInfo);
       
       // 填入基础数据（根据是否开启，起始偏移不同）
       let baseOffset = 1; // 列0为攻优突破分
       // AEL列保持合并但不写占位值；仅在有数据时回填分数
-      if (!isUnowned) {
+      if (!unowned) {
         ws.getCell(4,colCursor+baseOffset).value = getLimitBreakStr(limit_break);
         if (typeof skill1_level !== 'undefined') ws.getCell(4,colCursor+baseOffset+1).value = skill1_level;
         if (typeof skill2_level !== 'undefined') ws.getCell(4,colCursor+baseOffset+2).value = skill2_level;
@@ -319,7 +315,7 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
       }
       
       // 汇总行 (第8行)
-      if (!isUnowned) {
+      if (!unowned) {
         Object.entries(sumStats).forEach(([k, v]) => {
           const idx = propertyKeys.indexOf(k);
           const cell = ws.getCell(8, colCursor + idx);
@@ -329,14 +325,12 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
         });
       }
 
-      // 回填攻优突破分： (1 + 0.9*atk) * (1 + (elem + 10%)) * (1 + 0.03*grade) * (1 + 0.02*core)
-      if (!isUnowned) {
+      // 回填攻优突破分
+      if (!unowned) {
         const grade = typeof limit_break === 'object' ? (limit_break.grade || 0) : 0;
         const core  = typeof limit_break === 'object' ? (limit_break.core  || 0) : 0;
-        const atk = sumStats.StatAtk || 0;
-        const elem = sumStats.IncElementDmg || 0;
-        // 公式：ATK 按 0.9 权重；元素加成为 elem 基础上额外 +10%
-        const score = (1 + 0.9*atk) * (1 + (elem + 0.10)) * (grade * 0.03 + core * 0.02 + 1);
+        const { StatAtk: atk = 0, IncElementDmg: elem = 0 } = getEquipSumStats(equipments);
+        const score = computeAELScore({ grade, core, atk, elem });
         const scoreCell = ws.getCell(4, colCursor);
         scoreCell.value = score;
         scoreCell.numFmt = "0.00";
