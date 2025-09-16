@@ -47,6 +47,7 @@ import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import TRANSLATIONS from "./translations.js";
+import { fetchAndCacheNikkeDirectory, getCachedNikkeDirectory } from "./api.js";
 import { v4 as uuidv4 } from "uuid";
 import { getCharacters, setCharacters } from "./storage.js";
 
@@ -124,7 +125,7 @@ const ManagementPage = () => {
   
   useEffect(() => {
     chrome.storage.local.get("settings", (r) => {
-      setLang(r.settings?.lang || "zh");
+  setLang(r.settings?.lang || "zh");
     });
     const handler = (c, area) => {
       if (area === "local" && c.settings) {
@@ -155,10 +156,13 @@ const ManagementPage = () => {
           migratedData.elements[element] = [];
           needsMigration = true;
         }
-        // 确保每个角色都有 showStats 属性
-        migratedData.elements[element] = migratedData.elements[element].map(char => (
-          char.showStats ? char : { ...char, showStats: [...equipStatKeys] }
-        ));
+        // 确保每个角色都有 showStats 属性；不再兼容旧字段 enableAtkElemLbScore
+        migratedData.elements[element] = migratedData.elements[element].map(char => {
+          const showStats = Array.isArray(char.showStats)
+            ? [...char.showStats]
+            : ["AtkElemLbScore", ...equipStatKeys];
+          return { ...char, showStats };
+        });
       });
       
       // 如需要则保存迁移后的数据
@@ -168,11 +172,16 @@ const ManagementPage = () => {
         setCharactersData(migratedData);
     });
     
-    // 加载角色列表数据
-    fetch(chrome.runtime.getURL("list.json"))
-      .then(response => response.json())
-      .then(data => setNikkeList(data.nikkes || []))
-      .catch(err => console.error("Failed to load nikke list:", err));
+    // 加载人物目录：优先在线获取并写入本地，其次回退缓存
+    (async () => {
+      const online = await fetchAndCacheNikkeDirectory();
+      if (Array.isArray(online) && online.length) {
+        setNikkeList(online);
+      } else {
+        const cached = await getCachedNikkeDirectory();
+        setNikkeList(cached || []);
+      }
+    })();
   }, []);
   
   /* ========== 账号数据初始化 ========== */
@@ -218,6 +227,8 @@ const ManagementPage = () => {
   // 持久化账号数据到存储
   const persist = (data) =>
     new Promise((ok) => chrome.storage.local.set({ accounts: data }, ok));
+
+  // 已移除全局设置的持久化（攻优突破分改为按角色行控制）
   
   /* ========== 账号管理操作函数 ========== */
   // 更新指定账号的字段值
@@ -599,7 +610,8 @@ const corporationMapping = {
             name_cn: nikke.name_cn,
             name_en: nikke.name_en,
             priority: "yellow",
-            showStats: [...equipStatKeys]
+            // 默认包含 'AtkElemLbScore'
+            showStats: ["AtkElemLbScore", ...equipStatKeys]
           }
         ]
       }
@@ -1015,6 +1027,10 @@ const corporationMapping = {
                           <TableCell width="5%">{t("no")}</TableCell>
                           <TableCell width="20%">{t("characterName")}</TableCell>
                           <TableCell width="10%">{t("priority")}</TableCell>
+                          {/* 攻优突破分开关列标题 */}
+                          <TableCell width="8%" sx={{ textAlign: 'center', fontSize: '0.75rem' }}>
+                            {t("atkElemLbScore")}
+                          </TableCell>
                           {/* 装备词条列标题 */}
                           {equipStatKeys.map((key, idx) => (
                             <TableCell key={key} width="6%" sx={{ textAlign: 'center', fontSize: '0.75rem' }}>
@@ -1086,6 +1102,24 @@ const corporationMapping = {
                                   <MenuItem value="yellow" sx={getPriorityColor("yellow")}>{t("yellow")}</MenuItem>
                                 </Select>
                               </FormControl>
+                            </TableCell>
+                            {/* 攻优突破分开关（行内） */}
+                            <TableCell sx={{ textAlign: 'center', padding: '4px' }}>
+                              <Checkbox
+                                size="small"
+                                checked={Array.isArray(charData.showStats) && charData.showStats.includes('AtkElemLbScore')}
+                                onChange={(e) => {
+                                  const flag = e.target.checked;
+                                  const newShow = Array.isArray(charData.showStats) ? [...charData.showStats] : [];
+                                  const has = newShow.includes('AtkElemLbScore');
+                                  const updated = flag ? (has ? newShow : ['AtkElemLbScore', ...newShow]) : newShow.filter(k => k !== 'AtkElemLbScore');
+                                  const newChar = { ...charData, showStats: updated };
+                                  const newList = characters.elements[element].map((c, i) => i === index ? newChar : c);
+                                  const newCharacters = { ...characters, elements: { ...characters.elements, [element]: newList } };
+                                  setCharactersData(newCharacters);
+                                  setCharacters(newCharacters);
+                                }}
+                              />
                             </TableCell>
                             {/* 装备词条复选框 */}
                             {equipStatKeys.map((key) => (

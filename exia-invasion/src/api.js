@@ -1,21 +1,24 @@
 // API接口和数据处理模块
 import { getCharacters } from "./storage.js";
+import { Converter as OpenCCConverter } from "opencc-js";
+
+// ========== 主线目录缓存键 ==========
+const MAINLINE_CATALOG_MAP_KEY = "mainlineCatalogMap";
+const MAINLINE_CATALOG_URL = "https://sg-tools-cdn.blablalink.com/xx-97/b32816a11f83865b09bcf95e67ca83ae.json";
 
 /* ========== 载入基础账号数据模板 ========== */
 export const loadBaseAccountDict = async () => {
-  // 加载魔方数据
-  const listUrl = chrome.runtime.getURL("list.json");
+  // 仅从打包内 cubes.json 读取魔方信息；人物目录从本地缓存获取
+  const listUrl = chrome.runtime.getURL("cubes.json");
   const listResp = await fetch(listUrl);
   const listData = await listResp.json();
-  
-  // 构建魔方数组，包含ID、等级和名称信息
-  const cubes = listData.cubes.map(cube => ({
+  const cubes = (listData.cubes || []).map(cube => ({
     cube_id: cube.cube_id,
     cube_level: 0,
     name_cn: cube.name_cn,
     name_en: cube.name_en
   }));
-  
+
   // 从存储中获取角色数据（角色管理系统）
   const charactersData = await getCharacters();
   
@@ -38,7 +41,9 @@ export const loadBaseAccountDict = async () => {
   const baseDict = {
     name: "",
     synchroLevel: 0,
-  outpostLevel: 0,
+    outpostLevel: 0,
+    normalProgress: "",
+    hardProgress: "",
     cubes: cubes,
     elements: migratedElements
   };
@@ -150,6 +155,116 @@ export const getOutpostInfo = (areaId) => {
       console.warn("获取前哨信息失败", err);
       return { synchroLevel: 0, outpostLevel: 0 };
     });
+};
+
+// ========== 主线目录：预抓取与映射 ==========
+// 递归遍历对象，收集可能的关卡ID与名称
+const buildStageMap = (root) => {
+  const map = new Map();
+  const visit = (node) => {
+    if (!node) return;
+    if (Array.isArray(node)) {
+      node.forEach(visit);
+      return;
+    }
+    if (typeof node === "object") {
+      // 可能的ID字段
+      const idCandidates = [
+        node.id,
+        node.stage_id,
+        node.progress_id,
+        node.campaign_id,
+      ].filter((v) => typeof v === "number" || (typeof v === "string" && v.trim() !== ""));
+      // 可能的名称字段
+      let nameStr = undefined;
+      if (typeof node.name_short === "string") nameStr = node.name_short;
+      else if (typeof node.name === "string") nameStr = node.name;
+      else if (typeof node.title === "string") nameStr = node.title;
+      else if (node.name_localkey && typeof node.name_localkey === "object") {
+        // 从本地化对象中任选一个字符串
+        const vals = Object.values(node.name_localkey).filter((v) => typeof v === "string");
+        if (vals.length) nameStr = vals[0];
+      }
+      if (nameStr && idCandidates.length) {
+        idCandidates.forEach((idVal) => {
+          const key = String(idVal);
+          if (!map.has(key)) map.set(key, nameStr);
+        });
+      }
+      // 继续遍历子字段
+      Object.values(node).forEach(visit);
+    }
+  };
+  visit(root);
+  // 转换为普通对象，便于存储
+  const obj = {};
+  for (const [k, v] of map.entries()) obj[k] = v;
+  return obj;
+};
+
+// 预抓取并缓存主线目录映射（id -> 名称字符串）
+export const prefetchMainlineCatalog = async () => {
+  try {
+    const resp = await fetch(MAINLINE_CATALOG_URL, { credentials: "omit" });
+    if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
+    const data = await resp.json();
+    const mapObj = buildStageMap(data);
+    await new Promise((res) => chrome.storage.local.set({ [MAINLINE_CATALOG_MAP_KEY]: mapObj }, () => res()));
+    return mapObj;
+  } catch (e) {
+    console.warn("预抓取主线目录失败:", e);
+    // 尝试读取已有缓存
+    const cached = await new Promise((res) => chrome.storage.local.get(MAINLINE_CATALOG_MAP_KEY, (r) => res(r[MAINLINE_CATALOG_MAP_KEY] || {})));
+    return cached || {};
+  }
+};
+
+export const getCachedMainlineCatalog = async () =>
+  new Promise((res) =>
+    chrome.storage.local.get(MAINLINE_CATALOG_MAP_KEY, (r) => res(r[MAINLINE_CATALOG_MAP_KEY] || {}))
+  );
+
+// 提取短格式：保留第一个空格之前的字符（如 "40-22B-1 STAGE" => "40-22B-1"）
+const toShortStage = (name) => {
+  if (!name || typeof name !== "string") return "";
+  const s = name.trim();
+  // 按空白分割，保留第一段
+  const first = s.split(/\s+/)[0] || "";
+  // 规范化连字符两侧空格（若存在）
+  return first.replace(/\s*[-–]\s*/g, "-");
+};
+
+// 将进度ID映射为短名称（如 34-1）
+export const mapStageIdToShortName = (catalogMapObj, stageId) => {
+  if (!stageId && stageId !== 0) return "";
+  const key = String(stageId);
+  const name = catalogMapObj?.[key];
+  if (typeof name === "string") return toShortStage(name) || name;
+  return "";
+};
+
+// 获取账号主线进度（Normal/Hard），并映射为短名称
+export const getCampaignProgress = async (areaId, catalogMapObj) => {
+  if (!areaId) return { normal: "", hard: "" };
+  const intlOpenId = await getIntlOpenId();
+  try {
+    const payload = { nikke_area_id: parseInt(areaId) };
+    if (intlOpenId) payload.intl_open_id = intlOpenId;
+    const resp = await postJson(
+      "https://api.blablalink.com/api/game/proxy/Game/GetUserProfileBasicInfo",
+      payload
+    );
+    const info = resp?.data?.basic_info || {};
+    const normalId = info.progress_normal_campaign ?? info.progress_campaign_normal ?? info.progress_normal ?? 0;
+    const hardId   = info.progress_hard_campaign   ?? info.progress_campaign_hard   ?? info.progress_hard   ?? 0;
+    return {
+      normal: mapStageIdToShortName(catalogMapObj || {}, normalId),
+      hard: mapStageIdToShortName(catalogMapObj || {}, hardId),
+    };
+  } catch (e) {
+    console.warn("获取主线进度失败:", e);
+    return { normal: "", hard: "" };
+  }
 };
 
 // 获取角色详情和装备信息（逐个获取以避免API错误）
@@ -279,4 +394,66 @@ export const getEquipments = () => {
   console.warn("getEquipments 接口已废弃，请使用 getCharacterDetails");
   return Promise.resolve({});
 };
+
+/* ========== 人物目录获取与缓存（管理页打开时自动执行） ========== */
+const NIKKE_DIR_CACHE_KEY = "nikkeDirectory";
+
+// 远端目录地址（繁中与英文）
+const NIKKE_TW_URL = 'https://sg-tools-cdn.blablalink.com/vm-36/bj-70/6223a9fbfd3be53b48587c934a91f686.json';
+const NIKKE_EN_URL = 'https://sg-tools-cdn.blablalink.com/yl-57/hd-03/1bf030193826e243c2e195f951a4be00.json';
+
+const oc = OpenCCConverter({ from: 'tw', to: 'cn' });
+
+const convertToSimplified = (data) => {
+  if (Array.isArray(data)) return data.map(convertToSimplified);
+  if (data && typeof data === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(data)) out[k] = convertToSimplified(v);
+    return out;
+  }
+  if (typeof data === 'string') return oc(data);
+  return data;
+};
+
+export const fetchAndCacheNikkeDirectory = async () => {
+  try {
+    const [twResp, enResp] = await Promise.all([
+      fetch(NIKKE_TW_URL),
+      fetch(NIKKE_EN_URL),
+    ]);
+    if (!twResp.ok || !enResp.ok) throw new Error('fetch nikke directory failed');
+    const [twDataRaw, enData] = await Promise.all([twResp.json(), enResp.json()]);
+    const twData = convertToSimplified(twDataRaw);
+    const enMap = new Map(enData.map((e) => [e.id, e]));
+
+    const nikkes = [];
+    for (const tw of twData) {
+      const en = enMap.get(tw.id);
+      if (!en) continue; // 跳过没有英文条目的 id
+      nikkes.push({
+        id: tw.id,
+        name_code: tw.name_code,
+        class: tw.class,
+        name_cn: tw?.name_localkey?.name,
+        name_en: en?.name_localkey?.name,
+        element: tw?.element_id?.element?.element,
+        use_burst_skill: tw?.use_burst_skill,
+        corporation: tw?.corporation,
+        weapon_type: tw?.shot_id?.element?.weapon_type,
+        original_rare: tw?.original_rare,
+      });
+    }
+
+    await new Promise((res) => chrome.storage.local.set({ [NIKKE_DIR_CACHE_KEY]: nikkes }, res));
+    return nikkes;
+  } catch (e) {
+    console.warn('获取人物目录失败:', e);
+    // 回退读取缓存
+    const cached = await new Promise((res) => chrome.storage.local.get(NIKKE_DIR_CACHE_KEY, (r) => res(r[NIKKE_DIR_CACHE_KEY] || [])));
+    return cached || [];
+  }
+};
+
+export const getCachedNikkeDirectory = async () =>
+  new Promise((res) => chrome.storage.local.get(NIKKE_DIR_CACHE_KEY, (r) => res(r[NIKKE_DIR_CACHE_KEY] || [])));
 

@@ -17,6 +17,7 @@
     "@mui/material": "^7.1.0",
     "exceljs": "^4.4.0",
     "jszip": "^3.10.1",
+    "opencc-js": "^1.0.5",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "uuid": "^11.1.0"

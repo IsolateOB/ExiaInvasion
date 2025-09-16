@@ -1,0 +1,18 @@
+{
+  "cubes": [
+    { "cube_id": 1000301, "name_cn": "遗迹突击魔方", "name_en": "Assault Cube" },
+    { "cube_id": 1000302, "name_cn": "战术突击魔方", "name_en": "Onslaught Cube" },
+    { "cube_id": 1000303, "name_cn": "遗迹巨熊魔方", "name_en": "Resilience Cube" },
+    { "cube_id": 1000304, "name_cn": "战术巨熊魔方", "name_en": "Bastion Cube" },
+    { "cube_id": 1000305, "name_cn": "遗迹促进魔方", "name_en": "Adjutant Cube" },
+    { "cube_id": 1000306, "name_cn": "战术促进魔方", "name_en": "Wingman Cube" },
+    { "cube_id": 1000307, "name_cn": "遗迹量子魔方", "name_en": "Quantum Cube" },
+    { "cube_id": 1000308, "name_cn": "体力神器魔方", "name_en": "Vigor Cube" },
+    { "cube_id": 1000309, "name_cn": "遗迹强韧魔方", "name_en": "Endurance Cube" },
+    { "cube_id": 1000310, "name_cn": "遗迹治疗魔方", "name_en": "Healing Cube" },
+    { "cube_id": 1000311, "name_cn": "遗迹回火魔方", "name_en": "Tempering Cube" },
+    { "cube_id": 1000312, "name_cn": "遗迹辅助魔方", "name_en": "Relic Assist Cube" },
+    { "cube_id": 1000313, "name_cn": "遗迹毁灭魔方", "name_en": "Destruction Cube" },
+    { "cube_id": 1000314, "name_cn": "遗迹穿透魔方", "name_en": "Piercing Cube" }
+  ]
+}

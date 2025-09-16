@@ -29,7 +29,7 @@ import saveDictToExcel from "./excel.js";
 import TRANSLATIONS from "./translations";
 import { getAccounts, setAccounts, getSettings, setSettings, getCharacters } from "./storage";
 import { applyCookieStr, clearSiteCookies, getCurrentCookies } from "./cookie.js";
-import { loadBaseAccountDict, getRoleName, getOutpostInfo, getCharacterDetails, getUserCharacters } from "./api.js";
+import { loadBaseAccountDict, getRoleName, getOutpostInfo, getCharacterDetails, getUserCharacters, prefetchMainlineCatalog, getCampaignProgress } from "./api.js";
 import { mergeWorkbooks } from "./merge.js";
 import { v4 as uuidv4 } from "uuid";
 
@@ -229,6 +229,14 @@ export default function App() {
       
       addLog(t("starting"));
       
+      // 预抓取主线目录（仅执行一次）
+      let catalogMap = {};
+      try {
+        catalogMap = await prefetchMainlineCatalog();
+      } catch (e) {
+        console.warn("预抓取主线目录失败", e);
+      }
+
       const zip = new JSZip();
       const excelMime =
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -343,6 +351,10 @@ export default function App() {
             const { synchroLevel, outpostLevel } = await getOutpostInfo(roleInfo.area_id);
             dict.synchroLevel = synchroLevel;
             dict.outpostLevel = outpostLevel;
+            // 3-2.2 获取主线进度（Normal/Hard）
+            const prog = await getCampaignProgress(roleInfo.area_id, catalogMap);
+            dict.normalProgress = prog.normal || "";
+            dict.hardProgress = prog.hard || "";
           } else {
             addLog(t("getRoleNameFail") + "area_id empty");
           }
@@ -417,7 +429,7 @@ export default function App() {
     }
   };
   
-  /* ========== 辅助函数：填充角色详情和装备信息（新API） ========== */
+  /* ========== 辅助函数：填充角色详情和装备信息 ========== */
   const addCharacterDetailsToDict = async (dict, areaId) => {
     // 收集所有需要查询的name_codes
     const allNameCodes = [];

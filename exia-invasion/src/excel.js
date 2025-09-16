@@ -136,8 +136,9 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
   setOuterBorder(ws,4,1,8,3,mediumSide);
   setVerticalBorder(ws, 1, 8, 3, mediumSide, "left");
     /* ========== 角色信息区 ========== */
-  const widthPerChar = 16; // 每个角色占用的列宽
+  const widthPerChar = 17; // 固定包含攻优突破分列
   const propertyKeys = [
+    "AtkElemLbScore",
     "limit_break","skill1_level","skill2_level","skill_burst_level",
     "item_rare","item_level",null,
     "IncElementDmg","StatAtk","StatAmmoLoad","StatChargeTime","StatChargeDamage",
@@ -145,10 +146,17 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
   ];
 
   const propertyLabels = [
+    t("atkElemLbScore"),
     t("limitBreak"), t("skill1"), t("skill2"), t("burst"), t("item"), null, t("t10"),
     t("elementAdvantage"), t("attack"), t("ammo"), t("chargeSpeed"), t("chargeDamage"),
     t("critical"), t("criticalDamage"), t("hit"), t("defense")
   ];
+
+  // 动态索引，避免硬编码
+  const statsStartIdx = propertyKeys.indexOf("IncElementDmg"); // 词条统计列起始索引
+  const itemIdx = propertyLabels.findIndex(lbl => lbl === t("item"));
+  const t10Idx = propertyLabels.findIndex(lbl => lbl === t("t10"));
+  const itemLevelIdx = propertyKeys.indexOf("item_level");
 
   const equipRowLabels = [t("head"), t("torso"), t("arm"), t("leg"), t("total")];
 
@@ -214,9 +222,8 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
       propertyLabels.forEach((lbl,i)=>{
         if(lbl===null) return;
         const colIdx = colCursor + i;
-        if(i===4){
-          ws.mergeCells(3,colIdx,3,colIdx+1);
-        }
+        // "道具"表头覆盖两列（稀有度+等级）
+        if(lbl === t("item")) ws.mergeCells(3,colIdx,3,colIdx+1);
         const headCell = ws.getCell(3,colIdx);
         headCell.value = lbl;
         headCell.alignment = { horizontal:"center", vertical:"middle" };
@@ -224,30 +231,47 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
       
       // 角色基础数据 (第4行)
       const {
-        limit_break = 0,
-        skill1_level = 0,
-        skill2_level = 0,
-        skill_burst_level = 0,
+        limit_break,
+        skill1_level,
+        skill2_level,
+        skill_burst_level,
         item_rare = "",
-        item_level = 0,
+        item_level,
         equipments = {}      
       } = charInfo;
+
+      // 判断该角色是否“未拥有/无数据”：四项均为无效时视为未拥有
+      const hasLB = (typeof limit_break === 'object' && limit_break && typeof limit_break.grade === 'number' && limit_break.grade >= 0)
+                 || (typeof limit_break === 'number' && limit_break > 0);
+      const hasSkills = [skill1_level, skill2_level, skill_burst_level].some(v => typeof v === 'number' && v > 0);
+      const hasItem = (item_rare && item_rare !== "") || (typeof item_level === 'number' && item_level > 0);
+      const hasEquips = Object.values(equipments || {}).some(arr => Array.isArray(arr) && arr.length > 0);
+      const isUnowned = !(hasLB || hasSkills || hasItem || hasEquips);
       
-      // 填入基础数据
-      ws.getCell(4,colCursor).value = getLimitBreakStr(limit_break);
-      ws.getCell(4,colCursor+1).value = skill1_level;
-      ws.getCell(4,colCursor+2).value = skill2_level;
-      ws.getCell(4,colCursor+3).value = skill_burst_level;
-      ws.getCell(4,colCursor+4).value = item_rare || "";
-      ws.getCell(4,colCursor+5).value = getItemLevelStr(item_rare,item_level);
+      // 填入基础数据（根据是否开启，起始偏移不同）
+      let baseOffset = 1; // 列0为攻优突破分
+      // AEL列保持合并但不写占位值；仅在有数据时回填分数
+      if (!isUnowned) {
+        ws.getCell(4,colCursor+baseOffset).value = getLimitBreakStr(limit_break);
+        if (typeof skill1_level !== 'undefined') ws.getCell(4,colCursor+baseOffset+1).value = skill1_level;
+        if (typeof skill2_level !== 'undefined') ws.getCell(4,colCursor+baseOffset+2).value = skill2_level;
+        if (typeof skill_burst_level !== 'undefined') ws.getCell(4,colCursor+baseOffset+3).value = skill_burst_level;
+        // 仅当存在珍藏品时填写稀有度与等级，避免无珍藏品时出现等级0
+        if (item_rare) {
+          ws.getCell(4,colCursor+baseOffset+4).value = item_rare;
+          if (typeof item_level !== 'undefined') {
+            ws.getCell(4,colCursor+baseOffset+5).value = getItemLevelStr(item_rare,item_level);
+          }
+        }
+      }
       
-      // 设置居中对齐
-      for(let i=0;i<6;i++){
+      // 设置居中对齐（含可选的攻优突破分列、LB与装备稀有度/等级）
+      for(let i=0;i<=itemLevelIdx;i++){
         ws.getCell(4,colCursor+i).alignment = { horizontal:"center", vertical:"middle" };
       }
       
       // 合并LB到T10的纵向单元格 (第4-8行)
-      for(let i=0;i<6;i++){
+      for(let i=0;i<=itemLevelIdx;i++){
         ws.mergeCells(4,colCursor+i,8,colCursor+i);
       }
       
@@ -259,8 +283,8 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
       
       // 设置行标题
       equipRowLabels.forEach((lbl,rowIdx)=>{
-        ws.getCell(4+rowIdx,colCursor+6).value = lbl;
-        ws.getCell(4+rowIdx,colCursor+6).alignment = { horizontal:"center", vertical:"middle" };
+        ws.getCell(4+rowIdx,colCursor+t10Idx).value = lbl;
+        ws.getCell(4+rowIdx,colCursor+t10Idx).alignment = { horizontal:"center", vertical:"middle" };
       });
       
       const pctFmt = "0.00%"; // 百分比格式
@@ -270,9 +294,9 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
         const rowIdx = 4+slot;
         const eqList = (equipments?.[slot] ?? []);
         // 先清空单元格
-        propertyKeys.slice(7).forEach((prop,iProp)=>{
-          ws.getCell(rowIdx,colCursor+7+iProp).value = "";
-          ws.getCell(rowIdx,colCursor+7+iProp).alignment = { horizontal:"center", vertical:"middle" };
+        propertyKeys.slice(statsStartIdx).forEach((prop,iProp)=>{
+          ws.getCell(rowIdx,colCursor+statsStartIdx+iProp).value = "";
+          ws.getCell(rowIdx,colCursor+statsStartIdx+iProp).alignment = { horizontal:"center", vertical:"middle" };
         });
         
         // 填入装备词条数据
@@ -281,7 +305,7 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
             sumStats[function_type] += function_value / 100;
           }
           const iProp = propertyKeys.indexOf(function_type);
-          if (iProp >= 7) {
+          if (iProp >= statsStartIdx) {
             const cell = ws.getCell(rowIdx, colCursor + iProp);
             cell.value = function_value / 100;
             cell.numFmt = pctFmt;
@@ -295,31 +319,75 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
       }
       
       // 汇总行 (第8行)
-      Object.entries(sumStats).forEach(([k, v]) => {
-        const idx = propertyKeys.indexOf(k);
-        const cell = ws.getCell(8, colCursor + idx);
-        cell.value = v;
-        cell.numFmt = pctFmt;             // 统一百分数格式
-        cell.alignment = { horizontal: "center", vertical: "middle" };
-      });
+      if (!isUnowned) {
+        Object.entries(sumStats).forEach(([k, v]) => {
+          const idx = propertyKeys.indexOf(k);
+          const cell = ws.getCell(8, colCursor + idx);
+          cell.value = v;
+          cell.numFmt = pctFmt;             // 统一百分数格式
+          cell.alignment = { horizontal: "center", vertical: "middle" };
+        });
+      }
+
+      // 回填攻优突破分：1*(1+atk)*(1+element)*(grade*0.03+1)*(core*0.02+1)
+      if (!isUnowned) {
+        const grade = typeof limit_break === 'object' ? (limit_break.grade || 0) : 0;
+        const core  = typeof limit_break === 'object' ? (limit_break.core  || 0) : 0;
+        const atk = sumStats.StatAtk || 0;
+        const elem = sumStats.IncElementDmg || 0;
+        const score = (1)*(1+atk)*(1+elem)*(grade*0.03+1)*(core*0.02+1);
+        const scoreCell = ws.getCell(4, colCursor);
+        scoreCell.value = score;
+        scoreCell.numFmt = "0.00";
+        scoreCell.alignment = { horizontal:"center", vertical:"middle" };
+      // 按阈值上色（与词条颜色一致）：
+      // >=3.2 黑底白字；<3.2且>=2.7 蓝；<2.7且>=2.2 黄；>0且<2.2 红
+        let aelFill = null;
+        let aelFont = null;
+        if (typeof score === 'number') {
+          if (score >= 3.2) {
+            aelFill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF000000" } };
+            aelFont = { color: { argb: "FFFFFF" } };
+          } else if (score >= 2.7) {
+            aelFill = { type: "pattern", pattern: "solid", fgColor: { argb: "77AAFF" } };
+          } else if (score >= 2.2) {
+            aelFill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFF77" } };
+          } else if (score > 0) {
+            aelFill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF7777" } };
+          }
+        }
+        if (aelFill || aelFont) {
+          for (let r = 4; r <= 8; r++) {
+            const mCell = ws.getCell(r, colCursor);
+            if (aelFill) mCell.fill = aelFill;
+            if (aelFont) mCell.font = { ...(mCell.font || {}), ...aelFont };
+          }
+        }
+      }
       
       // 设置边框
-      setOuterBorder(ws,2,colCursor,3,colCursor+widthPerChar-1,mediumSide); // 角色标题区
-      setOuterBorder(ws,4,colCursor,8,colCursor+widthPerChar-1,mediumSide); // 数据内容区
+  setOuterBorder(ws,2,colCursor,3,colCursor+widthPerChar-1,mediumSide); // 角色标题区
+  setOuterBorder(ws,4,colCursor,8,colCursor+widthPerChar-1,mediumSide); // 数据内容区
       setVerticalBorder(ws,3,8,colCursor,thinSide,"right");
-      setVerticalBorder(ws,3,8,colCursor+4,thinSide,"left");
-      setVerticalBorder(ws,3,8,colCursor+5,thinSide,"right");
-      setVerticalBorder(ws,3,8,colCursor+6,thinSide,"right");
-      setHorizontalBorder(ws,8,colCursor+6,colCursor+15,thinSide,"top");
+      if (itemIdx >= 0) setVerticalBorder(ws,3,8,colCursor+itemIdx,thinSide,"left");
+      if (itemIdx >= 0) setVerticalBorder(ws,3,8,colCursor+itemIdx+1,thinSide,"right");
+      if (t10Idx  >= 0) setVerticalBorder(ws,3,8,colCursor+t10Idx,thinSide,"right");
+  setHorizontalBorder(ws,8,colCursor+t10Idx,colCursor+propertyKeys.length-1,thinSide,"top");
 
       // 根据选择的属性隐藏列
       if (Array.isArray(charInfo.showStats)) {
-        for (let i = 7; i < propertyKeys.length; i++) {
+        for (let i = statsStartIdx; i < propertyKeys.length; i++) {
           const key = propertyKeys[i];
           if (!key) continue;
           const colIdx = colCursor + i;
           ws.getColumn(colIdx).hidden = !charInfo.showStats.includes(key);
         }
+      }
+
+      // 依据 showStats 是否包含 'AtkElemLbScore' 隐藏/显示该列
+      const aelIdxCol = colCursor + propertyKeys.indexOf("AtkElemLbScore");
+      if (Array.isArray(charInfo.showStats)) {
+        ws.getColumn(aelIdxCol).hidden = !charInfo.showStats.includes('AtkElemLbScore');
       }
       colCursor += widthPerChar;
     }
@@ -365,12 +433,6 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
 
   /* ========== 前哨基地等级列（放在魔方区右侧） ========== */
   const outpostCol = cubeStartCol + (cubes.length > 0 ? cubes.length : 0);
-  ws.mergeCells(1,outpostCol,1,outpostCol);
-  const outHead = ws.getCell(1,outpostCol);
-  outHead.value = t("outpostLevel");
-  outHead.alignment = { horizontal:"center", vertical:"middle" };
-  outHead.font = { bold:true };
-  setOuterBorder(ws,1,outpostCol,1,outpostCol,mediumSide);
 
   ws.mergeCells(2,outpostCol,3,outpostCol);
   const outLabel = ws.getCell(2,outpostCol);
@@ -384,6 +446,44 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
   outVal.value = dict.outpostLevel ?? 0;
   outVal.alignment = { horizontal:"center", vertical:"middle" };
   setOuterBorder(ws,4,outpostCol,8,outpostCol,mediumSide);
+
+  /* ========== 主线进度列（Normal / Hard） ========== */
+  const normalCol = outpostCol + 1;
+  const hardCol = outpostCol + 2;
+
+  ws.mergeCells(2,normalCol,3,normalCol);
+  const nLabel = ws.getCell(2,normalCol);
+  nLabel.value = t("normalProgress");
+  nLabel.alignment = { horizontal:"center", vertical:"middle" };
+  nLabel.font = { bold:true };
+  setOuterBorder(ws,2,normalCol,3,normalCol,mediumSide);
+
+  ws.mergeCells(4,normalCol,8,normalCol);
+  const nVal = ws.getCell(4,normalCol);
+  nVal.value = dict.normalProgress || "";
+  nVal.alignment = { horizontal:"center", vertical:"middle" };
+  setOuterBorder(ws,4,normalCol,8,normalCol,mediumSide);
+
+  // 合并顶层表头：其它（覆盖 Outpost/Normal/Hard 三列）
+  ws.mergeCells(1, outpostCol, 1, hardCol);
+  const othersHead = ws.getCell(1, outpostCol);
+  othersHead.value = t("others");
+  othersHead.alignment = { horizontal: "center", vertical: "middle" };
+  othersHead.font = { bold: true };
+  setOuterBorder(ws, 1, outpostCol, 1, hardCol, mediumSide);
+
+  ws.mergeCells(2,hardCol,3,hardCol);
+  const hLabel = ws.getCell(2,hardCol);
+  hLabel.value = t("hardProgress");
+  hLabel.alignment = { horizontal:"center", vertical:"middle" };
+  hLabel.font = { bold:true };
+  setOuterBorder(ws,2,hardCol,3,hardCol,mediumSide);
+
+  ws.mergeCells(4,hardCol,8,hardCol);
+  const hVal = ws.getCell(4,hardCol);
+  hVal.value = dict.hardProgress || "";
+  hVal.alignment = { horizontal:"center", vertical:"middle" };
+  setOuterBorder(ws,4,hardCol,8,hardCol,mediumSide);
 
   /* ========== 设置列宽 ========== */
   if(lang === "en"){
@@ -400,10 +500,10 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
   for(let col=4; col<cubeStartCol; ++col){
     const offset = (col-4)%widthPerChar;
     if(lang === "en"){
-      ws.getColumn(col).width = offset<7 ? 6 : 10;
-    }else{
-      if(offset<6) ws.getColumn(col).width = 6;
-      else if(offset===6) ws.getColumn(col).width = 5;
+      ws.getColumn(col).width = offset < statsStartIdx ? 6 : 10;
+    } else {
+      if(offset < t10Idx) ws.getColumn(col).width = 6;
+      else if(offset === t10Idx) ws.getColumn(col).width = 5;
       else ws.getColumn(col).width = 10;
     }
   }
@@ -414,8 +514,10 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
   for(let col=cubeStartCol; col<cubeStartCol+cubeCount; ++col){
     ws.getColumn(col).width = cubeWidth;
   }
-  // Outpost 列宽
+  // Outpost/Normal/Hard 列宽
   ws.getColumn(outpostCol).width = cubeWidth;
+  ws.getColumn(normalCol).width = cubeWidth;
+  ws.getColumn(hardCol).width = cubeWidth;
   
   // 设置默认字体
   const defaultFontName = "Microsoft YaHei";
