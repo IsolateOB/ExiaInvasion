@@ -1,7 +1,7 @@
 {
   "name": "ExiaInvasion",
   "description": "A crawler that obtains Nikke character data from blablalink and generates progress tracker.",
-  "version": "2.5.5",
+  "version": "2.5.6",
   "manifest_version": 3,
 
   "action": {

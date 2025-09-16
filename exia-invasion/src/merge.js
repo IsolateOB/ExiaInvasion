@@ -70,6 +70,64 @@ export async function mergeWorkbooks(files, sortFlag = "1", addLog = () => {}) {
   return outWb.xlsx.writeBuffer();
 }
 
+// ========== JSON 合并模块 ==========
+
+/**
+ * 合并多个 JSON 文件为一个数组 JSON
+ * - 排序规则与 Excel 合并一致：
+ *   1: 名称升序, 2: 名称降序, 3: 同步器等级(或同义字段)升序, 4: 同步器等级降序
+ * - 单个文件可为对象或对象数组；数组将被展开加入
+ * - 解析失败的文件会被跳过并记录日志
+ * @param {Array<File>} files - 通过 <input type="file" multiple> 选择的文件
+ * @param {string} sortFlag - 排序方式标识
+ * @param {Function} addLog - 日志记录函数
+ * @returns {Promise<string>} 合并后的字符串化 JSON (pretty, 4 spaces)
+ */
+export async function mergeJsons(files, sortFlag = "1", addLog = () => {}) {
+  const entries = [];
+  // 读取并解析
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    try {
+      addLog?.(`解析 ${i + 1}/${files.length}: ${f.name}`);
+      const text = await f.text();
+      const parsed = JSON.parse(text);
+      const pushOne = (obj) => {
+        if (!obj || typeof obj !== "object") return;
+        const name = obj.name ?? obj.name_cn ?? obj.name_en ?? f.name;
+        const sync = obj.synchroLevel ?? obj.synchro_level ?? obj.synchro ?? 0;
+        entries.push({ obj, name: String(name), sync: Number(sync) || 0 });
+      };
+      if (Array.isArray(parsed)) {
+        parsed.forEach(pushOne);
+      } else {
+        pushOne(parsed);
+      }
+    } catch (e) {
+      addLog?.(`解析失败，已跳过：${f.name} (${e.message})`);
+    }
+  }
+
+  // 排序
+  switch (sortFlag) {
+    case "2": // 名称降序
+      entries.sort((a, b) => b.name.localeCompare(a.name, "zh-CN"));
+      break;
+    case "3": // 同步器等级升序
+      entries.sort((a, b) => a.sync - b.sync);
+      break;
+    case "4": // 同步器等级降序
+      entries.sort((a, b) => b.sync - a.sync);
+      break;
+    default: // 名称升序
+      entries.sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+      break;
+  }
+
+  const merged = entries.map(e => e.obj);
+  return JSON.stringify(merged, null, 4);
+}
+
 // ========== 单元格克隆函数 ==========
 
 /**

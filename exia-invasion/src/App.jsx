@@ -31,7 +31,7 @@ import TRANSLATIONS from "./translations";
 import { getAccounts, setAccounts, getSettings, setSettings, getCharacters } from "./storage";
 import { applyCookieStr, clearSiteCookies, getCurrentCookies } from "./cookie.js";
 import { loadBaseAccountDict, getRoleName, getOutpostInfo, getCharacterDetails, getUserCharacters, prefetchMainlineCatalog, getCampaignProgress } from "./api.js";
-import { mergeWorkbooks } from "./merge.js";
+import { mergeWorkbooks, mergeJsons } from "./merge.js";
 import { v4 as uuidv4 } from "uuid";
 
 // ========== React 主组件 ==========
@@ -47,7 +47,8 @@ export default function App() {
   const [activateTab, setActivateTab] = useState(false);
   const [server, setServer] = useState("global");
   const [sortFlag, setSortFlag] = useState("1");
-  const [filesToMerge, setFilesToMerge] = useState([]);
+  const [excelFilesToMerge, setExcelFilesToMerge] = useState([]);
+  const [jsonFilesToMerge, setJsonFilesToMerge] = useState([]);
   // 移除了不再需要的弹窗相关状态变量
   // const [dlgOpen, setDlgOpen] = useState(false);
   // const [username, setUsername] = useState("");
@@ -100,8 +101,11 @@ export default function App() {
     setSortFlag(v);
     persistSettings({ sortFlag: v });
   };
-  const handleFileSelect = (e) => {
-    setFilesToMerge(Array.from(e.target.files));
+  const handleExcelFileSelect = (e) => {
+    setExcelFilesToMerge(Array.from(e.target.files));
+  };
+  const handleJsonFileSelect = (e) => {
+    setJsonFilesToMerge(Array.from(e.target.files));
   };
   
   // ========== Cookie 保存功能 ==========
@@ -172,7 +176,7 @@ export default function App() {
   
   // ========== 文件合并主流程 ==========
   const handleMerge = async () => {
-    if (!filesToMerge.length) {
+    if (!excelFilesToMerge.length && !jsonFilesToMerge.length) {
       addLog(t("upload"));
       return;
     }
@@ -180,14 +184,31 @@ export default function App() {
     setLoading(true);
     try {
       addLog(t("starting"));
-      const mergedBuffer = await mergeWorkbooks(filesToMerge, sortFlag, addLog);
-      const blob = new Blob([mergedBuffer], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-      const url = URL.createObjectURL(blob);
-      chrome.downloads.download({ url, filename: "merged.xlsx" }, () =>
-        URL.revokeObjectURL(url)
-      );
+      // 如选择了 Excel，则合并并下载 merged.xlsx
+      if (excelFilesToMerge.length) {
+        addLog(`开始合并 Excel (${excelFilesToMerge.length} 个)`);
+        const mergedBuffer = await mergeWorkbooks(excelFilesToMerge, sortFlag, addLog);
+        const blob = new Blob([mergedBuffer], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        });
+        const url = URL.createObjectURL(blob);
+        chrome.downloads.download({ url, filename: "merged.xlsx" }, () =>
+          URL.revokeObjectURL(url)
+        );
+        addLog("Excel 合并完成");
+      }
+
+      // 如选择了 JSON，则合并并下载 merged.json
+      if (jsonFilesToMerge.length) {
+        addLog(`开始合并 JSON (${jsonFilesToMerge.length} 个)`);
+        const mergedJsonStr = await mergeJsons(jsonFilesToMerge, sortFlag, addLog);
+        const blob = new Blob([mergedJsonStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        chrome.downloads.download({ url, filename: "merged.json" }, () =>
+          URL.revokeObjectURL(url)
+        );
+        addLog("JSON 合并完成");
+      }
       addLog(t("done"));
     } catch (e) {
       addLog(`${t("fail")} ${e.message}`);
@@ -779,13 +800,28 @@ export default function App() {
                 fullWidth
                 startIcon={<UploadFileIcon />}
               >
-                {t("upload")} ({filesToMerge.length})
+                {t("upload")} Excel ({excelFilesToMerge.length})
                 <input
                   type="file"
                   multiple
                   hidden
-                  onChange={handleFileSelect}
+                  onChange={handleExcelFileSelect}
                   accept=".xlsx"
+                />
+              </Button>
+              <Button
+                component="label"
+                variant="outlined"
+                fullWidth
+                startIcon={<UploadFileIcon />}
+              >
+                {t("upload")} JSON ({jsonFilesToMerge.length})
+                <input
+                  type="file"
+                  multiple
+                  hidden
+                  onChange={handleJsonFileSelect}
+                  accept=".json"
                 />
               </Button>
               <Box>
@@ -816,7 +852,7 @@ export default function App() {
                     <MergeIcon />
                   )
                 }
-                disabled={loading || !filesToMerge.length}
+                disabled={loading || (!excelFilesToMerge.length && !jsonFilesToMerge.length)}
               >
                 {t("merge")}
               </Button>

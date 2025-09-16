@@ -84,7 +84,8 @@ const ManagementPage = () => {
   const [accounts, setAccounts] = useState([]);
   const [editing, setEditing] = useState([]);
   const [showPwds, setShowPwds] = useState([]);
-  const [draggedItemIndex, setDraggedItemIndex] = useState(null); // 拖拽功能
+  // 拖拽状态（账号列表）
+  const [accDragging, setAccDragging] = useState({ draggingIndex: null, overIndex: null });
 
   // 角色管理相关状态
   const [tab, setTab] = useState(0); // 0: 账户管理, 1: 角色管理
@@ -111,9 +112,8 @@ const ManagementPage = () => {
     original_rare: ""
   });
   const [filteredNikkes, setFilteredNikkes] = useState([]);
-    // 角色拖拽状态
-  const [draggedCharacterIndex, setDraggedCharacterIndex] = useState(null);
-  const [draggedCharacterElement, setDraggedCharacterElement] = useState(null);
+  // 拖拽状态（角色列表）：区分源分组与当前悬停分组，统一跨组视觉
+  const [charDragging, setCharDragging] = useState({ sourceElement: null, currentElement: null, draggingIndex: null, overIndex: null });
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
   
   // 全选/全不选状态
@@ -441,40 +441,43 @@ const ManagementPage = () => {
 
   const iconUrl = useMemo(() => chrome.runtime.getURL("images/icon-128.png"), []);
   
-  /* ---------- Drag and Drop Handlers ---------- */
-  const handleDragStart = (e, index) => {
-    setDraggedItemIndex(index);
-    e.dataTransfer.setDragImage(new Image(), 0, 0);
+  /* ---------- 账号列表：拖拽处理（从零实现） ---------- */
+  const onAccountDragStart = (e, index) => {
+    setAccDragging({ draggingIndex: index, overIndex: index });
+    // 使用透明拖拽影子，减少跳动
+    const img = new Image();
+    img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciLz4=';
+    e.dataTransfer.setDragImage(img, 0, 0);
   };
-    const handleDragOver = (e) => {
+  const onAccountDragOver = (e, index) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
+    if (accDragging.draggingIndex !== null && accDragging.overIndex !== index) {
+      setAccDragging((s) => ({ ...s, overIndex: index }));
+    }
   };
-  
-  const handleDrop = (targetIndex) => {
-    if (draggedItemIndex === null || draggedItemIndex === targetIndex) {
-      setDraggedItemIndex(null);
+  const onAccountDrop = (index) => {
+    const { draggingIndex } = accDragging;
+    if (draggingIndex === null || draggingIndex === index) {
+      setAccDragging({ draggingIndex: null, overIndex: null });
       return;
     }
-    
-    const reorderedAccounts = [...accounts];
-    const [draggedItem] = reorderedAccounts.splice(draggedItemIndex, 1);
-    reorderedAccounts.splice(targetIndex, 0, draggedItem);
-    
-    const reorderedEditing = [...editing];
-    const [draggedEditingState] = reorderedEditing.splice(draggedItemIndex, 1);
-    reorderedEditing.splice(targetIndex, 0, draggedEditingState);
-    
-    const reorderedShowPwds = [...showPwds];
-    const [draggedShowPwdState] = reorderedShowPwds.splice(draggedItemIndex, 1);
-    reorderedShowPwds.splice(targetIndex, 0, draggedShowPwdState);
-    
-    setAccounts(reorderedAccounts);
-    setEditing(reorderedEditing);
-    setShowPwds(reorderedShowPwds);
-    persist(reorderedAccounts);
-    
-    setDraggedItemIndex(null);  };
+    const reordered = [...accounts];
+    const [dragged] = reordered.splice(draggingIndex, 1);
+    reordered.splice(index, 0, dragged);
+    setAccounts(reordered);
+    // 同步编辑和密码可见性的行对应关系
+    const ed = [...editing];
+    const [dragEdit] = ed.splice(draggingIndex, 1);
+    ed.splice(index, 0, dragEdit);
+    setEditing(ed);
+    const sw = [...showPwds];
+    const [dragShow] = sw.splice(draggingIndex, 1);
+    sw.splice(index, 0, dragShow);
+    setShowPwds(sw);
+    persist(reordered);
+    setAccDragging({ draggingIndex: null, overIndex: null });
+  };
+  const onAccountDragEnd = () => setAccDragging({ draggingIndex: null, overIndex: null });
     
 /* ---------- 角色管理工具函数 ---------- */
   const elementMapping = {
@@ -640,51 +643,59 @@ const corporationMapping = {
     setCharacters(newCharacters);
   };
     const getPriorityColor = (priority) => {
-    switch (priority) {
-      case "black": return { backgroundColor: "#000", color: "#fff" };
-      case "blue": return { backgroundColor: "#2196f3", color: "#fff" };
-      case "yellow": return { backgroundColor: "#ffeb3b", color: "#000" };
-      default: return { backgroundColor: "#e0e0e0", color: "#000" };
-    }
-  };
+      // 与 excel.js 保持一致：
+      // black: #000000 + 白字；blue: #99CCFF + 黑字；yellow: #FFFF88 + 黑字；red: #FF7777 + 白字
+      switch (priority) {
+        case "black": return { backgroundColor: "#000000", color: "#FFFFFF" };
+        case "blue":  return { backgroundColor: "#99CCFF", color: "#000000" };
+        case "yellow":return { backgroundColor: "#FFFF88", color: "#000000" };
+        case "red":   return { backgroundColor: "#FF7777", color: "#FFFFFF" };
+        default:       return { backgroundColor: "#e0e0e0", color: "#000000" };
+      }
+    };
 
-  /* ---------- Character Drag and Drop Handlers ---------- */
-  const handleCharacterDragStart = (e, element, index) => {
-    setDraggedCharacterIndex(index);
-    setDraggedCharacterElement(element);
-    e.dataTransfer.setDragImage(new Image(), 0, 0);
+  /* ---------- 角色列表：拖拽处理（从零实现） ---------- */
+  const onCharDragStart = (e, element, index) => {
+    setCharDragging({ sourceElement: element, currentElement: element, draggingIndex: index, overIndex: index });
+    const img = new Image();
+    img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMSIgaGVpZ2h0PSIxIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciLz4=';
+    e.dataTransfer.setDragImage(img, 0, 0);
   };
-  const handleCharacterDragOver = (e) => {
+  const onCharDragOver = (e, element, index) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
+    setCharDragging((s) => {
+      if (s.draggingIndex === null) return s;
+      // 跨组悬停：更新 currentElement 与 overIndex，以便目标组行高亮
+      if (s.currentElement !== element || s.overIndex !== index) {
+        return { ...s, currentElement: element, overIndex: index };
+      }
+      return s;
+    });
   };
-
-  const handleCharacterDrop = (targetElement, targetIndex) => {
-    if (draggedCharacterIndex === null || draggedCharacterElement === null) {
+  const onCharDrop = (element, index) => {
+    const { sourceElement: srcElem, currentElement, draggingIndex } = charDragging;
+    if (srcElem == null || draggingIndex == null) {
+      setCharDragging({ sourceElement: null, currentElement: null, draggingIndex: null, overIndex: null });
       return;
     }
-
-    // If dropping in the same element at the same position, do nothing
-    if (draggedCharacterElement === targetElement && draggedCharacterIndex === targetIndex) {
-      setDraggedCharacterIndex(null);
-      setDraggedCharacterElement(null);
-      return;
+    const draft = { ...characters, elements: { ...characters.elements } };
+    const fromArr = [...draft.elements[srcElem]];
+    const [dragChar] = fromArr.splice(draggingIndex, 1);
+    const targetElem = currentElement ?? element;
+    if (srcElem === targetElem) {
+      fromArr.splice(index, 0, dragChar);
+      draft.elements[targetElem] = fromArr;
+    } else {
+      draft.elements[srcElem] = fromArr;
+      const toArr = [...draft.elements[targetElem]];
+      toArr.splice(index, 0, dragChar);
+      draft.elements[targetElem] = toArr;
     }
-
-    const newCharacters = { ...characters };
-    
-    // Remove character from source element
-    const [draggedCharacter] = newCharacters.elements[draggedCharacterElement].splice(draggedCharacterIndex, 1);
-    
-    // Add character to target element
-    newCharacters.elements[targetElement].splice(targetIndex, 0, draggedCharacter);
-    
-    setCharactersData(newCharacters);
-    setCharacters(newCharacters);
-    
-    setDraggedCharacterIndex(null);
-    setDraggedCharacterElement(null);
+    setCharactersData(draft);
+    setCharacters(draft);
+    setCharDragging({ sourceElement: null, currentElement: null, draggingIndex: null, overIndex: null });
   };
+  const onCharDragEnd = () => setCharDragging({ sourceElement: null, currentElement: null, draggingIndex: null, overIndex: null });
   
   /* ---------- Import/Export Handlers ---------- */
   // 导出角色 JSON：内存字典已不包含 enableAtkElemLbScore，直接序列化即可
@@ -809,24 +820,14 @@ const corporationMapping = {
                     <TableRow
                       key={row.id}
                       draggable={!isEdit}
-                      onDragStart={(e) => handleDragStart(e, idx)}
-                      onDragOver={handleDragOver}
-                      onDrop={() => handleDrop(idx)}                      sx={{
+                      onDragStart={(e) => !isEdit && onAccountDragStart(e, idx)}
+                      onDragOver={(e) => !isEdit && onAccountDragOver(e, idx)}
+                      onDrop={() => !isEdit && onAccountDrop(idx)}
+                      onDragEnd={onAccountDragEnd}
+                      sx={{
                         "& > *": { verticalAlign: "top" },
                         cursor: !isEdit ? "grab" : "default",
-                        opacity: draggedItemIndex === idx ? 0.7 : 1,
-                        transform: draggedItemIndex === idx ? 'translateY(-4px)' : 'translateY(0)',
-                        transition: 'all 0.2s ease',
-                        backgroundColor: draggedItemIndex !== null && draggedItemIndex !== idx && !isEdit ? 'action.hover' : 'inherit',
-                        '&:hover': {
-                          backgroundColor: !isEdit && draggedItemIndex === null ? 'action.hover' : 'inherit',
-                          transform: !isEdit && draggedItemIndex === null ? 'translateY(-2px)' : 'translateY(0)',
-                          boxShadow: !isEdit && draggedItemIndex === null ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
-                        },
-                        '&:active': {
-                          cursor: !isEdit ? 'grabbing' : 'default',
-                          transform: !isEdit ? 'translateY(-4px)' : 'translateY(0)',
-                        }
+                        backgroundColor: accDragging.overIndex === idx && accDragging.draggingIndex !== null ? 'action.hover' : 'inherit'
                       }}
                     >                      <TableCell sx={{ textAlign: 'center', cursor: !isEdit ? 'grab' : 'default', paddingLeft: '2px', paddingRight: '2px' }}>
                         {!isEdit && <DragIndicatorIcon fontSize="small" />}
@@ -1023,25 +1024,14 @@ const corporationMapping = {
                           <TableRow
                             key={`${charData.id}-${index}`}
                             draggable
-                            onDragStart={(e) => handleCharacterDragStart(e, element, index)}
-                            onDragOver={handleCharacterDragOver}
-                            onDrop={() => handleCharacterDrop(element, index)}
+                            onDragStart={(e) => onCharDragStart(e, element, index)}
+                            onDragOver={(e) => onCharDragOver(e, element, index)}
+                            onDrop={() => onCharDrop(element, index)}
+                            onDragEnd={onCharDragEnd}
                             sx={{
                               "& > *": { verticalAlign: "top" },
                               cursor: "grab",
-                              opacity: draggedCharacterIndex === index && draggedCharacterElement === element ? 0.7 : 1,
-                              transform: draggedCharacterIndex === index && draggedCharacterElement === element ? 'translateY(-4px)' : 'translateY(0)',
-                              transition: 'all 0.2s ease',
-                              backgroundColor: draggedCharacterIndex !== null && (draggedCharacterIndex !== index || draggedCharacterElement !== element) ? 'action.hover' : 'inherit',
-                              '&:hover': {
-                                backgroundColor: draggedCharacterIndex === null ? 'action.hover' : 'inherit',
-                                transform: draggedCharacterIndex === null ? 'translateY(-2px)' : 'translateY(0)',
-                                boxShadow: draggedCharacterIndex === null ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
-                              },
-                              '&:active': {
-                                cursor: 'grabbing',
-                                transform: 'translateY(-4px)',
-                              }
+                              backgroundColor: charDragging.currentElement === element && charDragging.overIndex === index ? 'action.hover' : 'inherit'
                             }}
                           >
                             <TableCell sx={{ textAlign: 'center', cursor: 'grab', paddingLeft: '2px', paddingRight: '2px' }}>
@@ -1057,7 +1047,12 @@ const corporationMapping = {
                                 <Select
                                   value={charData.priority}
                                   onChange={(e) => updateCharacterPriority(element, index, e.target.value)}
-                                  sx={getPriorityColor(charData.priority)}
+                                  sx={{
+                                    ...getPriorityColor(charData.priority),
+                                    '& .MuiSelect-select': {
+                                      ...getPriorityColor(charData.priority)
+                                    }
+                                  }}
                                   MenuProps={{
                                     PaperProps: {
                                       style: {
@@ -1075,9 +1070,45 @@ const corporationMapping = {
                                     },
                                   }}
                                 >
-                                  <MenuItem value="black" sx={getPriorityColor("black")}>{t("black")}</MenuItem>
-                                  <MenuItem value="blue" sx={getPriorityColor("blue")}>{t("blue")}</MenuItem>
-                                  <MenuItem value="yellow" sx={getPriorityColor("yellow")}>{t("yellow")}</MenuItem>
+                                  <MenuItem value="black" sx={{
+                                    ...getPriorityColor("black"),
+                                    '&.Mui-selected': {
+                                      ...getPriorityColor("black"),
+                                    },
+                                    '&.Mui-selected:hover': {
+                                      ...getPriorityColor("black"),
+                                    },
+                                    '&:hover': {
+                                      ...getPriorityColor("black"),
+                                      filter: 'brightness(0.95)'
+                                    }
+                                  }}>{t("black")}</MenuItem>
+                                  <MenuItem value="blue" sx={{
+                                    ...getPriorityColor("blue"),
+                                    '&.Mui-selected': {
+                                      ...getPriorityColor("blue"),
+                                    },
+                                    '&.Mui-selected:hover': {
+                                      ...getPriorityColor("blue"),
+                                    },
+                                    '&:hover': {
+                                      ...getPriorityColor("blue"),
+                                      filter: 'brightness(0.98)'
+                                    }
+                                  }}>{t("blue")}</MenuItem>
+                                  <MenuItem value="yellow" sx={{
+                                    ...getPriorityColor("yellow"),
+                                    '&.Mui-selected': {
+                                      ...getPriorityColor("yellow"),
+                                    },
+                                    '&.Mui-selected:hover': {
+                                      ...getPriorityColor("yellow"),
+                                    },
+                                    '&:hover': {
+                                      ...getPriorityColor("yellow"),
+                                      filter: 'brightness(0.98)'
+                                    }
+                                  }}>{t("yellow")}</MenuItem>
                                 </Select>
                               </FormControl>
                             </TableCell>
