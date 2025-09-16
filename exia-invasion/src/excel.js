@@ -138,19 +138,20 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
   setVerticalBorder(ws, 1, 8, 3, mediumSide, "left");
     /* ========== 角色信息区 ========== */
   const widthPerChar = 17; // 固定包含攻优突破分列
+  // 将 AEL 列移至人物块最右侧
   const propertyKeys = [
-    "AtkElemLbScore",
     "limit_break","skill1_level","skill2_level","skill_burst_level",
     "item_rare","item_level",null,
     "IncElementDmg","StatAtk","StatAmmoLoad","StatChargeTime","StatChargeDamage",
-    "StatCritical","StatCriticalDamage","StatAccuracyCircle","StatDef"
+    "StatCritical","StatCriticalDamage","StatAccuracyCircle","StatDef",
+    "AtkElemLbScore"
   ];
 
   const propertyLabels = [
-    t("atkElemLbScore"),
     t("limitBreak"), t("skill1"), t("skill2"), t("burst"), t("item"), null, t("t10"),
     t("elementAdvantage"), t("attack"), t("ammo"), t("chargeSpeed"), t("chargeDamage"),
-    t("critical"), t("criticalDamage"), t("hit"), t("defense")
+    t("critical"), t("criticalDamage"), t("hit"), t("defense"),
+    t("atkElemLbScore")
   ];
 
   // 动态索引，避免硬编码
@@ -244,8 +245,8 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
       // 统一复用公共判定逻辑
       const unowned = isUnowned(charInfo);
       
-      // 填入基础数据（根据是否开启，起始偏移不同）
-      let baseOffset = 1; // 列0为攻优突破分
+      // 填入基础数据（AEL 已移至最右侧，基础从首列开始）
+      let baseOffset = 0;
       // AEL列保持合并但不写占位值；仅在有数据时回填分数
       if (!unowned) {
         ws.getCell(4,colCursor+baseOffset).value = getLimitBreakStr(limit_break);
@@ -266,7 +267,7 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
         ws.getCell(4,colCursor+i).alignment = { horizontal:"center", vertical:"middle" };
       }
       
-      // 合并LB到T10的纵向单元格 (第4-8行)
+      // 合并基础区纵向单元格 (第4-8行)（不含 AEL）
       for(let i=0;i<=itemLevelIdx;i++){
         ws.mergeCells(4,colCursor+i,8,colCursor+i);
       }
@@ -325,17 +326,23 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
         });
       }
 
-      // 回填攻优突破分
+      // 回填攻优突破分（AEL）
       if (!unowned) {
         const grade = typeof limit_break === 'object' ? (limit_break.grade || 0) : 0;
         const core  = typeof limit_break === 'object' ? (limit_break.core  || 0) : 0;
         const { StatAtk: atk = 0, IncElementDmg: elem = 0 } = getEquipSumStats(equipments);
         const score = computeAELScore({ grade, core, atk, elem });
-        const scoreCell = ws.getCell(4, colCursor);
+        const aelIdx = propertyKeys.indexOf("AtkElemLbScore");
+        const scoreCell = ws.getCell(4, colCursor + aelIdx);
         scoreCell.value = score;
         scoreCell.numFmt = "0.00";
         scoreCell.alignment = { horizontal:"center", vertical:"middle" };
-      // 按阈值上色（与词条颜色一致）：
+        // 合并 AEL 列（第4-8行）并设置居中
+        ws.mergeCells(4, colCursor + aelIdx, 8, colCursor + aelIdx);
+        ws.getCell(5, colCursor + aelIdx).alignment = { horizontal:"center", vertical:"middle" };
+        ws.getCell(6, colCursor + aelIdx).alignment = { horizontal:"center", vertical:"middle" };
+        ws.getCell(7, colCursor + aelIdx).alignment = { horizontal:"center", vertical:"middle" };
+        // 按阈值上色（与词条颜色一致）：
       // >=3.2 黑底白字；<3.2且>=2.7 蓝；<2.7且>=2.2 黄；>0且<2.2 红
         let aelFill = null;
         let aelFont = null;
@@ -353,7 +360,7 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
         }
         if (aelFill || aelFont) {
           for (let r = 4; r <= 8; r++) {
-            const mCell = ws.getCell(r, colCursor);
+            const mCell = ws.getCell(r, colCursor + aelIdx);
             if (aelFill) mCell.fill = aelFill;
             if (aelFont) mCell.font = { ...(mCell.font || {}), ...aelFont };
           }
@@ -363,7 +370,11 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
       // 设置边框
   setOuterBorder(ws,2,colCursor,3,colCursor+widthPerChar-1,mediumSide); // 角色标题区
   setOuterBorder(ws,4,colCursor,8,colCursor+widthPerChar-1,mediumSide); // 数据内容区
-      setVerticalBorder(ws,3,8,colCursor,thinSide,"right");
+      // 将分隔细线移动到 AEL 列左侧
+      {
+        const aelIdx = propertyKeys.indexOf("AtkElemLbScore");
+        setVerticalBorder(ws,3,8,colCursor + aelIdx,thinSide,"left");
+      }
       if (itemIdx >= 0) setVerticalBorder(ws,3,8,colCursor+itemIdx,thinSide,"left");
       if (itemIdx >= 0) setVerticalBorder(ws,3,8,colCursor+itemIdx+1,thinSide,"right");
       if (t10Idx  >= 0) setVerticalBorder(ws,3,8,colCursor+t10Idx,thinSide,"right");
@@ -491,9 +502,14 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
     ws.getColumn(3).width = 8;
   }
   
-  // 角色列的宽度设置
+  // 角色列的宽度设置（AEL 固定为 6）
+  const aelOffset = propertyKeys.indexOf("AtkElemLbScore");
   for(let col=4; col<cubeStartCol; ++col){
     const offset = (col-4)%widthPerChar;
+    if (offset === aelOffset) {
+      ws.getColumn(col).width = 6;
+      continue;
+    }
     if(lang === "en"){
       ws.getColumn(col).width = offset < statsStartIdx ? 6 : 10;
     } else {
