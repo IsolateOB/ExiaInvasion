@@ -329,13 +329,14 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
         });
       }
 
-      // 回填攻优突破分：1*(1+atk)*(1+element)*(grade*0.03+1)*(core*0.02+1)
+      // 回填攻优突破分： (1 + 0.9*atk) * (1 + (elem + 10%)) * (1 + 0.03*grade) * (1 + 0.02*core)
       if (!isUnowned) {
         const grade = typeof limit_break === 'object' ? (limit_break.grade || 0) : 0;
         const core  = typeof limit_break === 'object' ? (limit_break.core  || 0) : 0;
         const atk = sumStats.StatAtk || 0;
         const elem = sumStats.IncElementDmg || 0;
-        const score = (1)*(1+atk)*(1+elem)*(grade*0.03+1)*(core*0.02+1);
+        // 公式：ATK 按 0.9 权重；元素加成为 elem 基础上额外 +10%
+        const score = (1 + 0.9*atk) * (1 + (elem + 0.10)) * (grade * 0.03 + core * 0.02 + 1);
         const scoreCell = ws.getCell(4, colCursor);
         scoreCell.value = score;
         scoreCell.numFmt = "0.00";
