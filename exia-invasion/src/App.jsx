@@ -364,9 +364,21 @@ export default function App() {
         // ========== 步骤3: 构建数据字典 ==========
         let dict;
         try {
-          // 3-1. 载入基础模板并写入账号名
+          // 3-1. 载入基础模板并写入账号名 / game_uid
           dict = await loadBaseAccountDict();
           dict.name = roleInfo.role_name;
+          // 写入 game_uid：优先使用账号已有值；否则尝试从当前 Cookie 读取
+          dict.game_uid = acc.game_uid || "";
+          if (!dict.game_uid) {
+            try {
+              const cks = (await chrome.cookies.getAll({}))
+                .filter(c => c.domain.endsWith("blablalink.com"));
+              const gameUidCookie = cks.find(c => c.name === "game_uid");
+              if (gameUidCookie) dict.game_uid = gameUidCookie.value;
+            } catch {
+              // ignore
+            }
+          }
           
           // 3-2. 获取同步器等级 + 前哨基地等级
           if (roleInfo.area_id) {

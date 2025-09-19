@@ -40,6 +40,7 @@ export const loadBaseAccountDict = async () => {
   // 创建基础数据结构，统一元素名称和固定排序
   const baseDict = {
     name: "",
+    game_uid: "",
     synchroLevel: 0,
     outpostLevel: 0,
     normalProgress: "",
