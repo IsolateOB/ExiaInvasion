@@ -109,7 +109,7 @@ AEL (Attack Element Limit Break Score) is a compact metric for evaluating a char
 - ### 公式 Formula
 
 $$
-AEL = \bigl(1 + 0.9\times ATK\% \bigr) \times \bigl(1 + (Elem\% + 10\%)\bigr) \times \bigl(1 + 3\% \times Limit\ Break + 2\% \times Core\ Refinement \bigr)
+AEL = \bigl(1 + 0.9\times ATK \% \bigr) \times \bigl(1 + (Elem \% + 10 \%)\bigr) \times \bigl(1 + 3 \% \times Limit\ Break + 2 \% \times Core\ Refinement \bigr)
 $$
 
 - ### 变量 Variable：
