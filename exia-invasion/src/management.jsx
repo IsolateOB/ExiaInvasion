@@ -35,6 +35,7 @@ import {
   ListItemText,
   Snackbar,
   Alert,
+  Tooltip,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
@@ -1006,9 +1007,29 @@ const corporationMapping = {
                           <TableCell width="5%">{t("no")}</TableCell>
                           <TableCell width="20%">{t("characterName")}</TableCell>
                           <TableCell width="10%">{t("priority")}</TableCell>
-                          {/* 攻优突破分开关列标题 */}
+                          {/* 攻优突破分开关列标题（悬停提示） */}
                           <TableCell width="8%" sx={{ textAlign: 'center', fontSize: '0.75rem' }}>
-                            {t("atkElemLbScore")}
+                            <Tooltip
+                              arrow
+                              placement="top"
+                              title={
+                                lang === 'zh' ? (
+                                  <Box component="span">
+                                    攻优突破分(AEL)
+                                    <br />
+                                    AEL = (1 + 0.9 × 攻击词条) × (1 + 10% + 优越词条) × (1 + 3% × 极限突破 + 2% × 核心强化)
+                                  </Box>
+                                ) : (
+                                  <Box component="span">
+                                    Attack Element Limit Break Score (AEL)
+                                    <br />
+                                    AEL = (1 + 0.9 × ATK%) × (1 + 10% + Elem%) × (1 + 3% × Limit Break + 2% × Core Refinement)
+                                  </Box>
+                                )
+                              }
+                            >
+                              <Box component="span">{t("atkElemLbScore")}</Box>
+                            </Tooltip>
                           </TableCell>
                           {/* 装备词条列标题 */}
                           {equipStatKeys.map((key, idx) => (

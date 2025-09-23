@@ -690,7 +690,7 @@ export default function App() {
           </Typography>
           <Box display="flex" alignItems="center" sx={{ ml: 1, color: "white" }}>
             <Typography variant="caption">中文</Typography>
-            <Switch size="small" checked={lang === "en"} onChange={toggleLang} />
+            <Switch size="small" color="default" checked={lang === "en"} onChange={toggleLang} />
             <Typography variant="caption">EN</Typography>
           </Box>
         </Toolbar>
