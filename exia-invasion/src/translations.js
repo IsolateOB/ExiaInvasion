@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // ========== 多语言翻译文件 ==========
 // 支持中文和英文的界面文本翻译
 
@@ -99,7 +100,7 @@ const TRANSLATIONS = {
     playerInfo: "玩家信息",
     playerName: "名称",
     synchro: "同步器",
-  outpostLevel: "前哨基地等级",
+    outpostLevel: "前哨基地等级",
     normalProgress: "普通进度",
     hardProgress: "困难进度",
     others: "其它",
@@ -232,7 +233,7 @@ const TRANSLATIONS = {
     playerInfo: "Player Info",
     playerName: "Name",
     synchro: "Synchro",
-  outpostLevel: "Outpost Level",
+    outpostLevel: "Outpost Level",
     normalProgress: "Normal Progress",
     hardProgress: "Hard Progress",
     others: "Others",

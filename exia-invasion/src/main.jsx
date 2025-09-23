@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // 应用程序入口文件
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'

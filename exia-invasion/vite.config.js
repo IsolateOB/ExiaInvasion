@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // ========== Vite 构建配置文件 ==========
 // ExiaInvasion Chrome 扩展的构建配置
 

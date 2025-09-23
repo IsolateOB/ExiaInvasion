@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // ========== Exia Invasion 主应用组件 ==========
 // 主要功能：账户管理、数据爬取、Excel导出、文件合并等
 
@@ -688,7 +689,7 @@ export default function App() {
             ExiaInvasion
           </Typography>
           <Box display="flex" alignItems="center" sx={{ ml: 1, color: "white" }}>
-            <Typography variant="caption">中</Typography>
+            <Typography variant="caption">中文</Typography>
             <Switch size="small" checked={lang === "en"} onChange={toggleLang} />
             <Typography variant="caption">EN</Typography>
           </Box>

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // API接口和数据处理模块
 import { getCharacters } from "./storage.js";
 import { Converter as OpenCCConverter } from "opencc-js";

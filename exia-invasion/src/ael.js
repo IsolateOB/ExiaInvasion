@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // 公共 AEL 评分计算模块
 // 与 excel.js 中的显示公式保持一致
 

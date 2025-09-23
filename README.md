@@ -48,9 +48,9 @@
 
       **Save Cookie During Runtime** will automatically save the account’s **cookie** while running, so the next run can skip the login step. You will see the saved cookie on the **Management** page.
 
-    - **导出 JSON** 将在 **运行** 完毕后输出表格的同时输出用于制表的账号原始数据。
+    - **导出 JSON** 将在 **运行** 完毕后输出表格的同时输出用于制表的账号原始数据（包含 `game_uid` 字段）。
 
-      **Export JSON** will output the raw account data for tabulation alongside the table after **Run** is completed.
+      **Export JSON** will output the raw account data for tabulation alongside the table after **Run** is completed (including the `game_uid` field).
 
     - **运行时激活标签页** 将在 **运行** 时用 **账号密码** 登录时，切换到脚本操作的标签页。主要用于检查错误和手动操作人机验证。
 
@@ -62,17 +62,17 @@
 
   - #### 合并 Merge
 
-  	- 若选择了 Excel，将导出 `merged.xlsx`（排序选项与表格合并一致：名称升/降序，或同步器等级升/降序）
+    - 若选择了 Excel，将导出 `merged.xlsx`（排序选项与表格合并一致：名称升/降序，或同步器等级升/降序）
 
-  	  If Excel files are selected, `merged.xlsx` will be exported (same sorting options as Excel merging: Name Asc/Desc, or Synchro Level Asc/Desc)
+      If Excel files are selected, `merged.xlsx` will be exported (same sorting options as Excel merging: Name Asc/Desc, or Synchro Level Asc/Desc)
 
-  	- 若选择了 JSON，将导出 `merged.json`（会把多个账号 JSON 简单装进一个数组，并按排序选项排序）
+    - 若选择了 JSON，将导出 `merged.json`（会把多个账号 JSON 简单装进一个数组，并按排序选项排序）
 
-  	  If JSON files are selected, `merged.json` will be exported (all JSONs will be packed into an array and sorted according to the same option)
+      If JSON files are selected, `merged.json` will be exported (all JSONs will be packed into an array and sorted according to the same option)
 
-  	- 若两类都选择了，将分别导出两个文件
+    - 若两类都选择了，将分别导出两个文件
 
-  	  If both are selected, both files will be exported respectively
+      If both are selected, both files will be exported respectively
 
 - ### 管理页 Management Page
 
@@ -104,31 +104,31 @@
 
 AEL（攻优突破分）用于简洁衡量角色在当前装备与突破下的输出潜力。本项目将该分数写入导出的 JSON 字段 `AtkElemLbScore`，并在表格中显示（可选择隐藏），公式如下。
 
-AEL (Atk-Element-LimitBreak score) is a compact metric for evaluating a character’s output potential under current gear and limit break. It is exported as `AtkElemLbScore` in JSON and can be shown in the sheet.
+AEL (Attack Element Limit Break Score) is a compact metric for evaluating a character’s output potential under current gear and limit break. It is exported as `AtkElemLbScore` in JSON and can be shown in the sheet.
 
 - ### 公式 Formula
 
 $$
-	ext{AEL} = \bigl(1 + 0.9\,\mathrm{ATK}\bigr) \cdot \bigl(1 + (\mathrm{Elem} + 0.10)\bigr) \cdot \bigl(1 + 0.03\,\mathrm{Grade} + 0.02\,\mathrm{Core}\bigr)
+AEL = \bigl(1 + 0.9\times ATK\% \bigr) \times \bigl(1 + (Elem\% + 10\%)\bigr) \times \bigl(1 + 3\% \times Limit\ Break + 2\% \times Core\ Refinement \bigr)
 $$
 
 - ### 变量 Variable：
 
-	- **ATK**：四件装备中“攻击力加成(%)”的总和。
+  - **ATK**: 四件装备中“攻击力加成(%)”的总和。
 
-		**ATK**: Sum of “Attack %”.
+    **ATK**: Sum of “Attack %”.
 
-	- **Elem**：四件装备中“属性克制伤害(%)”的总和。
+  - **Elem**: 四件装备中“属性克制伤害(%)”的总和。
 
-		**Elem**: Sum of “Element Advantage Damage %”.
+    **Elem**: Sum of “Element Advantage Damage %”.
 
-	- **Grade**：突破星数（0~3）。
+  - **Grade**: 突破星数（0~3）。
 
-		**Grade**: Limit break grade (0~3).
+    **Grade**: Limit break grade (0~3).
 
-	- **Core**：核心数（0~7）。
+  - **Core**: 核心数（0~7）。
 
-		**Core**: Core count (0~7).
+    **Core**: Core count (0~7).
 
 ## 交流与反馈 Communication and feedback
 
@@ -136,4 +136,14 @@ $$
 
 [Github](https://github.com/IsolateOB/ExiaInvasion)
 
-[ExiaInvasion & ArcanaDivination 交流与反馈](https://qm.qq.com/q/CDQMjjV1Li)
+[ExiaInvasion & ExiaAnalysis 交流与反馈](https://qm.qq.com/q/CDQMjjV1Li)
+
+## 许可证 License
+
+本项目自当前版本起以 GPL-3.0-or-later 许可发布。您可以在遵守 GPL 的前提下复制、修改与再发布本项目；再发布的派生作品亦需以 GPL 兼容的方式开源其源代码。
+
+This project is licensed under GPL-3.0-or-later. You may copy, modify, and redistribute under the terms of the GPL; derivative works must also be distributed under a GPL-compatible license with source available.
+
+完整许可文本见仓库根目录的 `LICENSE` 文件。扩展打包时会附带 `public/LICENSE.txt` 作为随附声明。
+
+The full license text can be found in the repository root `LICENSE` file. The packaged extension includes `public/LICENSE.txt` as an accompanying notice.

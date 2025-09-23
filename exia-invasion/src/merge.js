@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 import ExcelJS from "exceljs";
 
 // ========== Excel 工作簿合并模块 ==========

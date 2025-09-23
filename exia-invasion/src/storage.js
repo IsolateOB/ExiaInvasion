@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // 本地存储管理模块
 
 const SETTINGS_KEY  = "settings";   // 设置存储键

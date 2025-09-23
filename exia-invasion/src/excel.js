@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Excel表格生成模块
 import ExcelJS from "exceljs";
 import { computeAELScore, isUnowned, getEquipSumStats } from './ael.js';

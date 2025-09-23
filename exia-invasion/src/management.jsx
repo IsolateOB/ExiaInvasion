@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // ========== ExiaInvasion 管理页面组件 ==========
 // 主要功能：账户管理、角色数据管理、装备统计配置等
 

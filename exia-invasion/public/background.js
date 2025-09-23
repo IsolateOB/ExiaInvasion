@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // ========== ExiaInvasion Chrome 扩展后台脚本 ==========
 // 管理扩展的生命周期和用户交互事件
 

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // ========== ESLint 配置文件 ==========
 // ExiaInvasion 项目的代码检查规则配置
 
