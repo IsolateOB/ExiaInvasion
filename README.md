@@ -108,25 +108,7 @@ AEL (Attack Element Limit Break Score) is a compact metric for evaluating a char
 
 - ### 公式 Formula
 
-$AEL = \bigl(1 + 0.9\times ATK \mathrm{\%} \bigr) \times \bigl(1 + (Elem \mathrm{\%} + 10 \mathrm{\%})\bigr) \times \bigl(1 + 3 \mathrm{\%} \times Limit\ Break + 2 \mathrm{\%} \times Core\ Refinement \bigr)$
-
-- ### 变量 Variable：
-
-  - **ATK**: 四件装备中“攻击力加成(%)”的总和。
-
-    **ATK**: Sum of “Attack %”.
-
-  - **Elem**: 四件装备中“属性克制伤害(%)”的总和。
-
-    **Elem**: Sum of “Element Advantage Damage %”.
-
-  - **Grade**: 突破星数（0~3）。
-
-    **Grade**: Limit break grade (0~3).
-
-  - **Core**: 核心数（0~7）。
-
-    **Core**: Core count (0~7).
+**AEL** = (1 + 0.9 × ATK%) × (1 + (Elem% + 10%)) × (1 + 3% × Limit Break + 2% × Core Refinement)
 
 ## 交流与反馈 Communication and feedback
 
