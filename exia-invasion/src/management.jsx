@@ -895,6 +895,20 @@ const corporationMapping = {
                                     </IconButton>
                                   </InputAdornment>
                                 ),
+                                sx: {
+                                  '& input[type="password"]::-ms-reveal': {
+                                    display: 'none'
+                                  },
+                                  '& input[type="password"]::-ms-clear': {
+                                    display: 'none'
+                                  },
+                                  '& input[type="password"]::-webkit-credentials-auto-fill-button': {
+                                    display: 'none !important'
+                                  },
+                                  '& input[type="password"]::-webkit-contacts-auto-fill-button': {
+                                    display: 'none !important'
+                                  }
+                                }
                               },
                             }}
                           />
