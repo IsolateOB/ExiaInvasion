@@ -50,7 +50,9 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import TRANSLATIONS from "./translations.js";
 import { fetchAndCacheNikkeDirectory, getCachedNikkeDirectory } from "./api.js";
 import { v4 as uuidv4 } from "uuid";
-import { getCharacters, setCharacters } from "./storage.js";
+import { getCharacters, setCharacters, getTemplates, saveTemplate, deleteTemplate, getCurrentTemplateId, setCurrentTemplateId } from "./storage.js";
+import CheckIcon from "@mui/icons-material/Check";
+import CloseIcon from "@mui/icons-material/Close";
 
 // ========== 常量定义 ==========
 // 默认账户行数据结构
@@ -117,6 +119,13 @@ const ManagementPage = () => {
   const [charDragging, setCharDragging] = useState({ sourceElement: null, currentElement: null, draggingIndex: null, overIndex: null });
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
   
+  // 模板管理相关状态
+  const [templates, setTemplates] = useState([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameId, setRenameId] = useState("");
+  const [renameValue, setRenameValue] = useState("");
+  
   // 全选/全不选状态
   const isAllEnabled = useMemo(() => accounts.every(acc => acc.enabled !== false), [accounts]);
   
@@ -161,6 +170,108 @@ const ManagementPage = () => {
       }
     })();
   }, []);
+  
+  /* ========== 模板管理初始化 ========== */
+  useEffect(() => {
+    // 加载模板列表
+    getTemplates().then(list => {
+      setTemplates(list || []);
+    });
+    
+    // 加载当前选中的模板ID
+    getCurrentTemplateId().then(id => {
+      setSelectedTemplateId(id || "");
+    });
+  }, []);
+  
+  // 刷新模板列表
+  const refreshTemplates = async () => {
+    const list = await getTemplates();
+    setTemplates(list || []);
+  };
+  
+  // 生成下一个默认模板名称
+  const generateNextDefaultName = () => {
+    const existing = templates.map(t => t.name);
+    let n = 1;
+    while (existing.includes(`${t("template")}${n}`)) n++;
+    return `${t("template")}${n}`;
+  };
+  
+  // 应用模板
+  const applyTemplate = async (tpl) => {
+    if (!tpl || !tpl.data) return;
+    setCharactersData(tpl.data);
+    setCharacters(tpl.data);
+  };
+  
+  // 保存当前配置为模板
+  const handleCreateTemplate = async () => {
+    const id = uuidv4();
+    const template = {
+      id,
+      name: generateNextDefaultName(),
+      data: characters,
+      createdAt: Date.now()
+    };
+    await saveTemplate(template);
+    await refreshTemplates();
+    setSelectedTemplateId(id);
+    await setCurrentTemplateId(id);
+    showMessage(t("templateSaved"), "success");
+  };
+  
+  // 删除模板
+  const handleDeleteTemplate = async (id) => {
+    if (!id) return;
+    await deleteTemplate(id);
+    await refreshTemplates();
+    if (selectedTemplateId === id) {
+      setSelectedTemplateId("");
+      await setCurrentTemplateId("");
+    }
+    showMessage(t("templateDeleted"), "success");
+  };
+  
+  // 重命名模板
+  const startRenameTemplate = (id) => {
+    setIsRenaming(true);
+    setRenameId(id);
+    const tpl = templates.find(t => t.id === id);
+    setRenameValue(tpl?.name || "");
+  };
+  
+  const confirmRename = async () => {
+    const id = renameId;
+    const name = renameValue.trim();
+    if (!id || !name) return;
+    
+    const tpl = templates.find(t => t.id === id);
+    if (!tpl) return;
+    
+    tpl.name = name;
+    await saveTemplate(tpl);
+    await refreshTemplates();
+    setSelectedTemplateId(id);
+    setIsRenaming(false);
+    setRenameId("");
+    setRenameValue("");
+    showMessage(t("templateRenamed"), "success");
+  };
+  
+  // 模板选择变化
+  const handleTemplateChange = async (id) => {
+    setSelectedTemplateId(id);
+    await setCurrentTemplateId(id);
+    if (id) {
+      const tpl = templates.find(t => t.id === id);
+      if (tpl) {
+        await applyTemplate(tpl);
+        showMessage(t("templateLoaded"), "success");
+      }
+    }
+  };
+  
   
   /* ========== 账号数据初始化 ========== */
   useEffect(() => {
@@ -979,32 +1090,127 @@ const corporationMapping = {
         )}
           {tab === 1 && (
           <>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, gap: 2 }}>
               <Typography variant="h6">
                 {t("characterManagement")}
               </Typography>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<FileDownloadIcon />}
-                  onClick={triggerCharacterImport}
-                  sx={{ minWidth: 80 }}
-                >
-                  {t("import")}
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<FileUploadIcon/>}
-                  onClick={handleExportCharacters}
-                  sx={{ minWidth: 80 }}
-                >
-                  {t("export")}
-                </Button>
+              
+              {/* 右侧：模板选择器 + 导入导出按钮 */}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-end' }}>
+                {/* 第一行：导入导出按钮 */}
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<FileDownloadIcon />}
+                    onClick={triggerCharacterImport}
+                    sx={{ minWidth: 80 }}
+                  >
+                    {t("import")}
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<FileUploadIcon/>}
+                    onClick={handleExportCharacters}
+                    sx={{ minWidth: 80 }}
+                  >
+                    {t("export")}
+                  </Button>
+                </Box>
+                
+                {/* 第二行：模板选择器 */}
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <Select
+                    size="small"
+                    value={selectedTemplateId || ''}
+                    onChange={(e) => handleTemplateChange(e.target.value)}
+                    displayEmpty
+                    sx={{ minWidth: 200, width: 240 }}
+                    renderValue={(val) => {
+                      const id = String(val || '');
+                      const item = templates.find(tp => tp.id === id);
+                      const name = item?.name || '';
+                      const display = name || t("templateNotSelected");
+                      return (
+                        <Typography noWrap title={display} sx={{ maxWidth: '100%' }}>{display}</Typography>
+                      );
+                    }}
+                    MenuProps={{ PaperProps: { style: { maxHeight: 300 } } }}
+                  >
+                    <MenuItem value=""><em>{t("templateNotSelected")}</em></MenuItem>
+                    {templates.map((tpl) => (
+                      <MenuItem key={tpl.id} value={tpl.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {isRenaming && renameId === tpl.id ? (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, width: '100%' }} onClick={(e)=>e.stopPropagation()}>
+                            <TextField
+                              size="small"
+                              placeholder={t("templateInputName")}
+                              value={renameValue}
+                              onChange={(e) => setRenameValue(e.target.value)}
+                              onKeyDown={(e) => { 
+                                if (e.key === 'Enter') { 
+                                  e.stopPropagation(); 
+                                  confirmRename();
+                                }
+                                if (e.key === 'Escape') { 
+                                  e.stopPropagation(); 
+                                  setIsRenaming(false); 
+                                  setRenameId(''); 
+                                  setRenameValue('');
+                                }
+                              }}
+                              autoFocus
+                              sx={{ flex: 1, minWidth: 0 }}
+                            />
+                            <IconButton size="small" color="primary" onClick={(e)=>{ e.stopPropagation(); confirmRename(); }}>
+                              <CheckIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton size="small" onClick={(e)=>{ e.stopPropagation(); setIsRenaming(false); setRenameId(''); setRenameValue(''); }}>
+                              <CloseIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        ) : (
+                          <>
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Typography variant="body2" noWrap title={tpl.name}>{tpl.name}</Typography>
+                            </Box>
+                            <Tooltip title={t("templateRename")}>
+                              <IconButton
+                                size="small"
+                                onClick={(e) => { e.stopPropagation(); e.preventDefault(); startRenameTemplate(tpl.id); }}
+                              >
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title={t("templateDelete")}>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDeleteTemplate(tpl.id); }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </>
+                        )}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<SaveIcon />}
+                    onClick={handleCreateTemplate}
+                    disabled={templates.length >= 200}
+                  >
+                    {t("templateSave")}
+                  </Button>
+                </Box>
               </Box>
             </Box>
-              {["Electronic", "Fire", "Wind", "Water", "Iron", "Utility"].map((element) => {
+            
+            {["Electronic", "Fire", "Wind", "Water", "Iron", "Utility"].map((element) => {
               const elementChars = characters.elements[element] || [];
               return (
                 <Box key={element} sx={{ mb: 3, border: '1px solid #e0e0e0', borderRadius: 1, p: 2 }}>

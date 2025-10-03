@@ -264,6 +264,10 @@ export default function App() {
       const excelMime =
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
       
+      // 统计成功和失败的账号
+      const successAccounts = [];
+      const failedAccounts = [];
+      
       // ========== 步骤2: 遍历每个账号 ==========
       for (let i = 0; i < accounts.length; ++i) {
         await clearSiteCookies(); // 清除之前的Cookie，避免干扰
@@ -284,6 +288,7 @@ export default function App() {
         if (!cookieStr) {
           if (!acc.password) {
             addLog(t("noPwd"));
+            failedAccounts.push({ name: acc.name || acc.username || t("noName"), reason: t("noPwd") });
             continue;
           }
           addLog(t("loginWithPwd"));
@@ -291,6 +296,7 @@ export default function App() {
             await loginAndGetCookie(acc, server);
           } catch (e) {
             addLog(`${t("loginFail")}${e}`);
+            failedAccounts.push({ name: acc.name || acc.username || t("noName"), reason: t("loginFail") });
             continue;
           }
         }
@@ -309,10 +315,12 @@ export default function App() {
               roleInfo = await getRoleName();
             } catch (err2) {
               addLog(`${t("reloginFail")}${err2}`);
+              failedAccounts.push({ name: acc.name || acc.username || t("noName"), reason: t("reloginFail") });
               continue;
             }
           } else {
             addLog(`${t("getRoleNameFail")}${err}`);
+            failedAccounts.push({ name: acc.name || acc.username || t("noName"), reason: t("getRoleNameFail") });
             continue;
           }
         }
@@ -327,14 +335,17 @@ export default function App() {
               roleInfo = await getRoleName();
               if (!roleInfo.area_id) {
                 addLog(t("getRoleNameFail") + "area_id empty after relogin");
+                failedAccounts.push({ name: acc.name || acc.username || t("noName"), reason: "area_id empty" });
                 continue;
               }
             } catch (e) {
               addLog(t("reloginFail") + e);
+              failedAccounts.push({ name: acc.name || acc.username || t("noName"), reason: t("reloginFail") });
               continue;
             }
           } else {
             addLog(t("getRoleNameFail") + "area_id empty");
+            failedAccounts.push({ name: acc.name || acc.username || t("noName"), reason: "area_id empty" });
             continue;
           }
         }
@@ -365,9 +376,12 @@ export default function App() {
         // ========== 步骤3: 构建数据字典 ==========
         let dict;
         try {
-          // 3-1. 载入基础模板并写入账号名 / game_uid
+          // 3-1. 载入基础模板并写入账号名 / game_uid / area_id / cookie
           dict = await loadBaseAccountDict();
           dict.name = roleInfo.role_name;
+          dict.area_id = roleInfo.area_id;
+          dict.cookie = acc.cookie || "";
+          
           // 写入 game_uid：优先使用账号已有值；否则尝试从当前 Cookie 读取
           dict.game_uid = acc.game_uid || "";
           if (!dict.game_uid) {
@@ -401,6 +415,7 @@ export default function App() {
           addLog(t("characterDetailsOk"));
         } catch (err) {
           addLog(`${t("dictFail")}${err}`);
+          failedAccounts.push({ name: acc.name || acc.username || roleInfo.role_name || t("noName"), reason: t("dictFail") });
           continue;
         }
         
@@ -410,6 +425,7 @@ export default function App() {
           excelBuffer = await saveDictToExcel(dict, lang);
         } catch (err) {
           addLog(`${t("excelFail")}${err}`);
+          failedAccounts.push({ name: acc.name || acc.username || roleInfo.role_name || t("noName"), reason: t("excelFail") });
           continue;
         }
         
@@ -440,6 +456,9 @@ export default function App() {
             () => URL.revokeObjectURL(url)
           );
         }
+        
+        // 记录成功的账号
+        successAccounts.push(roleInfo.role_name || acc.name || acc.username || t("noName"));
       } // for-loop 结束
       
       /* ---------- 步骤6: 完成所有账号处理 ---------- */
@@ -450,6 +469,18 @@ export default function App() {
           { url, filename: "accounts.zip" },
           () => URL.revokeObjectURL(url)
         );
+      }
+      
+      // 输出统计信息
+      addLog(`----------------------------`);
+      addLog(`${t("processComplete")}`);
+      addLog(`${t("successCount")}: ${successAccounts.length}`);
+      if (failedAccounts.length > 0) {
+        addLog(`${t("failedCount")}: ${failedAccounts.length}`);
+        addLog(`${t("failedAccounts")}:`);
+        failedAccounts.forEach(({ name, reason }) => {
+          addLog(`  - ${name} (${reason})`);
+        });
       }
       
       addLog(t("done"));

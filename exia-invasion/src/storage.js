@@ -4,6 +4,8 @@
 const SETTINGS_KEY  = "settings";   // 设置存储键
 const ACCOUNTS_KEY  = "accounts";   // 账号存储键
 const CHARACTERS_KEY = "characters"; // 角色存储键
+const TEMPLATES_KEY = "characterTemplates"; // 角色模板存储键
+const CURRENT_TEMPLATE_KEY = "currentTemplate"; // 当前选中的模板
 
 // 获取设置数据
 export const getSettings = () =>
@@ -48,5 +50,47 @@ export const getCharacters = () =>
 export const setCharacters = (obj) =>
   new Promise((res) =>
     chrome.storage.local.set({ [CHARACTERS_KEY]: obj }, () => res())
+  );
+
+// 获取角色模板列表
+export const getTemplates = () =>
+  new Promise((res) =>
+    chrome.storage.local.get(TEMPLATES_KEY, (r) => res(r[TEMPLATES_KEY] || []))
+  );
+
+// 保存单个模板（合并到列表）
+export const saveTemplate = (template) =>
+  new Promise((res) => {
+    chrome.storage.local.get(TEMPLATES_KEY, (r) => {
+      const list = r[TEMPLATES_KEY] || [];
+      const idx = list.findIndex(t => t.id === template.id);
+      if (idx !== -1) {
+        list[idx] = template;
+      } else {
+        list.push(template);
+      }
+      chrome.storage.local.set({ [TEMPLATES_KEY]: list }, () => res());
+    });
+  });
+
+// 删除模板
+export const deleteTemplate = (templateId) =>
+  new Promise((res) => {
+    chrome.storage.local.get(TEMPLATES_KEY, (r) => {
+      const list = (r[TEMPLATES_KEY] || []).filter(t => t.id !== templateId);
+      chrome.storage.local.set({ [TEMPLATES_KEY]: list }, () => res());
+    });
+  });
+
+// 获取当前选中的模板ID
+export const getCurrentTemplateId = () =>
+  new Promise((res) =>
+    chrome.storage.local.get(CURRENT_TEMPLATE_KEY, (r) => res(r[CURRENT_TEMPLATE_KEY] || ""))
+  );
+
+// 设置当前选中的模板ID
+export const setCurrentTemplateId = (templateId) =>
+  new Promise((res) =>
+    chrome.storage.local.set({ [CURRENT_TEMPLATE_KEY]: templateId }, () => res())
   );
 
