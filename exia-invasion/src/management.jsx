@@ -111,8 +111,7 @@ const ManagementPage = () => {
     element: "",
     use_burst_skill: "",
     corporation: "",
-    weapon_type: "",
-    original_rare: ""
+  weapon_type: ""
   });
   const [filteredNikkes, setFilteredNikkes] = useState([]);
   // 拖拽状态（角色列表）：区分源分组与当前悬停分组，统一跨组视觉
@@ -592,27 +591,27 @@ const ManagementPage = () => {
   const onAccountDragEnd = () => setAccDragging({ draggingIndex: null, overIndex: null });
     
 /* ---------- 角色管理工具函数 ---------- */
-  const elementMapping = {
-    "Electronic": "电击",
-    "Fire": "燃烧", 
-    "Wind": "风压",
-    "Water": "水冷",
-    "Iron": "铁甲",
-    "Utility": "辅助"
+const elementTranslationKeys = {
+    Electronic: "electronic",
+    Fire: "fire",
+    Wind: "wind",
+    Water: "water",
+    Iron: "iron",
+    Utility: "utility"
   };
-  
-  const classMapping = {
-    "Attacker": "火力型",
-    "Defender": "防御型",
-    "Supporter": "支援型"
+
+  const classTranslationKeys = {
+    Attacker: "attacker",
+    Defender: "defender",
+    Supporter: "supporter"
   };
-  
-const corporationMapping = {
-    "ELYSION": "极乐净土",
-    "MISSILIS": "米西利斯",
-    "TETRA": "泰特拉",
-    "PILGRIM": "朝圣者",
-    "ABNORMAL": "反常"
+
+  const corporationTranslationKeys = {
+    ELYSION: "elysion",
+    MISSILIS: "missilis",
+    TETRA: "tetra",
+    PILGRIM: "pilgrim",
+    ABNORMAL: "abnormal"
   };
 
   const equipStatLabels = [
@@ -628,26 +627,45 @@ const corporationMapping = {
   ];
   
   const getElementName = (element) => {
-    return lang === "zh" ? (elementMapping[element] || element) : element;
+    const key = elementTranslationKeys[element];
+    return key ? t(key) : element;
   };
   
   const getClassName = (className) => {
-    return lang === "zh" ? (classMapping[className] || className) : className;
+    const key = classTranslationKeys[className];
+    return key ? t(key) : className;
   };
   
   const getCorporationName = (corporation) => {
-    return lang === "zh" ? (corporationMapping[corporation] || corporation) : corporation;
-  };  const openFilterDialog = (element) => {
+    const key = corporationTranslationKeys[corporation];
+    return key ? t(key) : corporation;
+  };
+
+  const getBurstStageName = (stage) => {
+    switch (stage) {
+      case "Step1":
+        return t("burstStage1");
+      case "Step2":
+        return t("burstStage2");
+      case "Step3":
+        return t("burstStage3");
+      case "AllStep":
+        return t("burstStageAll");
+      default:
+        return stage || "—";
+    }
+  };
+
+  const openFilterDialog = (element) => {
     setSelectedElement(element);
     // Auto-set element filter if not Utility
     const initialFilters = {
       name: "",
       class: "",
       element: element !== "Utility" ? element : "",
-      use_burst_skill: "",
-      corporation: "",
-      weapon_type: "",
-      original_rare: ""
+  use_burst_skill: "",
+  corporation: "",
+  weapon_type: ""
     };
     setFilters(initialFilters);
     
@@ -1426,29 +1444,14 @@ const corporationMapping = {
               onChange={(e) => setFilters(prev => ({ ...prev, name: e.target.value }))}
               placeholder={t("searchPlaceholder")}
               fullWidth
-            />            <Box display="flex" gap={2} flexWrap="wrap">
-              <FormControl size="small" sx={{ minWidth: 120 }}>
-                <InputLabel>{t("class")}</InputLabel>
-                <Select
-                  value={filters.class}
-                  onChange={(e) => setFilters(prev => ({ ...prev, class: e.target.value }))}
-                  label={t("class")}
-                  MenuProps={{
-                    PaperProps: {
-                      style: { maxHeight: 200, width: 'auto' }
-                    },
-                    anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
-                    transformOrigin: { vertical: 'top', horizontal: 'left' }
-                  }}
-                >
-                  <MenuItem value="">All</MenuItem>
-                  <MenuItem value="Attacker">{t("attacker")}</MenuItem>
-                  <MenuItem value="Defender">{t("defender")}</MenuItem>
-                  <MenuItem value="Supporter">{t("supporter")}</MenuItem>
-                </Select>
-              </FormControl>
-              
-              <FormControl size="small" sx={{ minWidth: 120 }}>
+            />            <Box
+              sx={{
+                display: 'grid',
+                gap: 2,
+                gridTemplateColumns: 'repeat(5, 1fr)'
+              }}
+            >
+              <FormControl size="small" fullWidth sx={{ minWidth: 0 }}>
                 <InputLabel>{t("element")}</InputLabel>
                 <Select
                   value={filters.element}
@@ -1462,7 +1465,7 @@ const corporationMapping = {
                     transformOrigin: { vertical: 'top', horizontal: 'left' }
                   }}
                 >
-                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="">{t("all")}</MenuItem>
                   <MenuItem value="Iron">{t("iron")}</MenuItem>
                   <MenuItem value="Fire">{t("fire")}</MenuItem>
                   <MenuItem value="Water">{t("water")}</MenuItem>
@@ -1470,8 +1473,8 @@ const corporationMapping = {
                   <MenuItem value="Electronic">{t("electronic")}</MenuItem>
                 </Select>
               </FormControl>
-              
-              <FormControl size="small" sx={{ minWidth: 120 }}>
+
+              <FormControl size="small" fullWidth sx={{ minWidth: 0 }}>
                 <InputLabel>{t("burstSkill")}</InputLabel>
                 <Select
                   value={filters.use_burst_skill}
@@ -1485,14 +1488,35 @@ const corporationMapping = {
                     transformOrigin: { vertical: 'top', horizontal: 'left' }
                   }}
                 >
-                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="">{t("all")}</MenuItem>
                   <MenuItem value="1">1</MenuItem>
                   <MenuItem value="2">2</MenuItem>
                   <MenuItem value="3">3</MenuItem>
                 </Select>
               </FormControl>
+
+              <FormControl size="small" fullWidth sx={{ minWidth: 0 }}>
+                <InputLabel>{t("class")}</InputLabel>
+                <Select
+                  value={filters.class}
+                  onChange={(e) => setFilters(prev => ({ ...prev, class: e.target.value }))}
+                  label={t("class")}
+                  MenuProps={{
+                    PaperProps: {
+                      style: { maxHeight: 200, width: 'auto' }
+                    },
+                    anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
+                    transformOrigin: { vertical: 'top', horizontal: 'left' }
+                  }}
+                >
+                  <MenuItem value="">{t("all")}</MenuItem>
+                  <MenuItem value="Attacker">{t("attacker")}</MenuItem>
+                  <MenuItem value="Defender">{t("defender")}</MenuItem>
+                  <MenuItem value="Supporter">{t("supporter")}</MenuItem>
+                </Select>
+              </FormControl>
               
-              <FormControl size="small" sx={{ minWidth: 120 }}>
+              <FormControl size="small" fullWidth sx={{ minWidth: 0 }}>
                 <InputLabel>{t("corporation")}</InputLabel>
                 <Select
                   value={filters.corporation}
@@ -1506,7 +1530,7 @@ const corporationMapping = {
                     transformOrigin: { vertical: 'top', horizontal: 'left' }
                   }}
                 >
-                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="">{t("all")}</MenuItem>
                   <MenuItem value="ELYSION">{t("elysion")}</MenuItem>
                   <MenuItem value="MISSILIS">{t("missilis")}</MenuItem>
                   <MenuItem value="TETRA">{t("tetra")}</MenuItem>
@@ -1515,7 +1539,7 @@ const corporationMapping = {
                 </Select>
               </FormControl>
               
-              <FormControl size="small" sx={{ minWidth: 120 }}>
+              <FormControl size="small" fullWidth sx={{ minWidth: 0 }}>
                 <InputLabel>{t("weaponType")}</InputLabel>
                 <Select
                   value={filters.weapon_type}
@@ -1529,7 +1553,7 @@ const corporationMapping = {
                     transformOrigin: { vertical: 'top', horizontal: 'left' }
                   }}
                 >
-                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="">{t("all")}</MenuItem>
                   <MenuItem value="AR">AR</MenuItem>
                   <MenuItem value="SMG">SMG</MenuItem>
                   <MenuItem value="SG">SG</MenuItem>
@@ -1539,26 +1563,6 @@ const corporationMapping = {
                 </Select>
               </FormControl>
               
-              <FormControl size="small" sx={{ minWidth: 120 }}>
-                <InputLabel>{t("rarity")}</InputLabel>
-                <Select
-                  value={filters.original_rare}
-                  onChange={(e) => setFilters(prev => ({ ...prev, original_rare: e.target.value }))}
-                  label={t("rarity")}
-                  MenuProps={{
-                    PaperProps: {
-                      style: { maxHeight: 200, width: 'auto' }
-                    },
-                    anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
-                    transformOrigin: { vertical: 'top', horizontal: 'left' }
-                  }}
-                >
-                  <MenuItem value="">All</MenuItem>
-                  <MenuItem value="SSR">SSR</MenuItem>
-                  <MenuItem value="SR">SR</MenuItem>
-                  <MenuItem value="R">R</MenuItem>
-                </Select>
-              </FormControl>
             </Box>
             
             <Typography variant="subtitle2">{t("filterResults")} ({filteredNikkes.length})</Typography>
@@ -1581,7 +1585,7 @@ const corporationMapping = {
                     >
                       <ListItemText
                         primary={lang === "zh" ? nikke.name_cn : nikke.name_en}
-                        secondary={`${getClassName(nikke.class)} | ${getElementName(nikke.element)} | ${getCorporationName(nikke.corporation)} | ${nikke.weapon_type} | ${nikke.original_rare}`}
+                        secondary={`${getElementName(nikke.element)} | ${getBurstStageName(nikke.use_burst_skill)} | ${getClassName(nikke.class)} | ${getCorporationName(nikke.corporation)} | ${nikke.weapon_type}`}
                       />
                     </ListItem>
                   ))}
