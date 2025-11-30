@@ -36,6 +36,9 @@ import {
   Snackbar,
   Alert,
   Tooltip,
+  Stack,
+  Chip,
+  Divider,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
@@ -114,6 +117,7 @@ const ManagementPage = () => {
   weapon_type: ""
   });
   const [filteredNikkes, setFilteredNikkes] = useState([]);
+  const [selectedNikkes, setSelectedNikkes] = useState([]);
   // 拖拽状态（角色列表）：区分源分组与当前悬停分组，统一跨组视觉
   const [charDragging, setCharDragging] = useState({ sourceElement: null, currentElement: null, draggingIndex: null, overIndex: null });
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
@@ -127,6 +131,11 @@ const ManagementPage = () => {
   
   // 全选/全不选状态
   const isAllEnabled = useMemo(() => accounts.every(acc => acc.enabled !== false), [accounts]);
+  const existingElementCharacters = useMemo(() => {
+    if (!selectedElement) return [];
+    return characters.elements[selectedElement] || [];
+  }, [selectedElement, characters]);
+  const existingElementIds = useMemo(() => new Set(existingElementCharacters.map((char) => char.id)), [existingElementCharacters]);
   
   /* ========== 语言设置同步 ========== */
   const [lang, setLang] = useState("zh");
@@ -656,81 +665,120 @@ const elementTranslationKeys = {
     }
   };
 
+  const getDisplayName = (nikke) => {
+    if (!nikke) return "";
+    const zhName = nikke.name_cn || nikke.name_en || nikke.name_code || nikke.name;
+    const enName = nikke.name_en || nikke.name_cn || nikke.name_code || nikke.name;
+    return lang === "zh" ? zhName : enName;
+  };
+
   const openFilterDialog = (element) => {
     setSelectedElement(element);
-    // Auto-set element filter if not Utility
     const initialFilters = {
       name: "",
       class: "",
       element: element !== "Utility" ? element : "",
-  use_burst_skill: "",
-  corporation: "",
-  weapon_type: ""
+      use_burst_skill: "",
+      corporation: "",
+      weapon_type: ""
     };
     setFilters(initialFilters);
-    
-    // Apply initial filters immediately
+
     let filtered = nikkeList;
     if (element !== "Utility") {
-      filtered = filtered.filter(nikke => nikke.element === element);
+      filtered = filtered.filter((nikke) => nikke.element === element);
     }
     setFilteredNikkes(filtered);
-    
+    setSelectedNikkes([]);
     setFilterDialogOpen(true);
-  };  const applyFilters = useCallback(() => {
+  };
+
+  const applyFilters = useCallback(() => {
     let filtered = nikkeList;
-    
+
     Object.entries(filters).forEach(([key, value]) => {
-      if (value) {
-        if (key === "name") {
-          // Search in both Chinese and English names
-          const searchTerm = value.toLowerCase();
-          filtered = filtered.filter(nikke => 
-            (nikke.name_cn && nikke.name_cn.toLowerCase().includes(searchTerm)) ||
-            (nikke.name_en && nikke.name_en.toLowerCase().includes(searchTerm))
-          );        } else if (key === "use_burst_skill") {
-          // Handle burst skill mapping: "1" -> "Step1", "2" -> "Step2", "3" -> "Step3"
-          const burstMapping = {
-            "1": "Step1",
-            "2": "Step2", 
-            "3": "Step3"
-          };
-          const mappedValue = burstMapping[value] || value;
-          // "AllStep" 角色应该能被所有 Step 筛选条件匹配到
-          filtered = filtered.filter(nikke => 
-            nikke[key] === mappedValue || nikke[key] === "AllStep"
-          );
-        } else {
-          filtered = filtered.filter(nikke => nikke[key] === value);
-        }
+      if (!value) return;
+
+      if (key === "name") {
+        const searchTerm = value.toLowerCase();
+        filtered = filtered.filter((nikke) =>
+          (nikke.name_cn && nikke.name_cn.toLowerCase().includes(searchTerm)) ||
+          (nikke.name_en && nikke.name_en.toLowerCase().includes(searchTerm))
+        );
+        return;
       }
+
+      if (key === "use_burst_skill") {
+        const burstMapping = {
+          "1": "Step1",
+          "2": "Step2",
+          "3": "Step3"
+        };
+        const mappedValue = burstMapping[value] || value;
+        filtered = filtered.filter(
+          (nikke) => nikke[key] === mappedValue || nikke[key] === "AllStep"
+        );
+        return;
+      }
+
+      filtered = filtered.filter((nikke) => nikke[key] === value);
     });
-    
+
     setFilteredNikkes(filtered);
-  }, [nikkeList, filters]);const addCharacterToElement = (nikke) => {
-    const newCharacters = {
+  }, [nikkeList, filters]);
+
+  const handleCloseFilterDialog = () => {
+    setFilterDialogOpen(false);
+    setSelectedNikkes([]);
+  };
+
+  const toggleNikkeSelection = (nikke) => {
+    setSelectedNikkes((prev) => {
+      const exists = prev.some((item) => item.id === nikke.id);
+      if (exists) {
+        return prev.filter((item) => item.id !== nikke.id);
+      }
+      return [...prev, nikke];
+    });
+  };
+
+  const handleRemoveSelectedNikke = (nikkeId) => {
+    setSelectedNikkes((prev) => prev.filter((item) => item.id !== nikkeId));
+  };
+
+  const handleConfirmSelection = () => {
+    if (!selectedElement || selectedNikkes.length === 0) {
+      handleCloseFilterDialog();
+      return;
+    }
+
+    const existingList = characters.elements[selectedElement] || [];
+    const existingIds = new Set(existingList.map((char) => char.id));
+    const newEntries = selectedNikkes
+      .filter((nikke) => !existingIds.has(nikke.id))
+      .map((nikke) => ({
+        name_code: nikke.name_code,
+        id: nikke.id,
+        name_cn: nikke.name_cn,
+        name_en: nikke.name_en,
+        priority: "yellow",
+        showStats: ["AtkElemLbScore", ...equipStatKeys]
+      }));
+
+    const nextCharacters = {
       ...characters,
       elements: {
         ...characters.elements,
-        [selectedElement]: [
-          ...characters.elements[selectedElement],
-          {
-            name_code: nikke.name_code,
-            id: nikke.id,
-            name_cn: nikke.name_cn,
-            name_en: nikke.name_en,
-            priority: "yellow",
-            // 默认包含 'AtkElemLbScore'
-            showStats: ["AtkElemLbScore", ...equipStatKeys]
-          }
-        ]
+        [selectedElement]: [...existingList, ...newEntries]
       }
     };
-    
-    setCharactersData(newCharacters);
-    setCharacters(newCharacters);
-    setFilterDialogOpen(false);
-  };  const updateCharacterPriority = (element, characterIndex, priority) => {
+
+    setCharactersData(nextCharacters);
+    setCharacters(nextCharacters);
+    handleCloseFilterDialog();
+  };
+
+  const updateCharacterPriority = (element, characterIndex, priority) => {
     const newCharacters = {
       ...characters,
       elements: {
@@ -870,6 +918,11 @@ const elementTranslationKeys = {
   useEffect(() => {
     applyFilters();
   }, [applyFilters]);
+
+  const pendingSelectionCount = selectedNikkes.length;
+  const totalSelectionCount = pendingSelectionCount + existingElementCharacters.length;
+  const selectionLabelTemplate = t("selectedCharactersLabel") || "Selected {count}";
+  const selectionLabel = selectionLabelTemplate.replace("{count}", String(totalSelectionCount));
     /* ---------- 渲染 ---------- */
   return (
     <>
@@ -1434,7 +1487,7 @@ const elementTranslationKeys = {
       </Container>
       
       {/* Character Filter Dialog */}
-      <Dialog open={filterDialogOpen} onClose={() => setFilterDialogOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={filterDialogOpen} onClose={handleCloseFilterDialog} maxWidth="md" fullWidth>
         <DialogTitle>{t("characterFilter")}</DialogTitle>
         <DialogContent>          <Box display="flex" flexDirection="column" gap={2} sx={{ mt: 1 }}>
             {/* Name search input */}            <TextField
@@ -1570,34 +1623,94 @@ const elementTranslationKeys = {
             <Box sx={{ maxHeight: 400, overflow: 'auto' }}>              
               {filteredNikkes.length > 0 ? (
                 <List>
-                  {filteredNikkes.map((nikke) => (
-                    <ListItem 
-                      key={nikke.id}
-                      secondaryAction={
-                        <Button
-                          variant="contained"
-                          size="small"
-                          onClick={() => addCharacterToElement(nikke)}
-                        >
-                          {t("confirmAdd")}
-                        </Button>
-                      }
-                    >
-                      <ListItemText
-                        primary={lang === "zh" ? nikke.name_cn : nikke.name_en}
-                        secondary={`${getElementName(nikke.element)} | ${getBurstStageName(nikke.use_burst_skill)} | ${getClassName(nikke.class)} | ${getCorporationName(nikke.corporation)} | ${nikke.weapon_type}`}
-                      />
-                    </ListItem>
-                  ))}
+                  {filteredNikkes.map((nikke) => {
+                    const isSelected = selectedNikkes.some((item) => item.id === nikke.id);
+                    const alreadyAdded = existingElementIds.has(nikke.id);
+                    const buttonLabel = alreadyAdded
+                      ? t("alreadyAdded")
+                      : isSelected
+                        ? t("selectedTag")
+                        : t("choose");
+                    return (
+                      <ListItem 
+                        key={nikke.id}
+                        secondaryAction={
+                          <Button
+                            variant={isSelected ? "outlined" : "contained"}
+                            size="small"
+                            onClick={() => toggleNikkeSelection(nikke)}
+                              disabled={alreadyAdded}
+                          >
+                            {buttonLabel}
+                          </Button>
+                        }
+                      >
+                        <ListItemText
+                          primary={lang === "zh" ? nikke.name_cn : nikke.name_en}
+                          secondary={`${getElementName(nikke.element)} | ${getBurstStageName(nikke.use_burst_skill)} | ${getClassName(nikke.class)} | ${getCorporationName(nikke.corporation)} | ${nikke.weapon_type}`}
+                        />
+                      </ListItem>
+                    );
+                  })}
                 </List>
               ) : (
                 <Typography color="textSecondary">{t("noResults")}</Typography>
               )}
             </Box>
+
+            <Box sx={{ mt: 2 }}>
+              <Divider sx={{ mb: 2 }} />
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                {selectionLabel}
+              </Typography>
+              {totalSelectionCount === 0 ? (
+                <Typography color="textSecondary">{t("selectedEmpty")}</Typography>
+              ) : (
+                <>
+                  {existingElementCharacters.length > 0 && (
+                    <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                      {existingElementCharacters.map((nikke) => (
+                        <Chip
+                          key={`existing-${nikke.id}`}
+                          label={getDisplayName(nikke)}
+                          size="small"
+                          disabled
+                        />
+                      ))}
+                    </Stack>
+                  )}
+                  {pendingSelectionCount > 0 && (
+                    <Stack
+                      direction="row"
+                      spacing={0.5}
+                      flexWrap="wrap"
+                      sx={{ mt: existingElementCharacters.length ? 1 : 0 }}
+                    >
+                      {selectedNikkes.map((nikke) => (
+                        <Chip
+                          key={nikke.id}
+                          label={getDisplayName(nikke)}
+                          onDelete={() => handleRemoveSelectedNikke(nikke.id)}
+                          variant="outlined"
+                          color="primary"
+                        />
+                      ))}
+                    </Stack>
+                  )}
+                </>
+              )}
+            </Box>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setFilterDialogOpen(false)}>{t("cancel")}</Button>
+          <Button onClick={handleCloseFilterDialog}>{t("cancel")}</Button>
+          <Button
+            variant="contained"
+            onClick={handleConfirmSelection}
+            disabled={pendingSelectionCount === 0}
+          >
+            {t("confirmSelection")}
+          </Button>
         </DialogActions>
       </Dialog>
 
