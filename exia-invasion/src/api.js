@@ -401,7 +401,7 @@ export const getEquipments = () => {
 const NIKKE_DIR_CACHE_KEY = "nikkeDirectory";
 
 // 远端目录地址（繁中与英文）
-const NIKKE_TW_URL = 'https://sg-tools-cdn.blablalink.com/vm-36/bj-70/6223a9fbfd3be53b48587c934a91f686.json';
+const NIKKE_TW_URL = 'https://sg-tools-cdn.blablalink.com/jz-26/ww-14/c4619ec83335bcfd7b23e43600520dc7.json';
 const NIKKE_EN_URL = 'https://sg-tools-cdn.blablalink.com/yl-57/hd-03/1bf030193826e243c2e195f951a4be00.json';
 
 const oc = OpenCCConverter({ from: 'tw', to: 'cn' });
