@@ -159,6 +159,8 @@ const TRANSLATIONS = {
     updated: "更新",
     importSuccess: "导入成功",
     importError: "导入失败，请检查文件格式",
+    clearAllNikkes: "清空",
+    clearAllNikkesConfirm: "确定要清空所有妮姬列表吗？此操作不可撤销。",
   },
   en: {
     starting: "Running, please do not close the sidebar",
@@ -316,6 +318,8 @@ const TRANSLATIONS = {
     updated: "Updated",
     importSuccess: "Import Successful",
     importError: "Import failed, please check file format",
+    clearAllNikkes: "Clear All",
+    clearAllNikkesConfirm: "Are you sure you want to clear all Nikke lists? This action cannot be undone.",
   },
 };
 
