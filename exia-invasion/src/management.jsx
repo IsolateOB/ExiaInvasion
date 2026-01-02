@@ -50,10 +50,11 @@ import InputAdornment from "@mui/material/InputAdornment";
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import TRANSLATIONS from "./translations.js";
 import { fetchAndCacheNikkeDirectory, getCachedNikkeDirectory } from "./api.js";
 import { v4 as uuidv4 } from "uuid";
-import { getCharacters, setCharacters, getTemplates, saveTemplate, deleteTemplate, getCurrentTemplateId, setCurrentTemplateId } from "./storage.js";
+import { getCharacters, setCharacters, getTemplates, saveTemplate, deleteTemplate, getCurrentTemplateId, setCurrentTemplateId, getAccountTemplates, saveAccountTemplate, deleteAccountTemplate, getCurrentAccountTemplateId, setCurrentAccountTemplateId, getAccounts, setAccounts as saveAccounts } from "./storage.js";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
 
@@ -129,6 +130,13 @@ const ManagementPage = () => {
   const [renameId, setRenameId] = useState("");
   const [renameValue, setRenameValue] = useState("");
   
+  // 账号模板管理相关状态
+  const [accountTemplates, setAccountTemplates] = useState([]);
+  const [selectedAccountTemplateId, setSelectedAccountTemplateId] = useState("");
+  const [isAccountRenaming, setIsAccountRenaming] = useState(false);
+  const [accountRenameId, setAccountRenameId] = useState("");
+  const [accountRenameValue, setAccountRenameValue] = useState("");
+  
   // 全选/全不选状态
   const isAllEnabled = useMemo(() => accounts.every(acc => acc.enabled !== false), [accounts]);
   const existingElementCharacters = useMemo(() => {
@@ -196,6 +204,121 @@ const ManagementPage = () => {
   const refreshTemplates = async () => {
     const list = await getTemplates();
     setTemplates(list || []);
+  };
+
+  /* ========== 账号模板管理初始化 ========== */
+  useEffect(() => {
+    // 加载账号模板列表
+    getAccountTemplates().then(list => {
+      setAccountTemplates(list || []);
+    });
+    
+    // 加载当前选中的账号模板ID
+    getCurrentAccountTemplateId().then(id => {
+      setSelectedAccountTemplateId(id || "");
+    });
+  }, []);
+  
+  // 刷新账号模板列表
+  const refreshAccountTemplates = async () => {
+    const list = await getAccountTemplates();
+    setAccountTemplates(list || []);
+  };
+  
+  // 生成下一个默认账号模板名称
+  const generateNextAccountDefaultName = () => {
+    const existing = accountTemplates.map(t => t.name);
+    let n = 1;
+    while (existing.includes(`${t("accountTemplate")}${n}`)) n++;
+    return `${t("accountTemplate")}${n}`;
+  };
+  
+  // 应用账号模板
+  const applyAccountTemplate = async (tpl) => {
+    if (!tpl || !tpl.data) return;
+    const data = tpl.data;
+    setAccounts(data);
+    setEditing(Array(data.length).fill(false));
+    setShowPwds(Array(data.length).fill(false));
+    await persist(data);
+  };
+  
+  // 保存当前账号为模板
+  const handleCreateAccountTemplate = async () => {
+    const id = uuidv4();
+    const template = {
+      id,
+      name: generateNextAccountDefaultName(),
+      data: accounts,
+      createdAt: Date.now()
+    };
+    await saveAccountTemplate(template);
+    await refreshAccountTemplates();
+    setSelectedAccountTemplateId(id);
+    await setCurrentAccountTemplateId(id);
+    showMessage(t("accountTemplateSaved"), "success");
+  };
+  
+  // 删除账号模板
+  const handleDeleteAccountTemplate = async (id) => {
+    if (!id) return;
+    await deleteAccountTemplate(id);
+    await refreshAccountTemplates();
+    if (selectedAccountTemplateId === id) {
+      setSelectedAccountTemplateId("");
+      await setCurrentAccountTemplateId("");
+    }
+    showMessage(t("accountTemplateDeleted"), "success");
+  };
+  
+  // 重命名账号模板
+  const startRenameAccountTemplate = (id) => {
+    setIsAccountRenaming(true);
+    setAccountRenameId(id);
+    const tpl = accountTemplates.find(t => t.id === id);
+    setAccountRenameValue(tpl?.name || "");
+  };
+  
+  const confirmAccountRename = async () => {
+    const id = accountRenameId;
+    const name = accountRenameValue.trim();
+    if (!id || !name) return;
+    
+    const tpl = accountTemplates.find(t => t.id === id);
+    if (!tpl) return;
+    
+    tpl.name = name;
+    await saveAccountTemplate(tpl);
+    await refreshAccountTemplates();
+    setSelectedAccountTemplateId(id);
+    setIsAccountRenaming(false);
+    setAccountRenameId("");
+    setAccountRenameValue("");
+    showMessage(t("accountTemplateRenamed"), "success");
+  };
+  
+  // 账号模板选择变化
+  const handleAccountTemplateChange = async (id) => {
+    setSelectedAccountTemplateId(id);
+    await setCurrentAccountTemplateId(id);
+    if (id) {
+      const tpl = accountTemplates.find(t => t.id === id);
+      if (tpl) {
+        await applyAccountTemplate(tpl);
+        showMessage(t("accountTemplateLoaded"), "success");
+      }
+    }
+  };
+  
+  // 清空所有账号
+  const handleClearAllAccounts = async () => {
+    if (!window.confirm(t("clearAllAccountsConfirm"))) {
+      return;
+    }
+    setAccounts([]);
+    setEditing([]);
+    setShowPwds([]);
+    await persist([]);
   };
   
   // 生成下一个默认模板名称
@@ -820,6 +943,25 @@ const elementTranslationKeys = {
     setCharactersData(newCharacters);
     setCharacters(newCharacters);
   };
+
+  // 清空所有妮姬列表
+  const handleClearAllCharacters = () => {
+    if (!window.confirm(t("clearAllNikkesConfirm"))) {
+      return;
+    }
+    const emptyCharacters = {
+      elements: {
+        Electronic: [],
+        Fire: [],
+        Wind: [],
+        Water: [],
+        Iron: [],
+        Utility: []
+      }
+    };
+    setCharactersData(emptyCharacters);
+    setCharacters(emptyCharacters);
+  };
     const getPriorityColor = (priority) => {
       // 与 excel.js 保持一致：
       // black: #000000 + 白字；blue: #99CCFF + 黑字；yellow: #FFFF88 + 黑字；red: #FF7777 + 白字
@@ -945,37 +1087,141 @@ const elementTranslationKeys = {
           {tab === 0 && (
           <>
             {/* 账户管理标题和操作按钮 */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, gap: 2 }}>
               <Typography variant="h6">
                 {t("accountTable")}
               </Typography>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={handleToggleAllEnabled}
-                  sx={{ minWidth: 80 }}
-                >
-                  {isAllEnabled ? t("deselectAll") : t("selectAll")}
-                </Button>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={<FileDownloadIcon />}
-                  onClick={handleImportAccounts}
-                  sx={{ minWidth: 80 }}
-                >
-                  {t("import")}
-                </Button>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={<FileUploadIcon />}
-                  onClick={handleExportAccounts}
-                  sx={{ minWidth: 80 }}
-                >
-                  {t("export")}
-                </Button>
+              
+              {/* 右侧：模板选择器 + 操作按钮 */}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-end' }}>
+                {/* 第一行：全选/导入/导出/清空按钮 */}
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={handleToggleAllEnabled}
+                    sx={{ minWidth: 80 }}
+                  >
+                    {isAllEnabled ? t("deselectAll") : t("selectAll")}
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<FileDownloadIcon />}
+                    onClick={handleImportAccounts}
+                    sx={{ minWidth: 80 }}
+                  >
+                    {t("import")}
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<FileUploadIcon />}
+                    onClick={handleExportAccounts}
+                    sx={{ minWidth: 80 }}
+                  >
+                    {t("export")}
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    color="error"
+                    startIcon={<DeleteSweepIcon />}
+                    onClick={handleClearAllAccounts}
+                    sx={{ minWidth: 80 }}
+                  >
+                    {t("clearAllAccounts")}
+                  </Button>
+                </Box>
+                
+                {/* 第二行：账号模板选择器 */}
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <Select
+                    size="small"
+                    value={selectedAccountTemplateId || ''}
+                    onChange={(e) => handleAccountTemplateChange(e.target.value)}
+                    displayEmpty
+                    sx={{ minWidth: 200, width: 240 }}
+                    renderValue={(val) => {
+                      const id = String(val || '');
+                      const item = accountTemplates.find(tp => tp.id === id);
+                      const name = item?.name || '';
+                      const display = name || t("accountTemplateNotSelected");
+                      return (
+                        <Typography noWrap title={display} sx={{ maxWidth: '100%' }}>{display}</Typography>
+                      );
+                    }}
+                    MenuProps={{ PaperProps: { style: { maxHeight: 300 } } }}
+                  >
+                    <MenuItem value=""><em>{t("accountTemplateNotSelected")}</em></MenuItem>
+                    {accountTemplates.map((tpl) => (
+                      <MenuItem key={tpl.id} value={tpl.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {isAccountRenaming && accountRenameId === tpl.id ? (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, width: '100%' }} onClick={(e)=>e.stopPropagation()}>
+                            <TextField
+                              size="small"
+                              placeholder={t("accountTemplateInputName")}
+                              value={accountRenameValue}
+                              onChange={(e) => setAccountRenameValue(e.target.value)}
+                              onKeyDown={(e) => { 
+                                if (e.key === 'Enter') { 
+                                  e.stopPropagation(); 
+                                  confirmAccountRename();
+                                }
+                                if (e.key === 'Escape') { 
+                                  e.stopPropagation(); 
+                                  setIsAccountRenaming(false); 
+                                  setAccountRenameId(''); 
+                                  setAccountRenameValue('');
+                                }
+                              }}
+                              autoFocus
+                              sx={{ flex: 1, minWidth: 0 }}
+                            />
+                            <IconButton size="small" color="primary" onClick={(e)=>{ e.stopPropagation(); confirmAccountRename(); }}>
+                              <CheckIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton size="small" onClick={(e)=>{ e.stopPropagation(); setIsAccountRenaming(false); setAccountRenameId(''); setAccountRenameValue(''); }}>
+                              <CloseIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        ) : (
+                          <>
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Typography variant="body2" noWrap title={tpl.name}>{tpl.name}</Typography>
+                            </Box>
+                            <Tooltip title={t("templateRename")}>
+                              <IconButton
+                                size="small"
+                                onClick={(e) => { e.stopPropagation(); e.preventDefault(); startRenameAccountTemplate(tpl.id); }}
+                              >
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title={t("templateDelete")}>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDeleteAccountTemplate(tpl.id); }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </>
+                        )}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<SaveIcon />}
+                    onClick={handleCreateAccountTemplate}
+                    disabled={accountTemplates.length >= 200}
+                  >
+                    {t("templateSave")}
+                  </Button>
+                </Box>
               </Box>
             </Box>
             
@@ -1168,7 +1414,7 @@ const elementTranslationKeys = {
               
               {/* 右侧：模板选择器 + 导入导出按钮 */}
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-end' }}>
-                {/* 第一行：导入导出按钮 */}
+                {/* 第一行：导入导出清空按钮 */}
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <Button
                     variant="outlined"
@@ -1187,6 +1433,16 @@ const elementTranslationKeys = {
                     sx={{ minWidth: 80 }}
                   >
                     {t("export")}
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    color="error"
+                    startIcon={<DeleteSweepIcon />}
+                    onClick={handleClearAllCharacters}
+                    sx={{ minWidth: 80 }}
+                  >
+                    {t("clearAllNikkes")}
                   </Button>
                 </Box>
                 
