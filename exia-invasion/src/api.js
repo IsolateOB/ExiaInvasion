@@ -434,6 +434,7 @@ export const fetchAndCacheNikkeDirectory = async () => {
       if (!en) continue; // 跳过没有英文条目的 id
       nikkes.push({
         id: tw.id,
+        resource_id: tw.resource_id,
         name_code: tw.name_code,
         class: tw.class,
         name_cn: tw?.name_localkey?.name,

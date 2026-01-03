@@ -54,7 +54,7 @@ import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import TRANSLATIONS from "./translations.js";
 import { fetchAndCacheNikkeDirectory, getCachedNikkeDirectory } from "./api.js";
 import { v4 as uuidv4 } from "uuid";
-import { getCharacters, setCharacters, getTemplates, saveTemplate, deleteTemplate, getCurrentTemplateId, setCurrentTemplateId, getAccountTemplates, saveAccountTemplate, deleteAccountTemplate, getCurrentAccountTemplateId, setCurrentAccountTemplateId, getAccounts, setAccounts as saveAccounts } from "./storage.js";
+import { getCharacters, setCharacters, getTemplates, saveTemplate, deleteTemplate, getCurrentTemplateId, setCurrentTemplateId, getAccountTemplates, saveAccountTemplate, deleteAccountTemplate, getCurrentAccountTemplateId, setCurrentAccountTemplateId } from "./storage.js";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
 
@@ -144,6 +144,17 @@ const ManagementPage = () => {
     return characters.elements[selectedElement] || [];
   }, [selectedElement, characters]);
   const existingElementIds = useMemo(() => new Set(existingElementCharacters.map((char) => char.id)), [existingElementCharacters]);
+
+  const nikkeResourceIdMap = useMemo(() => {
+    const map = new Map();
+    (nikkeList || []).forEach((n) => {
+      if (!n) return;
+      if (n.id === undefined || n.id === null) return;
+      if (n.resource_id === undefined || n.resource_id === null || n.resource_id === "") return;
+      map.set(n.id, n.resource_id);
+    });
+    return map;
+  }, [nikkeList]);
   
   /* ========== 语言设置同步 ========== */
   const [lang, setLang] = useState("zh");
@@ -795,6 +806,22 @@ const elementTranslationKeys = {
     return lang === "zh" ? zhName : enName;
   };
 
+  const getNikkeResourceId = useCallback((nikke) => {
+    if (!nikke) return undefined;
+    const direct = nikke.resource_id ?? nikke.resourceId;
+    if (direct !== undefined && direct !== null && direct !== "") return direct;
+    const id = nikke.id;
+    if (id === undefined || id === null) return undefined;
+    return nikkeResourceIdMap.get(id);
+  }, [nikkeResourceIdMap]);
+
+  const getNikkeAvatarUrl = useCallback((nikke) => {
+    const rid = getNikkeResourceId(nikke);
+    if (rid === undefined || rid === null || rid === "") return "";
+    const ridStr = String(rid).padStart(3, "0");
+    return `https://raw.githubusercontent.com/Nikke-db/Nikke-db.github.io/main/images/sprite/si_c${ridStr}_00_s.png`;
+  }, [getNikkeResourceId]);
+
   const openFilterDialog = (element) => {
     setSelectedElement(element);
     const initialFilters = {
@@ -882,6 +909,7 @@ const elementTranslationKeys = {
       .map((nikke) => ({
         name_code: nikke.name_code,
         id: nikke.id,
+        resource_id: nikke.resource_id,
         name_cn: nikke.name_cn,
         name_en: nikke.name_en,
         priority: "yellow",
@@ -1079,7 +1107,7 @@ const elementTranslationKeys = {
         </Toolbar>
       </AppBar>
       
-      <Container sx={{ mt: 4, pb: 8 }}>
+      <Container maxWidth="xl" sx={{ mt: 4, pb: 8 }}>
         <Tabs value={tab} onChange={(e, newTab) => setTab(newTab)} sx={{ mb: 3 }}>
           <Tab label={t("accountTable")} />
           <Tab label={t("characterManagement")} />
@@ -1608,7 +1636,21 @@ const elementTranslationKeys = {
                             <TableCell>{index + 1}</TableCell>
                             <TableCell>
                               <Typography variant="body2">
-                                {lang === "zh" ? charData.name_cn : charData.name_en}
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  {getNikkeAvatarUrl(charData) ? (
+                                    <Box
+                                      component="img"
+                                      src={getNikkeAvatarUrl(charData)}
+                                      alt={getDisplayName(charData)}
+                                      loading="lazy"
+                                      sx={{ width: 44, height: 44, borderRadius: 2, objectFit: 'cover', flex: '0 0 auto' }}
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                      }}
+                                    />
+                                  ) : null}
+                                  <Box component="span">{lang === "zh" ? charData.name_cn : charData.name_en}</Box>
+                                </Box>
                               </Typography>
                             </TableCell>                            <TableCell>
                               <FormControl size="small" sx={{ minWidth: 100 }}>
@@ -1887,6 +1929,8 @@ const elementTranslationKeys = {
                       : isSelected
                         ? t("selectedTag")
                         : t("choose");
+                    const displayName = getDisplayName(nikke);
+                    const avatarUrl = getNikkeAvatarUrl(nikke);
                     return (
                       <ListItem 
                         key={nikke.id}
@@ -1902,7 +1946,23 @@ const elementTranslationKeys = {
                         }
                       >
                         <ListItemText
-                          primary={lang === "zh" ? nikke.name_cn : nikke.name_en}
+                          primary={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              {avatarUrl ? (
+                                <Box
+                                  component="img"
+                                  src={avatarUrl}
+                                  alt={displayName}
+                                  loading="lazy"
+                                  sx={{ width: 44, height: 44, borderRadius: 2, objectFit: 'cover', flex: '0 0 auto' }}
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                  }}
+                                />
+                              ) : null}
+                              <Box component="span">{displayName}</Box>
+                            </Box>
+                          }
                           secondary={`${getElementName(nikke.element)} | ${getBurstStageName(nikke.use_burst_skill)} | ${getClassName(nikke.class)} | ${getCorporationName(nikke.corporation)} | ${nikke.weapon_type}`}
                         />
                       </ListItem>
