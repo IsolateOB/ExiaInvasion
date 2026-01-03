@@ -31,13 +31,13 @@ import {
   MenuItem,
   Checkbox,
   List,
+  ListItemAvatar,
   ListItem,
   ListItemText,
   Snackbar,
   Alert,
   Tooltip,
   Stack,
-  Chip,
   Divider,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
@@ -119,6 +119,7 @@ const ManagementPage = () => {
   });
   const [filteredNikkes, setFilteredNikkes] = useState([]);
   const [selectedNikkes, setSelectedNikkes] = useState([]);
+  const [removedExistingIds, setRemovedExistingIds] = useState([]);
   // 拖拽状态（角色列表）：区分源分组与当前悬停分组，统一跨组视觉
   const [charDragging, setCharDragging] = useState({ sourceElement: null, currentElement: null, draggingIndex: null, overIndex: null });
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
@@ -143,7 +144,12 @@ const ManagementPage = () => {
     if (!selectedElement) return [];
     return characters.elements[selectedElement] || [];
   }, [selectedElement, characters]);
-  const existingElementIds = useMemo(() => new Set(existingElementCharacters.map((char) => char.id)), [existingElementCharacters]);
+  const effectiveExistingElementCharacters = useMemo(() => {
+    if (!removedExistingIds.length) return existingElementCharacters;
+    const removedSet = new Set(removedExistingIds);
+    return existingElementCharacters.filter((char) => !removedSet.has(char.id));
+  }, [existingElementCharacters, removedExistingIds]);
+  const effectiveExistingElementIds = useMemo(() => new Set(effectiveExistingElementCharacters.map((char) => char.id)), [effectiveExistingElementCharacters]);
 
   const nikkeResourceIdMap = useMemo(() => {
     const map = new Map();
@@ -840,6 +846,7 @@ const elementTranslationKeys = {
     }
     setFilteredNikkes(filtered);
     setSelectedNikkes([]);
+    setRemovedExistingIds([]);
     setFilterDialogOpen(true);
   };
 
@@ -859,14 +866,8 @@ const elementTranslationKeys = {
       }
 
       if (key === "use_burst_skill") {
-        const burstMapping = {
-          "1": "Step1",
-          "2": "Step2",
-          "3": "Step3"
-        };
-        const mappedValue = burstMapping[value] || value;
         filtered = filtered.filter(
-          (nikke) => nikke[key] === mappedValue || nikke[key] === "AllStep"
+          (nikke) => nikke[key] === value || nikke[key] === "AllStep"
         );
         return;
       }
@@ -880,14 +881,18 @@ const elementTranslationKeys = {
   const handleCloseFilterDialog = () => {
     setFilterDialogOpen(false);
     setSelectedNikkes([]);
+    setRemovedExistingIds([]);
   };
 
-  const toggleNikkeSelection = (nikke) => {
+  // 与 ExiaAnalysis 选择器一致：点击“选择/已选择”只会加入，不会再次点击取消；取消通过“已选择”区右上角 X
+  const handleSelectNikke = (nikke) => {
+    // 如果该人物在当前元素里但被标记为删除，则点击“选择”视为撤销删除
+    if (removedExistingIds.includes(nikke.id)) {
+      setRemovedExistingIds((prev) => prev.filter((id) => id !== nikke.id));
+      return;
+    }
     setSelectedNikkes((prev) => {
-      const exists = prev.some((item) => item.id === nikke.id);
-      if (exists) {
-        return prev.filter((item) => item.id !== nikke.id);
-      }
+      if (prev.some((item) => item.id === nikke.id)) return prev;
       return [...prev, nikke];
     });
   };
@@ -896,16 +901,27 @@ const elementTranslationKeys = {
     setSelectedNikkes((prev) => prev.filter((item) => item.id !== nikkeId));
   };
 
+  const handleRemoveExistingNikke = (nikkeId) => {
+    setRemovedExistingIds((prev) => (prev.includes(nikkeId) ? prev : [...prev, nikkeId]));
+    // 若刚好也在待新增里，一并移除
+    setSelectedNikkes((prev) => prev.filter((item) => item.id !== nikkeId));
+  };
+
   const handleConfirmSelection = () => {
-    if (!selectedElement || selectedNikkes.length === 0) {
+    if (!selectedElement) {
       handleCloseFilterDialog();
       return;
     }
 
+    // 先应用删除（从原列表中移除被标记的人）
     const existingList = characters.elements[selectedElement] || [];
-    const existingIds = new Set(existingList.map((char) => char.id));
+    const removedSet = new Set(removedExistingIds);
+    const keptList = removedExistingIds.length ? existingList.filter((c) => !removedSet.has(c.id)) : existingList;
+
+    // 再应用新增（在“删除已应用后”的基础上去重）
+    const keptIds = new Set(keptList.map((char) => char.id));
     const newEntries = selectedNikkes
-      .filter((nikke) => !existingIds.has(nikke.id))
+      .filter((nikke) => !keptIds.has(nikke.id))
       .map((nikke) => ({
         name_code: nikke.name_code,
         id: nikke.id,
@@ -916,11 +932,17 @@ const elementTranslationKeys = {
         showStats: ["AtkElemLbScore", ...equipStatKeys]
       }));
 
+    // 若没有任何变更，直接关闭
+    if (newEntries.length === 0 && removedExistingIds.length === 0) {
+      handleCloseFilterDialog();
+      return;
+    }
+
     const nextCharacters = {
       ...characters,
       elements: {
         ...characters.elements,
-        [selectedElement]: [...existingList, ...newEntries]
+        [selectedElement]: [...keptList, ...newEntries]
       }
     };
 
@@ -1090,7 +1112,7 @@ const elementTranslationKeys = {
   }, [applyFilters]);
 
   const pendingSelectionCount = selectedNikkes.length;
-  const totalSelectionCount = pendingSelectionCount + existingElementCharacters.length;
+  const totalSelectionCount = pendingSelectionCount + effectiveExistingElementCharacters.length;
   const selectionLabelTemplate = t("selectedCharactersLabel") || "Selected {count}";
   const selectionLabel = selectionLabelTemplate.replace("{count}", String(totalSelectionCount));
     /* ---------- 渲染 ---------- */
@@ -1569,9 +1591,20 @@ const elementTranslationKeys = {
               const elementChars = characters.elements[element] || [];
               return (
                 <Box key={element} sx={{ mb: 3, border: '1px solid #e0e0e0', borderRadius: 1, p: 2 }}>
-                  <Typography variant="h6" sx={{ mb: 2 }}>
-                    {getElementName(element)} ({elementChars.length})
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, gap: 1 }}>
+                    <Typography variant="h6" sx={{ minWidth: 0 }}>
+                      {getElementName(element)} ({elementChars.length})
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<EditIcon />}
+                      onClick={() => openFilterDialog(element)}
+                      sx={{ flex: '0 0 auto' }}
+                    >
+                      {t("addOrEdit")}
+                    </Button>
+                  </Box>
                   <Box display="flex" flexDirection="column" gap={1}>
                     {/* Character Table */}
                     <Table size="small">                      <TableHead>
@@ -1612,7 +1645,6 @@ const elementTranslationKeys = {
                               {equipStatLabels[idx]}
                             </TableCell>
                           ))}
-                          <TableCell width="6%" align="right"></TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -1755,25 +1787,8 @@ const elementTranslationKeys = {
                                 />
                               </TableCell>
                             ))}
-                            <TableCell align="right">
-                              <IconButton
-                                color="error"
-                                onClick={() => deleteCharacter(element, index)}
-                                size="small"
-                              >
-                                <DeleteIcon />
-                              </IconButton>
-                            </TableCell>
                           </TableRow>
-                        ))}                        <TableRow>
-                          <TableCell colSpan={4 + equipStatKeys.length + 1} sx={{ pt: 2, borderBottom: 'none' }}>
-                            <Box display="flex" justifyContent="center">
-                              <IconButton color="primary" onClick={() => openFilterDialog(element)}>
-                                <AddIcon />
-                              </IconButton>
-                            </Box>
-                          </TableCell>
-                        </TableRow>
+                        ))}
                       </TableBody>
                     </Table>
                   </Box>
@@ -1785,17 +1800,28 @@ const elementTranslationKeys = {
       </Container>
       
       {/* Character Filter Dialog */}
-      <Dialog open={filterDialogOpen} onClose={handleCloseFilterDialog} maxWidth="md" fullWidth>
+      <Dialog
+        open={filterDialogOpen}
+        onClose={handleCloseFilterDialog}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '8px' } }}
+      >
         <DialogTitle>{t("characterFilter")}</DialogTitle>
-        <DialogContent>          <Box display="flex" flexDirection="column" gap={2} sx={{ mt: 1 }}>
-            {/* Name search input */}            <TextField
+        <DialogContent>
+          <Box display="flex" flexDirection="column" gap={2} sx={{ mt: 1 }}>
+            {/* 搜索框 */}
+            <TextField
               size="small"
               label={t("characterName")}
               value={filters.name}
               onChange={(e) => setFilters(prev => ({ ...prev, name: e.target.value }))}
               placeholder={t("searchPlaceholder")}
               fullWidth
-            />            <Box
+            />
+
+            {/* 筛选条件：按顺序显示 — 代码、阶段、职业、企业、武器（5 等分） */}
+            <Box
               sx={{
                 display: 'grid',
                 gap: 2,
@@ -1840,9 +1866,9 @@ const elementTranslationKeys = {
                   }}
                 >
                   <MenuItem value="">{t("all")}</MenuItem>
-                  <MenuItem value="1">1</MenuItem>
-                  <MenuItem value="2">2</MenuItem>
-                  <MenuItem value="3">3</MenuItem>
+                  <MenuItem value="Step1">{t("burstStage1")}</MenuItem>
+                  <MenuItem value="Step2">{t("burstStage2")}</MenuItem>
+                  <MenuItem value="Step3">{t("burstStage3")}</MenuItem>
                 </Select>
               </FormControl>
 
@@ -1920,57 +1946,74 @@ const elementTranslationKeys = {
             
             <Box sx={{ maxHeight: 400, overflow: 'auto' }}>              
               {filteredNikkes.length > 0 ? (
-                <List>
+                <List dense>
                   {filteredNikkes.map((nikke) => {
                     const isSelected = selectedNikkes.some((item) => item.id === nikke.id);
-                    const alreadyAdded = existingElementIds.has(nikke.id);
-                    const buttonLabel = alreadyAdded
-                      ? t("alreadyAdded")
-                      : isSelected
-                        ? t("selectedTag")
-                        : t("choose");
+                    const alreadyAdded = effectiveExistingElementIds.has(nikke.id);
                     const displayName = getDisplayName(nikke);
                     const avatarUrl = getNikkeAvatarUrl(nikke);
                     return (
-                      <ListItem 
+                      <ListItem
                         key={nikke.id}
+                        alignItems="stretch"
+                        sx={{ py: 0.5 }}
                         secondaryAction={
                           <Button
-                            variant={isSelected ? "outlined" : "contained"}
+                            variant="contained"
                             size="small"
-                            onClick={() => toggleNikkeSelection(nikke)}
-                              disabled={alreadyAdded}
+                            onClick={() => handleSelectNikke(nikke)}
+                            color={(isSelected || alreadyAdded) ? 'success' : 'primary'}
+                            disabled={alreadyAdded}
+                            sx={{ minWidth: 84 }}
                           >
-                            {buttonLabel}
+                            {(isSelected || alreadyAdded) ? t("selectedTag") : t("choose")}
                           </Button>
                         }
                       >
+                        <ListItemAvatar sx={{ minWidth: 68, width: 68, alignSelf: 'stretch', display: 'flex', alignItems: 'stretch' }}>
+                          {avatarUrl ? (
+                            <Box
+                              component="img"
+                              src={avatarUrl}
+                              alt={displayName}
+                              loading="lazy"
+                              sx={{
+                                height: '100%',
+                                maxHeight: 56,
+                                aspectRatio: '1 / 1',
+                                borderRadius: '8px',
+                                objectFit: 'cover'
+                              }}
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                          ) : (
+                            <Box
+                              sx={{
+                                height: '100%',
+                                maxHeight: 56,
+                                aspectRatio: '1 / 1',
+                                borderRadius: '8px',
+                                backgroundColor: 'action.disabledBackground'
+                              }}
+                              title={displayName}
+                            />
+                          )}
+                        </ListItemAvatar>
                         <ListItemText
-                          primary={
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              {avatarUrl ? (
-                                <Box
-                                  component="img"
-                                  src={avatarUrl}
-                                  alt={displayName}
-                                  loading="lazy"
-                                  sx={{ width: 44, height: 44, borderRadius: 2, objectFit: 'cover', flex: '0 0 auto' }}
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                  }}
-                                />
-                              ) : null}
-                              <Box component="span">{displayName}</Box>
-                            </Box>
-                          }
+                          primary={displayName}
                           secondary={`${getElementName(nikke.element)} | ${getBurstStageName(nikke.use_burst_skill)} | ${getClassName(nikke.class)} | ${getCorporationName(nikke.corporation)} | ${nikke.weapon_type}`}
+                          primaryTypographyProps={{ noWrap: true, variant: 'body1' }}
+                          secondaryTypographyProps={{ noWrap: true, variant: 'caption' }}
+                          sx={{ my: 0 }}
                         />
                       </ListItem>
                     );
                   })}
                 </List>
               ) : (
-                <Typography color="textSecondary">{t("noResults")}</Typography>
+                <Typography color="textSecondary">{t("notFound")}</Typography>
               )}
             </Box>
 
@@ -1982,48 +2025,132 @@ const elementTranslationKeys = {
               {totalSelectionCount === 0 ? (
                 <Typography color="textSecondary">{t("selectedEmpty")}</Typography>
               ) : (
-                <>
-                  {existingElementCharacters.length > 0 && (
-                    <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                      {existingElementCharacters.map((nikke) => (
-                        <Chip
-                          key={`existing-${nikke.id}`}
-                          label={getDisplayName(nikke)}
+                <Stack direction="row" spacing={0.75} flexWrap="wrap">
+                  {effectiveExistingElementCharacters.map((nikke) => {
+                    const name = getDisplayName(nikke);
+                    const avatarUrl = getNikkeAvatarUrl(nikke);
+                    return (
+                      <Box
+                        key={`existing-${nikke.id}`}
+                        sx={{
+                          position: 'relative',
+                          width: 56,
+                          height: 56,
+                          borderRadius: '8px',
+                          overflow: 'hidden',
+                          backgroundColor: 'action.disabledBackground'
+                        }}
+                        title={name}
+                      >
+                        {avatarUrl ? (
+                          <Box
+                            component="img"
+                            src={avatarUrl}
+                            alt={name}
+                            loading="lazy"
+                            sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        ) : null}
+
+                        <IconButton
                           size="small"
-                          disabled
-                        />
-                      ))}
-                    </Stack>
-                  )}
-                  {pendingSelectionCount > 0 && (
-                    <Stack
-                      direction="row"
-                      spacing={0.5}
-                      flexWrap="wrap"
-                      sx={{ mt: existingElementCharacters.length ? 1 : 0 }}
-                    >
-                      {selectedNikkes.map((nikke) => (
-                        <Chip
-                          key={nikke.id}
-                          label={getDisplayName(nikke)}
-                          onDelete={() => handleRemoveSelectedNikke(nikke.id)}
-                          variant="outlined"
-                          color="primary"
-                        />
-                      ))}
-                    </Stack>
-                  )}
-                </>
+                          aria-label={t("remove") || 'remove'}
+                          onClick={() => handleRemoveExistingNikke(nikke.id)}
+                          sx={{
+                            position: 'absolute',
+                            top: 2,
+                            right: 2,
+                            width: 18,
+                            height: 18,
+                            p: 0,
+                            backgroundColor: 'background.paper',
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            '&:hover': {
+                              backgroundColor: 'background.paper'
+                            }
+                          }}
+                        >
+                          <CloseIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Box>
+                    );
+                  })}
+
+                  {selectedNikkes.map((nikke) => {
+                    const name = getDisplayName(nikke);
+                    const avatarUrl = getNikkeAvatarUrl(nikke);
+                    return (
+                      <Box
+                        key={`pending-${nikke.id}`}
+                        sx={{
+                          position: 'relative',
+                          width: 56,
+                          height: 56,
+                          borderRadius: '8px',
+                          overflow: 'hidden',
+                          backgroundColor: 'action.disabledBackground'
+                        }}
+                        title={name}
+                      >
+                        {avatarUrl ? (
+                          <Box
+                            component="img"
+                            src={avatarUrl}
+                            alt={name}
+                            loading="lazy"
+                            sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        ) : null}
+
+                        <IconButton
+                          size="small"
+                          aria-label={t("remove") || 'remove'}
+                          onClick={() => handleRemoveSelectedNikke(nikke.id)}
+                          sx={{
+                            position: 'absolute',
+                            top: 2,
+                            right: 2,
+                            width: 18,
+                            height: 18,
+                            p: 0,
+                            backgroundColor: 'background.paper',
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            '&:hover': {
+                              backgroundColor: 'background.paper'
+                            }
+                          }}
+                        >
+                          <CloseIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Box>
+                    );
+                  })}
+                </Stack>
               )}
             </Box>
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseFilterDialog}>{t("cancel")}</Button>
+        <DialogActions sx={{ px: 3, pb: 2, pt: 1.5 }}>
+          <Button
+            variant="outlined"
+            onClick={handleCloseFilterDialog}
+            sx={{ minWidth: 96, px: 2, py: 0.75, borderRadius: '8px' }}
+          >
+            {t("cancel")}
+          </Button>
           <Button
             variant="contained"
             onClick={handleConfirmSelection}
-            disabled={pendingSelectionCount === 0}
+            disabled={pendingSelectionCount === 0 && removedExistingIds.length === 0}
+            sx={{ minWidth: 120, px: 2.5, py: 0.75, borderRadius: '8px' }}
           >
             {t("confirmSelection")}
           </Button>
