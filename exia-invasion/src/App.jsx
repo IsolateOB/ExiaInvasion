@@ -29,7 +29,7 @@ import JSZip from "jszip";
 import saveDictToExcel from "./excel.js";
 import { computeAELForDict } from "./ael.js";
 import TRANSLATIONS from "./translations";
-import { getAccounts, setAccounts, getSettings, setSettings, getCharacters } from "./storage";
+import { getAccounts, setAccounts, getSettings, setSettings, getCharacters, setCharacters } from "./storage";
 import { applyCookieStr, clearSiteCookies, getCurrentCookies } from "./cookie.js";
 import { loadBaseAccountDict, getRoleName, getOutpostInfo, getCharacterDetails, getUserCharacters, prefetchMainlineCatalog, getCampaignProgress } from "./api.js";
 import { mergeWorkbooks, mergeJsons } from "./merge.js";
@@ -50,6 +50,7 @@ export default function App() {
   const [sortFlag, setSortFlag] = useState("1");
   const [excelFilesToMerge, setExcelFilesToMerge] = useState([]);
   const [jsonFilesToMerge, setJsonFilesToMerge] = useState([]);
+  const [collapseEquipDetails, setCollapseEquipDetails] = useState(false);
   // 移除了不再需要的弹窗相关状态变量
   // const [dlgOpen, setDlgOpen] = useState(false);
   // const [username, setUsername] = useState("");
@@ -69,8 +70,34 @@ export default function App() {
       setActivateTab(Boolean(s.activateTab));
       setServer(s.server || "global");
       setSortFlag(s.sortFlag || "1");
+
+      // 读取全局“折叠词条细节”开关（存储为 characters.options.showEquipDetails：true=显示细节，false=折叠隐藏）
+      try {
+        const chars = await getCharacters();
+        setCollapseEquipDetails(chars?.options?.showEquipDetails === false);
+      } catch {
+        setCollapseEquipDetails(false);
+      }
     })();
   }, []);
+
+  const toggleEquipDetail = async (e) => {
+    const collapse = e.target.checked;
+    setCollapseEquipDetails(collapse);
+    try {
+      const chars = await getCharacters();
+      const next = {
+        ...chars,
+        options: {
+          ...(chars?.options || {}),
+          showEquipDetails: !collapse,
+        },
+      };
+      await setCharacters(next);
+    } catch {
+      // ignore
+    }
+  };
   
   // 持久化设置到存储
   const persistSettings = (upd) =>
@@ -787,6 +814,10 @@ export default function App() {
                     />
                   }
                   label={t("exportJson")}
+                />
+                <FormControlLabel
+                      control={<Switch checked={collapseEquipDetails} onChange={toggleEquipDetail} />}
+                  label={t("equipDetail")}
                 />
                 <FormControlLabel
                   control={

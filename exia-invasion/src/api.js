@@ -22,6 +22,7 @@ export const loadBaseAccountDict = async () => {
 
   // 从存储中获取角色数据（角色管理系统）
   const charactersData = await getCharacters();
+  const showEquipDetails = charactersData?.options?.showEquipDetails !== false;
   
   // 确保所有元素都是数组格式，如需要则进行迁移
   const migratedElements = {};
@@ -47,7 +48,10 @@ export const loadBaseAccountDict = async () => {
     normalProgress: "",
     hardProgress: "",
     cubes: cubes,
-    elements: migratedElements
+    elements: migratedElements,
+    options: {
+      showEquipDetails
+    }
   };
   
   return baseDict;

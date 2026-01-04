@@ -57,6 +57,7 @@ import { v4 as uuidv4 } from "uuid";
 import { getCharacters, setCharacters, getTemplates, saveTemplate, deleteTemplate, getCurrentTemplateId, setCurrentTemplateId, getAccountTemplates, saveAccountTemplate, deleteAccountTemplate, getCurrentAccountTemplateId, setCurrentAccountTemplateId } from "./storage.js";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
+import { getNikkeAvatarUrl as buildNikkeAvatarUrl } from "./nikkeAvatar.js";
 
 // ========== 常量定义 ==========
 // 默认账户行数据结构
@@ -83,6 +84,26 @@ const equipStatKeys = [
   "StatDef"           // 防御力
 ];
 
+// 基础列（突破/技能）键名：用于控制 Excel 导出列是否隐藏
+const basicStatKeys = [
+  "limit_break",
+  "skill1_level",
+  "skill2_level",
+  "skill_burst_level"
+];
+
+// 妮姬列表开关列数量：AEL + 基础(突破/技能) + 装备词条
+const NIKKE_TOGGLE_COL_COUNT = 1 + basicStatKeys.length + equipStatKeys.length;
+
+// 妮姬表格列宽：固定列 + 剩余空间均分给开关列
+const NIKKE_NAME_MIN_WIDTH_PX = 210;
+const NIKKE_PRIORITY_WIDTH_PX = 120;
+const NIKKE_DRAG_HANDLE_WIDTH_PX = 36;
+
+// showStats 配置标记：用于区分“旧数据默认基础列全开”与“用户已手动配置”。
+// 注意：该标记不代表任何列的显示，导出端会忽略它。
+const SHOW_STATS_CONFIG_MARKER = "__showStatsConfigured";
+
 // ========== 管理页面主组件 ==========
 
 const ManagementPage = () => {
@@ -104,7 +125,10 @@ const ManagementPage = () => {
       Water: [], 
       Iron: [], 
       Utility: [] 
-    } 
+    },
+    options: {
+      showEquipDetails: true
+    }
   });
   const [nikkeList, setNikkeList] = useState([]);
   const [filterDialogOpen, setFilterDialogOpen] = useState(false);
@@ -123,6 +147,25 @@ const ManagementPage = () => {
   // 拖拽状态（角色列表）：区分源分组与当前悬停分组，统一跨组视觉
   const [charDragging, setCharDragging] = useState({ sourceElement: null, currentElement: null, draggingIndex: null, overIndex: null });
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
+
+  // 妮姬页开关列：统一宽度/间距，避免后几列被挤压
+  const toggleCellSx = useMemo(
+    () => ({
+      textAlign: 'center',
+      padding: '4px',
+      // 每列最小宽度 + 均分剩余空间
+      minWidth: 56,
+      width: `calc((100% - ${NIKKE_DRAG_HANDLE_WIDTH_PX}px - ${NIKKE_NAME_MIN_WIDTH_PX}px - ${NIKKE_PRIORITY_WIDTH_PX}px) / ${NIKKE_TOGGLE_COL_COUNT})`,
+    }),
+    []
+  );
+  const toggleHeaderCellSx = useMemo(
+    () => ({
+      ...toggleCellSx,
+      fontSize: '0.75rem'
+    }),
+    [toggleCellSx]
+  );
   
   // 模板管理相关状态
   const [templates, setTemplates] = useState([]);
@@ -165,6 +208,21 @@ const ManagementPage = () => {
   /* ========== 语言设置同步 ========== */
   const [lang, setLang] = useState("zh");
   const t = useCallback((k) => TRANSLATIONS[lang][k] || k, [lang]);
+
+  // 管理页 Tab 持久化：刷新时保持停留在当前页（账号/妮姬）
+  useEffect(() => {
+    chrome.storage.local.get("managementTab", (r) => {
+      const saved = Number(r.managementTab);
+      if (saved === 0 || saved === 1) setTab(saved);
+    });
+  }, []);
+
+  const handleManagementTabChange = (e, newTab) => {
+    if (newTab === 0 || newTab === 1) {
+      setTab(newTab);
+      chrome.storage.local.set({ managementTab: newTab });
+    }
+  };
   
   useEffect(() => {
     chrome.storage.local.get("settings", (r) => {
@@ -186,10 +244,20 @@ const ManagementPage = () => {
       const fallback = {
         elements: {
           Electronic: [], Fire: [], Wind: [], Water: [], Iron: [], Utility: []
+        },
+        options: {
+          showEquipDetails: true
         }
       };
       const valid = (data && data.elements && typeof data.elements === 'object') ? data : fallback;
-      setCharactersData(valid);
+      const merged = {
+        ...fallback,
+        ...valid,
+        options: {
+          showEquipDetails: valid?.options?.showEquipDetails !== false
+        }
+      };
+      setCharactersData(merged);
     });
     
     // 加载人物目录：优先在线获取并写入本地，其次回退缓存
@@ -812,21 +880,9 @@ const elementTranslationKeys = {
     return lang === "zh" ? zhName : enName;
   };
 
-  const getNikkeResourceId = useCallback((nikke) => {
-    if (!nikke) return undefined;
-    const direct = nikke.resource_id ?? nikke.resourceId;
-    if (direct !== undefined && direct !== null && direct !== "") return direct;
-    const id = nikke.id;
-    if (id === undefined || id === null) return undefined;
-    return nikkeResourceIdMap.get(id);
-  }, [nikkeResourceIdMap]);
-
   const getNikkeAvatarUrl = useCallback((nikke) => {
-    const rid = getNikkeResourceId(nikke);
-    if (rid === undefined || rid === null || rid === "") return "";
-    const ridStr = String(rid).padStart(3, "0");
-    return `https://raw.githubusercontent.com/Nikke-db/Nikke-db.github.io/main/images/sprite/si_c${ridStr}_00_s.png`;
-  }, [getNikkeResourceId]);
+    return buildNikkeAvatarUrl(nikke, nikkeResourceIdMap);
+  }, [nikkeResourceIdMap]);
 
   const openFilterDialog = (element) => {
     setSelectedElement(element);
@@ -929,7 +985,7 @@ const elementTranslationKeys = {
         name_cn: nikke.name_cn,
         name_en: nikke.name_en,
         priority: "yellow",
-        showStats: ["AtkElemLbScore", ...equipStatKeys]
+        showStats: [SHOW_STATS_CONFIG_MARKER, ...basicStatKeys, "AtkElemLbScore", ...equipStatKeys]
       }));
 
     // 若没有任何变更，直接关闭
@@ -977,19 +1033,6 @@ const elementTranslationKeys = {
       }
     };
 
-    setCharactersData(newCharacters);
-    setCharacters(newCharacters);
-  };
-  
-  const deleteCharacter = (element, characterIndex) => {
-    const newCharacters = {
-      ...characters,
-      elements: {
-        ...characters.elements,
-        [element]: characters.elements[element].filter((_, index) => index !== characterIndex)
-      }
-    };
-    
     setCharactersData(newCharacters);
     setCharacters(newCharacters);
   };
@@ -1130,22 +1173,107 @@ const elementTranslationKeys = {
       </AppBar>
       
       <Container maxWidth="xl" sx={{ mt: 4, pb: 8 }}>
-        <Tabs value={tab} onChange={(e, newTab) => setTab(newTab)} sx={{ mb: 3 }}>
+        <Tabs value={tab} onChange={handleManagementTabChange} sx={{ mb: 3 }}>
           <Tab label={t("accountTable")} />
           <Tab label={t("characterManagement")} />
         </Tabs>
           {tab === 0 && (
           <>
             {/* 账户管理标题和操作按钮 */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, gap: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 2 }}>
               <Typography variant="h6">
                 {t("accountTable")}
               </Typography>
               
-              {/* 右侧：模板选择器 + 操作按钮 */}
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-end' }}>
-                {/* 第一行：全选/导入/导出/清空按钮 */}
-                <Box sx={{ display: 'flex', gap: 1 }}>
+              {/* 右侧：账号列表选择器（左） + 导入导出等按钮（同一行） */}
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <Select
+                  size="small"
+                  value={selectedAccountTemplateId || ''}
+                  onChange={(e) => handleAccountTemplateChange(e.target.value)}
+                  displayEmpty
+                  sx={{ minWidth: 200, width: 240 }}
+                  renderValue={(val) => {
+                    const id = String(val || '');
+                    const item = accountTemplates.find(tp => tp.id === id);
+                    const name = item?.name || '';
+                    const display = name || t("accountTemplateNotSelected");
+                    return (
+                      <Typography noWrap title={display} sx={{ maxWidth: '100%' }}>{display}</Typography>
+                    );
+                  }}
+                  MenuProps={{ PaperProps: { style: { maxHeight: 300 } } }}
+                >
+                  <MenuItem value=""><em>{t("accountTemplateNotSelected")}</em></MenuItem>
+                  {accountTemplates.map((tpl) => (
+                    <MenuItem key={tpl.id} value={tpl.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {isAccountRenaming && accountRenameId === tpl.id ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, width: '100%' }} onClick={(e)=>e.stopPropagation()}>
+                          <TextField
+                            size="small"
+                            placeholder={t("accountTemplateInputName")}
+                            value={accountRenameValue}
+                            onChange={(e) => setAccountRenameValue(e.target.value)}
+                            onKeyDown={(e) => { 
+                              if (e.key === 'Enter') { 
+                                e.stopPropagation(); 
+                                confirmAccountRename();
+                              }
+                              if (e.key === 'Escape') { 
+                                e.stopPropagation(); 
+                                setIsAccountRenaming(false); 
+                                setAccountRenameId(''); 
+                                setAccountRenameValue('');
+                              }
+                            }}
+                            autoFocus
+                            sx={{ flex: 1, minWidth: 0 }}
+                          />
+                          <IconButton size="small" color="primary" onClick={(e)=>{ e.stopPropagation(); confirmAccountRename(); }}>
+                            <CheckIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" onClick={(e)=>{ e.stopPropagation(); setIsAccountRenaming(false); setAccountRenameId(''); setAccountRenameValue(''); }}>
+                            <CloseIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      ) : (
+                        <>
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography variant="body2" noWrap title={tpl.name}>{tpl.name}</Typography>
+                          </Box>
+                          <Tooltip title={t("templateRename")}>
+                            <IconButton
+                              size="small"
+                              onClick={(e) => { e.stopPropagation(); e.preventDefault(); startRenameAccountTemplate(tpl.id); }}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title={t("templateDelete")}>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDeleteAccountTemplate(tpl.id); }}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      )}
+                    </MenuItem>
+                  ))}
+                </Select>
+
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<SaveIcon />}
+                  onClick={handleCreateAccountTemplate}
+                  disabled={accountTemplates.length >= 200}
+                >
+                  {t("templateSave")}
+                </Button>
+
                   <Button
                     size="small"
                     variant="outlined"
@@ -1161,7 +1289,7 @@ const elementTranslationKeys = {
                     onClick={handleImportAccounts}
                     sx={{ minWidth: 80 }}
                   >
-                    {t("import")}
+                    {t("importAccounts")}
                   </Button>
                   <Button
                     size="small"
@@ -1170,7 +1298,7 @@ const elementTranslationKeys = {
                     onClick={handleExportAccounts}
                     sx={{ minWidth: 80 }}
                   >
-                    {t("export")}
+                    {t("exportAccounts")}
                   </Button>
                   <Button
                     variant="outlined"
@@ -1182,96 +1310,6 @@ const elementTranslationKeys = {
                   >
                     {t("clearAllAccounts")}
                   </Button>
-                </Box>
-                
-                {/* 第二行：账号模板选择器 */}
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                  <Select
-                    size="small"
-                    value={selectedAccountTemplateId || ''}
-                    onChange={(e) => handleAccountTemplateChange(e.target.value)}
-                    displayEmpty
-                    sx={{ minWidth: 200, width: 240 }}
-                    renderValue={(val) => {
-                      const id = String(val || '');
-                      const item = accountTemplates.find(tp => tp.id === id);
-                      const name = item?.name || '';
-                      const display = name || t("accountTemplateNotSelected");
-                      return (
-                        <Typography noWrap title={display} sx={{ maxWidth: '100%' }}>{display}</Typography>
-                      );
-                    }}
-                    MenuProps={{ PaperProps: { style: { maxHeight: 300 } } }}
-                  >
-                    <MenuItem value=""><em>{t("accountTemplateNotSelected")}</em></MenuItem>
-                    {accountTemplates.map((tpl) => (
-                      <MenuItem key={tpl.id} value={tpl.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {isAccountRenaming && accountRenameId === tpl.id ? (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, width: '100%' }} onClick={(e)=>e.stopPropagation()}>
-                            <TextField
-                              size="small"
-                              placeholder={t("accountTemplateInputName")}
-                              value={accountRenameValue}
-                              onChange={(e) => setAccountRenameValue(e.target.value)}
-                              onKeyDown={(e) => { 
-                                if (e.key === 'Enter') { 
-                                  e.stopPropagation(); 
-                                  confirmAccountRename();
-                                }
-                                if (e.key === 'Escape') { 
-                                  e.stopPropagation(); 
-                                  setIsAccountRenaming(false); 
-                                  setAccountRenameId(''); 
-                                  setAccountRenameValue('');
-                                }
-                              }}
-                              autoFocus
-                              sx={{ flex: 1, minWidth: 0 }}
-                            />
-                            <IconButton size="small" color="primary" onClick={(e)=>{ e.stopPropagation(); confirmAccountRename(); }}>
-                              <CheckIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton size="small" onClick={(e)=>{ e.stopPropagation(); setIsAccountRenaming(false); setAccountRenameId(''); setAccountRenameValue(''); }}>
-                              <CloseIcon fontSize="small" />
-                            </IconButton>
-                          </Box>
-                        ) : (
-                          <>
-                            <Box sx={{ flex: 1, minWidth: 0 }}>
-                              <Typography variant="body2" noWrap title={tpl.name}>{tpl.name}</Typography>
-                            </Box>
-                            <Tooltip title={t("templateRename")}>
-                              <IconButton
-                                size="small"
-                                onClick={(e) => { e.stopPropagation(); e.preventDefault(); startRenameAccountTemplate(tpl.id); }}
-                              >
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title={t("templateDelete")}>
-                              <IconButton
-                                size="small"
-                                color="error"
-                                onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDeleteAccountTemplate(tpl.id); }}
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </>
-                        )}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  <Button
-                    variant="contained"
-                    size="small"
-                    startIcon={<SaveIcon />}
-                    onClick={handleCreateAccountTemplate}
-                    disabled={accountTemplates.length >= 200}
-                  >
-                    {t("templateSave")}
-                  </Button>
-                </Box>
               </Box>
             </Box>
             
@@ -1457,15 +1495,100 @@ const elementTranslationKeys = {
         )}
           {tab === 1 && (
           <>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, gap: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 2 }}>
               <Typography variant="h6">
                 {t("characterManagement")}
               </Typography>
               
-              {/* 右侧：模板选择器 + 导入导出按钮 */}
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-end' }}>
-                {/* 第一行：导入导出清空按钮 */}
-                <Box sx={{ display: 'flex', gap: 1 }}>
+              {/* 右侧：妮姬列表选择器（左） + 导入导出等按钮（同一行） */}
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <Select
+                  size="small"
+                  value={selectedTemplateId || ''}
+                  onChange={(e) => handleTemplateChange(e.target.value)}
+                  displayEmpty
+                  sx={{ minWidth: 200, width: 240 }}
+                  renderValue={(val) => {
+                    const id = String(val || '');
+                    const item = templates.find(tp => tp.id === id);
+                    const name = item?.name || '';
+                    const display = name || t("templateNotSelected");
+                    return (
+                      <Typography noWrap title={display} sx={{ maxWidth: '100%' }}>{display}</Typography>
+                    );
+                  }}
+                  MenuProps={{ PaperProps: { style: { maxHeight: 300 } } }}
+                >
+                  <MenuItem value=""><em>{t("templateNotSelected")}</em></MenuItem>
+                  {templates.map((tpl) => (
+                    <MenuItem key={tpl.id} value={tpl.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {isRenaming && renameId === tpl.id ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, width: '100%' }} onClick={(e)=>e.stopPropagation()}>
+                          <TextField
+                            size="small"
+                            placeholder={t("templateInputName")}
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onKeyDown={(e) => { 
+                              if (e.key === 'Enter') { 
+                                e.stopPropagation(); 
+                                confirmRename();
+                              }
+                              if (e.key === 'Escape') { 
+                                e.stopPropagation(); 
+                                setIsRenaming(false); 
+                                setRenameId(''); 
+                                setRenameValue('');
+                              }
+                            }}
+                            autoFocus
+                            sx={{ flex: 1, minWidth: 0 }}
+                          />
+                          <IconButton size="small" color="primary" onClick={(e)=>{ e.stopPropagation(); confirmRename(); }}>
+                            <CheckIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" onClick={(e)=>{ e.stopPropagation(); setIsRenaming(false); setRenameId(''); setRenameValue(''); }}>
+                            <CloseIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      ) : (
+                        <>
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography variant="body2" noWrap title={tpl.name}>{tpl.name}</Typography>
+                          </Box>
+                          <Tooltip title={t("templateRename")}>
+                            <IconButton
+                              size="small"
+                              onClick={(e) => { e.stopPropagation(); e.preventDefault(); startRenameTemplate(tpl.id); }}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title={t("templateDelete")}>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDeleteTemplate(tpl.id); }}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      )}
+                    </MenuItem>
+                  ))}
+                </Select>
+
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<SaveIcon />}
+                  onClick={handleCreateTemplate}
+                  disabled={templates.length >= 200}
+                >
+                  {t("templateSave")}
+                </Button>
+
                   <Button
                     variant="outlined"
                     size="small"
@@ -1473,7 +1596,7 @@ const elementTranslationKeys = {
                     onClick={triggerCharacterImport}
                     sx={{ minWidth: 80 }}
                   >
-                    {t("import")}
+                    {t("importNikkes")}
                   </Button>
                   <Button
                     variant="outlined"
@@ -1482,7 +1605,7 @@ const elementTranslationKeys = {
                     onClick={handleExportCharacters}
                     sx={{ minWidth: 80 }}
                   >
-                    {t("export")}
+                    {t("exportNikkes")}
                   </Button>
                   <Button
                     variant="outlined"
@@ -1494,96 +1617,6 @@ const elementTranslationKeys = {
                   >
                     {t("clearAllNikkes")}
                   </Button>
-                </Box>
-                
-                {/* 第二行：模板选择器 */}
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                  <Select
-                    size="small"
-                    value={selectedTemplateId || ''}
-                    onChange={(e) => handleTemplateChange(e.target.value)}
-                    displayEmpty
-                    sx={{ minWidth: 200, width: 240 }}
-                    renderValue={(val) => {
-                      const id = String(val || '');
-                      const item = templates.find(tp => tp.id === id);
-                      const name = item?.name || '';
-                      const display = name || t("templateNotSelected");
-                      return (
-                        <Typography noWrap title={display} sx={{ maxWidth: '100%' }}>{display}</Typography>
-                      );
-                    }}
-                    MenuProps={{ PaperProps: { style: { maxHeight: 300 } } }}
-                  >
-                    <MenuItem value=""><em>{t("templateNotSelected")}</em></MenuItem>
-                    {templates.map((tpl) => (
-                      <MenuItem key={tpl.id} value={tpl.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {isRenaming && renameId === tpl.id ? (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, width: '100%' }} onClick={(e)=>e.stopPropagation()}>
-                            <TextField
-                              size="small"
-                              placeholder={t("templateInputName")}
-                              value={renameValue}
-                              onChange={(e) => setRenameValue(e.target.value)}
-                              onKeyDown={(e) => { 
-                                if (e.key === 'Enter') { 
-                                  e.stopPropagation(); 
-                                  confirmRename();
-                                }
-                                if (e.key === 'Escape') { 
-                                  e.stopPropagation(); 
-                                  setIsRenaming(false); 
-                                  setRenameId(''); 
-                                  setRenameValue('');
-                                }
-                              }}
-                              autoFocus
-                              sx={{ flex: 1, minWidth: 0 }}
-                            />
-                            <IconButton size="small" color="primary" onClick={(e)=>{ e.stopPropagation(); confirmRename(); }}>
-                              <CheckIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton size="small" onClick={(e)=>{ e.stopPropagation(); setIsRenaming(false); setRenameId(''); setRenameValue(''); }}>
-                              <CloseIcon fontSize="small" />
-                            </IconButton>
-                          </Box>
-                        ) : (
-                          <>
-                            <Box sx={{ flex: 1, minWidth: 0 }}>
-                              <Typography variant="body2" noWrap title={tpl.name}>{tpl.name}</Typography>
-                            </Box>
-                            <Tooltip title={t("templateRename")}>
-                              <IconButton
-                                size="small"
-                                onClick={(e) => { e.stopPropagation(); e.preventDefault(); startRenameTemplate(tpl.id); }}
-                              >
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title={t("templateDelete")}>
-                              <IconButton
-                                size="small"
-                                color="error"
-                                onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDeleteTemplate(tpl.id); }}
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </>
-                        )}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  <Button
-                    variant="contained"
-                    size="small"
-                    startIcon={<SaveIcon />}
-                    onClick={handleCreateTemplate}
-                    disabled={templates.length >= 200}
-                  >
-                    {t("templateSave")}
-                  </Button>
-                </Box>
               </Box>
             </Box>
             
@@ -1607,16 +1640,15 @@ const elementTranslationKeys = {
                   </Box>
                   <Box display="flex" flexDirection="column" gap={1}>
                     {/* Character Table */}
-                    <Table size="small">                      <TableHead>
+                    <Table size="small" sx={{ width: '100%', tableLayout: 'fixed' }}>                      <TableHead>
                         <TableRow>
-                          <TableCell width="3%" sx={{ textAlign: 'center', paddingLeft: '2px', paddingRight: '2px' }}>
+                          <TableCell sx={{ width: `${NIKKE_DRAG_HANDLE_WIDTH_PX}px`, textAlign: 'center', paddingLeft: '2px', paddingRight: '2px' }}>
                             {/* Drag handle header */}
                           </TableCell>
-                          <TableCell width="5%">{t("no")}</TableCell>
-                          <TableCell width="20%">{t("characterName")}</TableCell>
-                          <TableCell width="10%">{t("priority")}</TableCell>
-                          {/* 攻优突破分开关列标题（悬停提示） */}
-                          <TableCell width="8%" sx={{ textAlign: 'center', fontSize: '0.75rem' }}>
+                          <TableCell sx={{ width: `${NIKKE_NAME_MIN_WIDTH_PX}px`, minWidth: `${NIKKE_NAME_MIN_WIDTH_PX}px` }}>{t("characterName")}</TableCell>
+                          <TableCell sx={{ width: `${NIKKE_PRIORITY_WIDTH_PX}px`, minWidth: `${NIKKE_PRIORITY_WIDTH_PX}px` }}>{t("priority")}</TableCell>
+                          {/* AEL 开关移到最左边 */}
+                          <TableCell sx={toggleHeaderCellSx}>
                             <Tooltip
                               arrow
                               placement="top"
@@ -1639,9 +1671,14 @@ const elementTranslationKeys = {
                               <Box component="span">{t("atkElemLbScore")}</Box>
                             </Tooltip>
                           </TableCell>
+                          {/* 基础列：突破/技能勾选 */}
+                          <TableCell sx={toggleHeaderCellSx}>{t("limitBreak")}</TableCell>
+                          <TableCell sx={toggleHeaderCellSx}>{t("skill1")}</TableCell>
+                          <TableCell sx={toggleHeaderCellSx}>{t("skill2")}</TableCell>
+                          <TableCell sx={toggleHeaderCellSx}>{t("burst")}</TableCell>
                           {/* 装备词条列标题 */}
                           {equipStatKeys.map((key, idx) => (
-                            <TableCell key={key} width="6%" sx={{ textAlign: 'center', fontSize: '0.75rem' }}>
+                            <TableCell key={key} sx={toggleHeaderCellSx}>
                               {equipStatLabels[idx]}
                             </TableCell>
                           ))}
@@ -1665,9 +1702,8 @@ const elementTranslationKeys = {
                             <TableCell sx={{ textAlign: 'center', cursor: 'grab', paddingLeft: '2px', paddingRight: '2px' }}>
                               <DragIndicatorIcon fontSize="small" />
                             </TableCell>
-                            <TableCell>{index + 1}</TableCell>
-                            <TableCell>
-                              <Typography variant="body2">
+                            <TableCell sx={{ width: `${NIKKE_NAME_MIN_WIDTH_PX}px`, minWidth: `${NIKKE_NAME_MIN_WIDTH_PX}px`, overflow: 'hidden' }}>
+                              <Typography variant="body2" noWrap>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                   {getNikkeAvatarUrl(charData) ? (
                                     <Box
@@ -1681,11 +1717,14 @@ const elementTranslationKeys = {
                                       }}
                                     />
                                   ) : null}
-                                  <Box component="span">{lang === "zh" ? charData.name_cn : charData.name_en}</Box>
+                                  <Box component="span" sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {lang === "zh" ? charData.name_cn : charData.name_en}
+                                  </Box>
                                 </Box>
                               </Typography>
-                            </TableCell>                            <TableCell>
-                              <FormControl size="small" sx={{ minWidth: 100 }}>
+                            </TableCell>
+                            <TableCell sx={{ width: `${NIKKE_PRIORITY_WIDTH_PX}px`, minWidth: `${NIKKE_PRIORITY_WIDTH_PX}px` }}>
+                              <FormControl size="small" sx={{ minWidth: 100, width: '100%' }}>
                                 <Select
                                   value={charData.priority}
                                   onChange={(e) => updateCharacterPriority(element, index, e.target.value)}
@@ -1754,34 +1793,73 @@ const elementTranslationKeys = {
                                 </Select>
                               </FormControl>
                             </TableCell>
-                            {/* 攻优突破分开关（行内） */}
-                            <TableCell sx={{ textAlign: 'center', padding: '4px' }}>
+
+                            {/* 攻优突破分开关（行内） - 移到最左 */}
+                            <TableCell sx={toggleCellSx}>
                               <Checkbox
                                 size="small"
                                 checked={Array.isArray(charData.showStats) && charData.showStats.includes('AtkElemLbScore')}
                                 onChange={(e) => {
                                   const flag = e.target.checked;
-                                  const newShow = Array.isArray(charData.showStats) ? [...charData.showStats] : [];
-                                  const has = newShow.includes('AtkElemLbScore');
-                                  const updated = flag ? (has ? newShow : ['AtkElemLbScore', ...newShow]) : newShow.filter(k => k !== 'AtkElemLbScore');
-                                  const newChar = { ...charData, showStats: updated };
-                                  const newList = characters.elements[element].map((c, i) => i === index ? newChar : c);
-                                  const newCharacters = { ...characters, elements: { ...characters.elements, [element]: newList } };
-                                  setCharactersData(newCharacters);
-                                  setCharacters(newCharacters);
+                                  const base = Array.isArray(charData.showStats) ? [...charData.showStats] : [];
+                                  const has = base.includes('AtkElemLbScore');
+                                  let updated = flag
+                                    ? (has ? base : ['AtkElemLbScore', ...base])
+                                    : base.filter((k) => k !== 'AtkElemLbScore');
+                                  if (!updated.includes(SHOW_STATS_CONFIG_MARKER)) {
+                                    updated = [SHOW_STATS_CONFIG_MARKER, ...updated];
+                                  }
+                                  updateCharacterShowStats(element, index, updated);
                                 }}
                               />
                             </TableCell>
+
+                            {/* 突破/技能勾选（行内） */}
+                            {(() => {
+                              const showStats = Array.isArray(charData.showStats) ? charData.showStats : [];
+                              const configured = showStats.includes(SHOW_STATS_CONFIG_MARKER);
+                              const legacyBasics = !configured;
+                              const toggle = (key, checked) => {
+                                const base = legacyBasics ? [...showStats, ...basicStatKeys] : showStats;
+                                let nextStats = checked
+                                  ? (base.includes(key) ? base : [...base, key])
+                                  : base.filter((k) => k !== key);
+                                if (!nextStats.includes(SHOW_STATS_CONFIG_MARKER)) {
+                                  nextStats = [SHOW_STATS_CONFIG_MARKER, ...nextStats];
+                                }
+                                updateCharacterShowStats(element, index, nextStats);
+                              };
+                              return (
+                                <>
+                                  <TableCell sx={toggleCellSx}>
+                                    <Checkbox size="small" checked={legacyBasics || showStats.includes('limit_break')} onChange={(e) => toggle('limit_break', e.target.checked)} />
+                                  </TableCell>
+                                  <TableCell sx={toggleCellSx}>
+                                    <Checkbox size="small" checked={legacyBasics || showStats.includes('skill1_level')} onChange={(e) => toggle('skill1_level', e.target.checked)} />
+                                  </TableCell>
+                                  <TableCell sx={toggleCellSx}>
+                                    <Checkbox size="small" checked={legacyBasics || showStats.includes('skill2_level')} onChange={(e) => toggle('skill2_level', e.target.checked)} />
+                                  </TableCell>
+                                  <TableCell sx={toggleCellSx}>
+                                    <Checkbox size="small" checked={legacyBasics || showStats.includes('skill_burst_level')} onChange={(e) => toggle('skill_burst_level', e.target.checked)} />
+                                  </TableCell>
+                                </>
+                              );
+                            })()}
                             {/* 装备词条复选框 */}
                             {equipStatKeys.map((key) => (
-                              <TableCell key={key} sx={{ textAlign: 'center', padding: '4px' }}>
+                              <TableCell key={key} sx={toggleCellSx}>
                                 <Checkbox
                                   size="small"
-                                  checked={charData.showStats.includes(key)}
+                                  checked={Array.isArray(charData.showStats) && charData.showStats.includes(key)}
                                   onChange={(e) => {
-                                    const newStats = e.target.checked
-                                      ? [...charData.showStats, key]
-                                      : charData.showStats.filter(stat => stat !== key);
+                                    const base = Array.isArray(charData.showStats) ? charData.showStats : [];
+                                    let newStats = e.target.checked
+                                      ? (base.includes(key) ? base : [...base, key])
+                                      : base.filter(stat => stat !== key);
+                                    if (!newStats.includes(SHOW_STATS_CONFIG_MARKER)) {
+                                      newStats = [SHOW_STATS_CONFIG_MARKER, ...newStats];
+                                    }
                                     updateCharacterShowStats(element, index, newStats);
                                   }}
                                 />

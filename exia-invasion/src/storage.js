@@ -34,16 +34,35 @@ export const setAccounts = (arr) =>
 // 获取角色数据
 export const getCharacters = () =>
   new Promise((res) =>
-    chrome.storage.local.get(CHARACTERS_KEY, (r) => res(r[CHARACTERS_KEY] || {
-      elements: {
-        Electronic: [],
-        Fire: [],
-        Wind: [],
-        Water: [],
-        Iron: [],
-        Utility: []
-      }
-    }))
+    chrome.storage.local.get(CHARACTERS_KEY, (r) => {
+      const fallback = {
+        elements: {
+          Electronic: [],
+          Fire: [],
+          Wind: [],
+          Water: [],
+          Iron: [],
+          Utility: []
+        },
+        options: {
+          showEquipDetails: true
+        }
+      };
+      const data = r[CHARACTERS_KEY] || {};
+      const elements = (data && data.elements && typeof data.elements === "object") ? data.elements : fallback.elements;
+      const options = {
+        showEquipDetails: data?.options?.showEquipDetails !== false
+      };
+      res({
+        ...fallback,
+        ...data,
+        elements: {
+          ...fallback.elements,
+          ...elements
+        },
+        options
+      });
+    })
   );
 
 // 保存角色数据

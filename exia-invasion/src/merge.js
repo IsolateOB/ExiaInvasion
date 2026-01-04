@@ -37,6 +37,16 @@ export async function mergeWorkbooks(files, sortFlag = "1", addLog = () => {}) {
       inWs.columns.forEach((col, i) => {
         if (col && col.width) outWs.getColumn(i + 1).width = col.width;
         if (col && col.hidden) outWs.getColumn(i + 1).hidden = col.hidden;
+        // 复制折叠/分组信息（若存在）
+        if (col && typeof col.outlineLevel === "number") outWs.getColumn(i + 1).outlineLevel = col.outlineLevel;
+        // collapsed 在部分 ExcelJS 版本中是 getter-only，直接赋值会抛异常
+        if (col && typeof col.collapsed !== "undefined") {
+          try {
+            outWs.getColumn(i + 1).collapsed = col.collapsed;
+          } catch {
+            // ignore
+          }
+        }
       });
     }    
     // 逐行复制数据
@@ -46,6 +56,16 @@ export async function mergeWorkbooks(files, sortFlag = "1", addLog = () => {}) {
       
       const tgtRow = outWs.getRow(writeRow);
       if (srcRow.height) tgtRow.height = srcRow.height;
+      // 复制折叠/隐藏信息
+      if (typeof srcRow.hidden !== "undefined") tgtRow.hidden = srcRow.hidden;
+      if (typeof srcRow.outlineLevel === "number") tgtRow.outlineLevel = srcRow.outlineLevel;
+      if (typeof srcRow.collapsed !== "undefined") {
+        try {
+          tgtRow.collapsed = srcRow.collapsed;
+        } catch {
+          // ignore
+        }
+      }
       
       // 复制行中每个单元格的内容和样式
       srcRow.eachCell({ includeEmpty: true }, (srcCell, colNumber) => {
