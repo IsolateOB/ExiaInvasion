@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// 公共 AEL 评分计算模块
-// 与 excel.js 中的显示公式保持一致
+// AEL 评分计算模块
 
 /**
  * 汇总四个槽位的装备数值，仅关心 ATK 与 元素加成

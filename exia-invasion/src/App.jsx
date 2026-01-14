@@ -51,10 +51,6 @@ export default function App() {
   const [excelFilesToMerge, setExcelFilesToMerge] = useState([]);
   const [jsonFilesToMerge, setJsonFilesToMerge] = useState([]);
   const [collapseEquipDetails, setCollapseEquipDetails] = useState(false);
-  // 移除了不再需要的弹窗相关状态变量
-  // const [dlgOpen, setDlgOpen] = useState(false);
-  // const [username, setUsername] = useState("");
-  // const [pendingCookieStr, setPendingCookieStr] = useState("");
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const addLog = (msg) => setLogs((prev) => [...prev, msg]);
@@ -84,19 +80,15 @@ export default function App() {
   const toggleEquipDetail = async (e) => {
     const collapse = e.target.checked;
     setCollapseEquipDetails(collapse);
-    try {
-      const chars = await getCharacters();
-      const next = {
-        ...chars,
-        options: {
-          ...(chars?.options || {}),
-          showEquipDetails: !collapse,
-        },
-      };
-      await setCharacters(next);
-    } catch {
-      // ignore
-    }
+    const chars = await getCharacters();
+    const next = {
+      ...chars,
+      options: {
+        ...(chars?.options || {}),
+        showEquipDetails: !collapse,
+      },
+    };
+    await setCharacters(next);
   };
   
   // 持久化设置到存储
@@ -155,10 +147,9 @@ export default function App() {
       } catch (error) {
         console.warn("自动获取用户名失败:", error);
         addLog(t("autoGetUsernameFail"));
-        autoUsername = t("noName"); // 使用默认名称
+        autoUsername = t("noName");
       }
       
-      // 直接保存账号，无需弹窗
       const cookieStr = cookies.map((c) => `${c.name}=${c.value}`).join("; ");
       
       // 提取game_uid
