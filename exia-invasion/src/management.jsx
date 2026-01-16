@@ -3,61 +3,23 @@
 // 主要功能：账户管理、角色数据管理、装备统计配置等
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import ExcelJS from 'exceljs';
+import ExcelJS from "exceljs";
 import {
-  AppBar,
-  Toolbar,
-  Typography,
-  IconButton,
   Container,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
-  TextField,
-  Switch,
-  Box,
   Tabs,
   Tab,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Checkbox,
-  List,
-  ListItemAvatar,
-  ListItem,
-  ListItemText,
   Snackbar,
   Alert,
-  Tooltip,
-  Stack,
-  Divider,
 } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
-import EditIcon from "@mui/icons-material/Edit";
-import SaveIcon from "@mui/icons-material/Save";
-import DeleteIcon from "@mui/icons-material/Delete";
-import Visibility from "@mui/icons-material/Visibility";
-import VisibilityOff from "@mui/icons-material/VisibilityOff";
-import InputAdornment from "@mui/material/InputAdornment";
-import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
-import FileUploadIcon from '@mui/icons-material/FileUpload';
-import FileDownloadIcon from '@mui/icons-material/FileDownload';
-import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import TRANSLATIONS from "./translations.js";
 import { fetchAndCacheNikkeDirectory, getCachedNikkeDirectory } from "./api.js";
 import { v4 as uuidv4 } from "uuid";
 import { getCharacters, setCharacters, getTemplates, saveTemplate, deleteTemplate, getCurrentTemplateId, setCurrentTemplateId, getAccountTemplates, saveAccountTemplate, deleteAccountTemplate, getCurrentAccountTemplateId, setCurrentAccountTemplateId } from "./storage.js";
-import CheckIcon from "@mui/icons-material/Check";
-import CloseIcon from "@mui/icons-material/Close";
 import { getNikkeAvatarUrl as buildNikkeAvatarUrl } from "./nikkeAvatar.js";
+import ManagementHeader from "./components/management/ManagementHeader.jsx";
+import AccountTabContent from "./components/management/AccountTabContent.jsx";
+import CharacterTabContent from "./components/management/CharacterTabContent.jsx";
+import CharacterFilterDialog from "./components/management/CharacterFilterDialog.jsx";
 
 // ========== 常量定义 ==========
 // 默认账户行数据结构
@@ -96,9 +58,10 @@ const basicStatKeys = [
 const NIKKE_TOGGLE_COL_COUNT = 1 + basicStatKeys.length + equipStatKeys.length;
 
 // 妮姬表格列宽：固定列 + 剩余空间均分给开关列
-const NIKKE_NAME_MIN_WIDTH_PX = 210;
+const NIKKE_NAME_MIN_WIDTH_PX = 240;
 const NIKKE_PRIORITY_WIDTH_PX = 120;
 const NIKKE_DRAG_HANDLE_WIDTH_PX = 36;
+const NIKKE_TOGGLE_MIN_WIDTH_PX = 40;
 
 // showStats 配置标记：用于区分“旧数据默认基础列全开”与“用户已手动配置”。
 // 注意：该标记不代表任何列的显示，导出端会忽略它。
@@ -154,8 +117,8 @@ const ManagementPage = () => {
       textAlign: 'center',
       padding: '4px',
       // 每列最小宽度 + 均分剩余空间
-      minWidth: 56,
-      width: `calc((100% - ${NIKKE_DRAG_HANDLE_WIDTH_PX}px - ${NIKKE_NAME_MIN_WIDTH_PX}px - ${NIKKE_PRIORITY_WIDTH_PX}px) / ${NIKKE_TOGGLE_COL_COUNT})`,
+      minWidth: NIKKE_TOGGLE_MIN_WIDTH_PX,
+      width: `max(${NIKKE_TOGGLE_MIN_WIDTH_PX}px, calc((100% - ${NIKKE_DRAG_HANDLE_WIDTH_PX}px - ${NIKKE_NAME_MIN_WIDTH_PX}px - ${NIKKE_PRIORITY_WIDTH_PX}px) / ${NIKKE_TOGGLE_COL_COUNT}))`,
     }),
     []
   );
@@ -1161,1079 +1124,125 @@ const elementTranslationKeys = {
     /* ---------- 渲染 ---------- */
   return (
     <>
-      <AppBar position="sticky" sx={{ top: 0, zIndex: (theme) => theme.zIndex.appBar }}>
-        <Toolbar>
-          <img
-            src={iconUrl}
-            alt="logo"
-            style={{ width: 32, height: 32, marginRight: 8 }}
-          />
-          <Typography variant="h6">ExiaInvasion</Typography>
-        </Toolbar>
-      </AppBar>
+      <ManagementHeader iconUrl={iconUrl} />
       
       <Container maxWidth="xl" sx={{ mt: 4, pb: 8 }}>
-        <Tabs value={tab} onChange={handleManagementTabChange} sx={{ mb: 3 }}>
+        <Tabs value={tab} onChange={handleManagementTabChange} sx={{ mb: 3 }} aria-label={t("management")}>
           <Tab label={t("accountTable")} />
           <Tab label={t("characterManagement")} />
         </Tabs>
-          {tab === 0 && (
-          <>
-            {/* 账户管理标题和操作按钮 */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 2 }}>
-              <Typography variant="h6">
-                {t("accountTable")}
-              </Typography>
-              
-              {/* 右侧：账号列表选择器（左） + 导入导出等按钮（同一行） */}
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                <Select
-                  size="small"
-                  value={selectedAccountTemplateId || ''}
-                  onChange={(e) => handleAccountTemplateChange(e.target.value)}
-                  displayEmpty
-                  sx={{ minWidth: 200, width: 240 }}
-                  renderValue={(val) => {
-                    const id = String(val || '');
-                    const item = accountTemplates.find(tp => tp.id === id);
-                    const name = item?.name || '';
-                    const display = name || t("accountTemplateNotSelected");
-                    return (
-                      <Typography noWrap title={display} sx={{ maxWidth: '100%' }}>{display}</Typography>
-                    );
-                  }}
-                  MenuProps={{ PaperProps: { style: { maxHeight: 300 } } }}
-                >
-                  <MenuItem value=""><em>{t("accountTemplateNotSelected")}</em></MenuItem>
-                  {accountTemplates.map((tpl) => (
-                    <MenuItem key={tpl.id} value={tpl.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {isAccountRenaming && accountRenameId === tpl.id ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, width: '100%' }} onClick={(e)=>e.stopPropagation()}>
-                          <TextField
-                            size="small"
-                            placeholder={t("accountTemplateInputName")}
-                            value={accountRenameValue}
-                            onChange={(e) => setAccountRenameValue(e.target.value)}
-                            onKeyDown={(e) => { 
-                              if (e.key === 'Enter') { 
-                                e.stopPropagation(); 
-                                confirmAccountRename();
-                              }
-                              if (e.key === 'Escape') { 
-                                e.stopPropagation(); 
-                                setIsAccountRenaming(false); 
-                                setAccountRenameId(''); 
-                                setAccountRenameValue('');
-                              }
-                            }}
-                            autoFocus
-                            sx={{ flex: 1, minWidth: 0 }}
-                          />
-                          <IconButton size="small" color="primary" onClick={(e)=>{ e.stopPropagation(); confirmAccountRename(); }}>
-                            <CheckIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton size="small" onClick={(e)=>{ e.stopPropagation(); setIsAccountRenaming(false); setAccountRenameId(''); setAccountRenameValue(''); }}>
-                            <CloseIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      ) : (
-                        <>
-                          <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Typography variant="body2" noWrap title={tpl.name}>{tpl.name}</Typography>
-                          </Box>
-                          <Tooltip title={t("templateRename")}>
-                            <IconButton
-                              size="small"
-                              onClick={(e) => { e.stopPropagation(); e.preventDefault(); startRenameAccountTemplate(tpl.id); }}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title={t("templateDelete")}>
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDeleteAccountTemplate(tpl.id); }}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </>
-                      )}
-                    </MenuItem>
-                  ))}
-                </Select>
-
-                <Button
-                  variant="contained"
-                  size="small"
-                  startIcon={<SaveIcon />}
-                  onClick={handleCreateAccountTemplate}
-                  disabled={accountTemplates.length >= 200}
-                >
-                  {t("templateSave")}
-                </Button>
-
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={handleToggleAllEnabled}
-                    sx={{ minWidth: 80 }}
-                  >
-                    {isAllEnabled ? t("deselectAll") : t("selectAll")}
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={<FileDownloadIcon />}
-                    onClick={handleImportAccounts}
-                    sx={{ minWidth: 80 }}
-                  >
-                    {t("importAccounts")}
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={<FileUploadIcon />}
-                    onClick={handleExportAccounts}
-                    sx={{ minWidth: 80 }}
-                  >
-                    {t("exportAccounts")}
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    color="error"
-                    startIcon={<DeleteSweepIcon />}
-                    onClick={handleClearAllAccounts}
-                    sx={{ minWidth: 80 }}
-                  >
-                    {t("clearAllAccounts")}
-                  </Button>
-              </Box>
-            </Box>
-            
-            {/* Account management table */}
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell width="3%" sx={{ textAlign: 'center', paddingLeft: '2px', paddingRight: '2px' }}>
-                    {/* Drag handle header */}
-                  </TableCell>
-                  <TableCell width="5%">{t("no")}</TableCell>
-                  <TableCell width="5%">{t("enabled")}</TableCell>
-                  <TableCell width="15%">{t("username")}</TableCell>
-                  <TableCell width="20%">{t("email")}</TableCell>
-                  <TableCell width="15%">{t("password")}</TableCell>
-                  <TableCell width="20%">{t("cookie")}</TableCell>
-                  <TableCell width="15%" align="right" />
-                </TableRow>
-              </TableHead>
-              
-              <TableBody>
-                {accounts.map((row, idx) => {
-                  const isEdit = editing[idx];
-                  return (
-                    <TableRow
-                      key={row.id}
-                      draggable={!isEdit}
-                      onDragStart={(e) => !isEdit && onAccountDragStart(e, idx)}
-                      onDragOver={(e) => !isEdit && onAccountDragOver(e, idx)}
-                      onDrop={() => !isEdit && onAccountDrop(idx)}
-                      onDragEnd={onAccountDragEnd}
-                      sx={{
-                        "& > *": { verticalAlign: "top" },
-                        cursor: !isEdit ? "grab" : "default",
-                        backgroundColor: accDragging.overIndex === idx && accDragging.draggingIndex !== null ? 'action.hover' : 'inherit'
-                      }}
-                    >                      <TableCell sx={{ textAlign: 'center', cursor: !isEdit ? 'grab' : 'default', paddingLeft: '2px', paddingRight: '2px' }}>
-                        {!isEdit && <DragIndicatorIcon fontSize="small" />}
-                      </TableCell>
-                      <TableCell>{idx + 1}</TableCell>
-                      <TableCell>
-                        <Switch
-                          size="small"
-                          checked={row.enabled !== false}
-                          onChange={() => {
-                            const nextAccounts = accounts.map((r, i) =>
-                              i === idx ? { ...r, enabled: !r.enabled } : r
-                            );
-                            setAccounts(nextAccounts);
-                            persist(nextAccounts);
-                          }}
-                          disabled={isEdit}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {isEdit ? (
-                          <TextField
-                            variant="standard"
-                            value={row.username}
-                            onChange={(e) => updateField(idx, "username", e.target.value)}
-                            fullWidth
-                          />
-                        ) : (
-                          renderText(row.username)
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isEdit ? (
-                          <TextField
-                            variant="standard"
-                            value={row.email}
-                            onChange={(e) => updateField(idx, "email", e.target.value)}
-                            fullWidth
-                          />
-                        ) : (
-                          renderText(row.email)
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isEdit ? (
-                          <TextField
-                            variant="standard"
-                            type={showPwds[idx] ? "text" : "password"}
-                            value={row.password}
-                            onChange={(e) => updateField(idx, "password", e.target.value)}
-                            fullWidth
-                            slotProps={{
-                              input: {
-                                endAdornment: (
-                                  <InputAdornment position="end">
-                                    <IconButton
-                                      size="small"
-                                      onClick={() =>
-                                        setShowPwds((v) => v.map((f, i) => (i === idx ? !f : f)))
-                                      }
-                                      edge="end"
-                                    >
-                                      {showPwds[idx] ? <VisibilityOff /> : <Visibility />}
-                                    </IconButton>
-                                  </InputAdornment>
-                                ),
-                                sx: {
-                                  '& input[type="password"]::-ms-reveal': {
-                                    display: 'none'
-                                  },
-                                  '& input[type="password"]::-ms-clear': {
-                                    display: 'none'
-                                  },
-                                  '& input[type="password"]::-webkit-credentials-auto-fill-button': {
-                                    display: 'none !important'
-                                  },
-                                  '& input[type="password"]::-webkit-contacts-auto-fill-button': {
-                                    display: 'none !important'
-                                  }
-                                }
-                              },
-                            }}
-                          />
-                        ) : row.password ? (
-                          "••••••"
-                        ) : (
-                          "—"
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isEdit ? (
-                          <TextField
-                            variant="standard"
-                            multiline
-                            maxRows={3}
-                            value={row.cookie}
-                            onChange={(e) => updateField(idx, "cookie", e.target.value)}
-                            fullWidth
-                          />
-                        ) : row.cookie ? (
-                          t("saved")
-                        ) : (
-                          "—"
-                        )}
-                      </TableCell>
-                      <TableCell align="right">
-                        <Box display="flex" flexDirection="row" justifyContent="flex-end">
-                          {isEdit ? (
-                            <IconButton
-                              color="primary"
-                              onClick={() => saveRow(idx)}
-                              size="small"
-                            >
-                              <SaveIcon />
-                            </IconButton>
-                          ) : (
-                            <IconButton onClick={() => startEdit(idx)} size="small">
-                              <EditIcon />
-                            </IconButton>
-                          )}
-                          <IconButton
-                            color="error"
-                            onClick={() => deleteRow(idx)}
-                            sx={{ ml: 0.5 }}
-                            size="small"
-                            disabled={isEdit}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-                
-                <TableRow>
-                  <TableCell colSpan={8} sx={{ pt: 2, borderBottom: 'none' }}>
-                    <Box display="flex" justifyContent="center">
-                      <IconButton color="primary" onClick={addRow}>
-                        <AddIcon />
-                      </IconButton>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </>
+        {tab === 0 && (
+          <AccountTabContent
+            t={t}
+            accountTemplates={accountTemplates}
+            selectedAccountTemplateId={selectedAccountTemplateId}
+            handleAccountTemplateChange={handleAccountTemplateChange}
+            isAccountRenaming={isAccountRenaming}
+            accountRenameId={accountRenameId}
+            accountRenameValue={accountRenameValue}
+            setAccountRenameValue={setAccountRenameValue}
+            confirmAccountRename={confirmAccountRename}
+            setIsAccountRenaming={setIsAccountRenaming}
+            setAccountRenameId={setAccountRenameId}
+            startRenameAccountTemplate={startRenameAccountTemplate}
+            handleDeleteAccountTemplate={handleDeleteAccountTemplate}
+            handleCreateAccountTemplate={handleCreateAccountTemplate}
+            isAllEnabled={isAllEnabled}
+            handleToggleAllEnabled={handleToggleAllEnabled}
+            handleImportAccounts={handleImportAccounts}
+            handleExportAccounts={handleExportAccounts}
+            handleClearAllAccounts={handleClearAllAccounts}
+            accounts={accounts}
+            editing={editing}
+            showPwds={showPwds}
+            accDragging={accDragging}
+            onAccountDragStart={onAccountDragStart}
+            onAccountDragOver={onAccountDragOver}
+            onAccountDrop={onAccountDrop}
+            onAccountDragEnd={onAccountDragEnd}
+            updateField={updateField}
+            setAccounts={setAccounts}
+            persist={persist}
+            setShowPwds={setShowPwds}
+            saveRow={saveRow}
+            startEdit={startEdit}
+            deleteRow={deleteRow}
+            addRow={addRow}
+            renderText={renderText}
+          />
         )}
-          {tab === 1 && (
-          <>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 2 }}>
-              <Typography variant="h6">
-                {t("characterManagement")}
-              </Typography>
-              
-              {/* 右侧：妮姬列表选择器（左） + 导入导出等按钮（同一行） */}
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                <Select
-                  size="small"
-                  value={selectedTemplateId || ''}
-                  onChange={(e) => handleTemplateChange(e.target.value)}
-                  displayEmpty
-                  sx={{ minWidth: 200, width: 240 }}
-                  renderValue={(val) => {
-                    const id = String(val || '');
-                    const item = templates.find(tp => tp.id === id);
-                    const name = item?.name || '';
-                    const display = name || t("templateNotSelected");
-                    return (
-                      <Typography noWrap title={display} sx={{ maxWidth: '100%' }}>{display}</Typography>
-                    );
-                  }}
-                  MenuProps={{ PaperProps: { style: { maxHeight: 300 } } }}
-                >
-                  <MenuItem value=""><em>{t("templateNotSelected")}</em></MenuItem>
-                  {templates.map((tpl) => (
-                    <MenuItem key={tpl.id} value={tpl.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {isRenaming && renameId === tpl.id ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, width: '100%' }} onClick={(e)=>e.stopPropagation()}>
-                          <TextField
-                            size="small"
-                            placeholder={t("templateInputName")}
-                            value={renameValue}
-                            onChange={(e) => setRenameValue(e.target.value)}
-                            onKeyDown={(e) => { 
-                              if (e.key === 'Enter') { 
-                                e.stopPropagation(); 
-                                confirmRename();
-                              }
-                              if (e.key === 'Escape') { 
-                                e.stopPropagation(); 
-                                setIsRenaming(false); 
-                                setRenameId(''); 
-                                setRenameValue('');
-                              }
-                            }}
-                            autoFocus
-                            sx={{ flex: 1, minWidth: 0 }}
-                          />
-                          <IconButton size="small" color="primary" onClick={(e)=>{ e.stopPropagation(); confirmRename(); }}>
-                            <CheckIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton size="small" onClick={(e)=>{ e.stopPropagation(); setIsRenaming(false); setRenameId(''); setRenameValue(''); }}>
-                            <CloseIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      ) : (
-                        <>
-                          <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Typography variant="body2" noWrap title={tpl.name}>{tpl.name}</Typography>
-                          </Box>
-                          <Tooltip title={t("templateRename")}>
-                            <IconButton
-                              size="small"
-                              onClick={(e) => { e.stopPropagation(); e.preventDefault(); startRenameTemplate(tpl.id); }}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title={t("templateDelete")}>
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDeleteTemplate(tpl.id); }}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </>
-                      )}
-                    </MenuItem>
-                  ))}
-                </Select>
-
-                <Button
-                  variant="contained"
-                  size="small"
-                  startIcon={<SaveIcon />}
-                  onClick={handleCreateTemplate}
-                  disabled={templates.length >= 200}
-                >
-                  {t("templateSave")}
-                </Button>
-
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<FileDownloadIcon />}
-                    onClick={triggerCharacterImport}
-                    sx={{ minWidth: 80 }}
-                  >
-                    {t("importNikkes")}
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<FileUploadIcon/>}
-                    onClick={handleExportCharacters}
-                    sx={{ minWidth: 80 }}
-                  >
-                    {t("exportNikkes")}
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    color="error"
-                    startIcon={<DeleteSweepIcon />}
-                    onClick={handleClearAllCharacters}
-                    sx={{ minWidth: 80 }}
-                  >
-                    {t("clearAllNikkes")}
-                  </Button>
-              </Box>
-            </Box>
-            
-            {["Electronic", "Fire", "Wind", "Water", "Iron", "Utility"].map((element) => {
-              const elementChars = characters.elements[element] || [];
-              return (
-                <Box key={element} sx={{ mb: 3, border: '1px solid #e0e0e0', borderRadius: 1, p: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, gap: 1 }}>
-                    <Typography variant="h6" sx={{ minWidth: 0 }}>
-                      {getElementName(element)} ({elementChars.length})
-                    </Typography>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<EditIcon />}
-                      onClick={() => openFilterDialog(element)}
-                      sx={{ flex: '0 0 auto' }}
-                    >
-                      {t("addOrEdit")}
-                    </Button>
-                  </Box>
-                  <Box display="flex" flexDirection="column" gap={1}>
-                    {/* Character Table */}
-                    <Table size="small" sx={{ width: '100%', tableLayout: 'fixed' }}>                      <TableHead>
-                        <TableRow>
-                          <TableCell sx={{ width: `${NIKKE_DRAG_HANDLE_WIDTH_PX}px`, textAlign: 'center', paddingLeft: '2px', paddingRight: '2px' }}>
-                            {/* Drag handle header */}
-                          </TableCell>
-                          <TableCell sx={{ width: `${NIKKE_NAME_MIN_WIDTH_PX}px`, minWidth: `${NIKKE_NAME_MIN_WIDTH_PX}px` }}>{t("characterName")}</TableCell>
-                          <TableCell sx={{ width: `${NIKKE_PRIORITY_WIDTH_PX}px`, minWidth: `${NIKKE_PRIORITY_WIDTH_PX}px` }}>{t("priority")}</TableCell>
-                          {/* AEL 开关移到最左边 */}
-                          <TableCell sx={toggleHeaderCellSx}>
-                            <Tooltip
-                              arrow
-                              placement="top"
-                              title={
-                                lang === 'zh' ? (
-                                  <Box component="span">
-                                    攻优突破分(AEL)
-                                    <br />
-                                    AEL = (1 + 0.9 × 攻击词条) × (1 + 10% + 优越词条) × (1 + 3% × 极限突破 + 2% × 核心强化)
-                                  </Box>
-                                ) : (
-                                  <Box component="span">
-                                    Attack Element Limit Break Score (AEL)
-                                    <br />
-                                    AEL = (1 + 0.9 × ATK%) × (1 + 10% + Elem%) × (1 + 3% × Limit Break + 2% × Core Refinement)
-                                  </Box>
-                                )
-                              }
-                            >
-                              <Box component="span">{t("atkElemLbScore")}</Box>
-                            </Tooltip>
-                          </TableCell>
-                          {/* 基础列：突破/技能勾选 */}
-                          <TableCell sx={toggleHeaderCellSx}>{t("limitBreak")}</TableCell>
-                          <TableCell sx={toggleHeaderCellSx}>{t("skill1")}</TableCell>
-                          <TableCell sx={toggleHeaderCellSx}>{t("skill2")}</TableCell>
-                          <TableCell sx={toggleHeaderCellSx}>{t("burst")}</TableCell>
-                          {/* 装备词条列标题 */}
-                          {equipStatKeys.map((key, idx) => (
-                            <TableCell key={key} sx={toggleHeaderCellSx}>
-                              {equipStatLabels[idx]}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {elementChars.map((charData, index) => (
-                          <TableRow
-                            key={`${charData.id}-${index}`}
-                            draggable
-                            onDragStart={(e) => onCharDragStart(e, element, index)}
-                            onDragOver={(e) => onCharDragOver(e, element, index)}
-                            onDrop={() => onCharDrop(element, index)}
-                            onDragEnd={onCharDragEnd}
-                            sx={{
-                              "& > *": { verticalAlign: "top" },
-                              cursor: "grab",
-                              backgroundColor: charDragging.currentElement === element && charDragging.overIndex === index ? 'action.hover' : 'inherit'
-                            }}
-                          >
-                            <TableCell sx={{ textAlign: 'center', cursor: 'grab', paddingLeft: '2px', paddingRight: '2px' }}>
-                              <DragIndicatorIcon fontSize="small" />
-                            </TableCell>
-                            <TableCell sx={{ width: `${NIKKE_NAME_MIN_WIDTH_PX}px`, minWidth: `${NIKKE_NAME_MIN_WIDTH_PX}px`, overflow: 'hidden' }}>
-                              <Typography variant="body2" noWrap>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  {getNikkeAvatarUrl(charData) ? (
-                                    <Box
-                                      component="img"
-                                      src={getNikkeAvatarUrl(charData)}
-                                      alt={getDisplayName(charData)}
-                                      loading="lazy"
-                                      sx={{ width: 44, height: 44, borderRadius: 2, objectFit: 'cover', flex: '0 0 auto' }}
-                                      onError={(e) => {
-                                        e.currentTarget.style.display = 'none';
-                                      }}
-                                    />
-                                  ) : null}
-                                  <Box component="span" sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {lang === "zh" ? charData.name_cn : charData.name_en}
-                                  </Box>
-                                </Box>
-                              </Typography>
-                            </TableCell>
-                            <TableCell sx={{ width: `${NIKKE_PRIORITY_WIDTH_PX}px`, minWidth: `${NIKKE_PRIORITY_WIDTH_PX}px` }}>
-                              <FormControl size="small" sx={{ minWidth: 100, width: '100%' }}>
-                                <Select
-                                  value={charData.priority}
-                                  onChange={(e) => updateCharacterPriority(element, index, e.target.value)}
-                                  sx={{
-                                    ...getPriorityColor(charData.priority),
-                                    '& .MuiSelect-select': {
-                                      ...getPriorityColor(charData.priority)
-                                    }
-                                  }}
-                                  MenuProps={{
-                                    PaperProps: {
-                                      style: {
-                                        maxHeight: 200,
-                                        width: 'auto',
-                                      },
-                                    },
-                                    anchorOrigin: {
-                                      vertical: 'bottom',
-                                      horizontal: 'left',
-                                    },
-                                    transformOrigin: {
-                                      vertical: 'top',
-                                      horizontal: 'left',
-                                    },
-                                  }}
-                                >
-                                  <MenuItem value="black" sx={{
-                                    ...getPriorityColor("black"),
-                                    '&.Mui-selected': {
-                                      ...getPriorityColor("black"),
-                                    },
-                                    '&.Mui-selected:hover': {
-                                      ...getPriorityColor("black"),
-                                    },
-                                    '&:hover': {
-                                      ...getPriorityColor("black"),
-                                      filter: 'brightness(0.95)'
-                                    }
-                                  }}>{t("black")}</MenuItem>
-                                  <MenuItem value="blue" sx={{
-                                    ...getPriorityColor("blue"),
-                                    '&.Mui-selected': {
-                                      ...getPriorityColor("blue"),
-                                    },
-                                    '&.Mui-selected:hover': {
-                                      ...getPriorityColor("blue"),
-                                    },
-                                    '&:hover': {
-                                      ...getPriorityColor("blue"),
-                                      filter: 'brightness(0.98)'
-                                    }
-                                  }}>{t("blue")}</MenuItem>
-                                  <MenuItem value="yellow" sx={{
-                                    ...getPriorityColor("yellow"),
-                                    '&.Mui-selected': {
-                                      ...getPriorityColor("yellow"),
-                                    },
-                                    '&.Mui-selected:hover': {
-                                      ...getPriorityColor("yellow"),
-                                    },
-                                    '&:hover': {
-                                      ...getPriorityColor("yellow"),
-                                      filter: 'brightness(0.98)'
-                                    }
-                                  }}>{t("yellow")}</MenuItem>
-                                </Select>
-                              </FormControl>
-                            </TableCell>
-
-                            {/* 攻优突破分开关（行内） - 移到最左 */}
-                            <TableCell sx={toggleCellSx}>
-                              <Checkbox
-                                size="small"
-                                checked={Array.isArray(charData.showStats) && charData.showStats.includes('AtkElemLbScore')}
-                                onChange={(e) => {
-                                  const flag = e.target.checked;
-                                  const base = Array.isArray(charData.showStats) ? [...charData.showStats] : [];
-                                  const has = base.includes('AtkElemLbScore');
-                                  let updated = flag
-                                    ? (has ? base : ['AtkElemLbScore', ...base])
-                                    : base.filter((k) => k !== 'AtkElemLbScore');
-                                  if (!updated.includes(SHOW_STATS_CONFIG_MARKER)) {
-                                    updated = [SHOW_STATS_CONFIG_MARKER, ...updated];
-                                  }
-                                  updateCharacterShowStats(element, index, updated);
-                                }}
-                              />
-                            </TableCell>
-
-                            {/* 突破/技能勾选（行内） */}
-                            {(() => {
-                              const showStats = Array.isArray(charData.showStats) ? charData.showStats : [];
-                              const configured = showStats.includes(SHOW_STATS_CONFIG_MARKER);
-                              const legacyBasics = !configured;
-                              const toggle = (key, checked) => {
-                                const base = legacyBasics ? [...showStats, ...basicStatKeys] : showStats;
-                                let nextStats = checked
-                                  ? (base.includes(key) ? base : [...base, key])
-                                  : base.filter((k) => k !== key);
-                                if (!nextStats.includes(SHOW_STATS_CONFIG_MARKER)) {
-                                  nextStats = [SHOW_STATS_CONFIG_MARKER, ...nextStats];
-                                }
-                                updateCharacterShowStats(element, index, nextStats);
-                              };
-                              return (
-                                <>
-                                  <TableCell sx={toggleCellSx}>
-                                    <Checkbox size="small" checked={legacyBasics || showStats.includes('limit_break')} onChange={(e) => toggle('limit_break', e.target.checked)} />
-                                  </TableCell>
-                                  <TableCell sx={toggleCellSx}>
-                                    <Checkbox size="small" checked={legacyBasics || showStats.includes('skill1_level')} onChange={(e) => toggle('skill1_level', e.target.checked)} />
-                                  </TableCell>
-                                  <TableCell sx={toggleCellSx}>
-                                    <Checkbox size="small" checked={legacyBasics || showStats.includes('skill2_level')} onChange={(e) => toggle('skill2_level', e.target.checked)} />
-                                  </TableCell>
-                                  <TableCell sx={toggleCellSx}>
-                                    <Checkbox size="small" checked={legacyBasics || showStats.includes('skill_burst_level')} onChange={(e) => toggle('skill_burst_level', e.target.checked)} />
-                                  </TableCell>
-                                </>
-                              );
-                            })()}
-                            {/* 装备词条复选框 */}
-                            {equipStatKeys.map((key) => (
-                              <TableCell key={key} sx={toggleCellSx}>
-                                <Checkbox
-                                  size="small"
-                                  checked={Array.isArray(charData.showStats) && charData.showStats.includes(key)}
-                                  onChange={(e) => {
-                                    const base = Array.isArray(charData.showStats) ? charData.showStats : [];
-                                    let newStats = e.target.checked
-                                      ? (base.includes(key) ? base : [...base, key])
-                                      : base.filter(stat => stat !== key);
-                                    if (!newStats.includes(SHOW_STATS_CONFIG_MARKER)) {
-                                      newStats = [SHOW_STATS_CONFIG_MARKER, ...newStats];
-                                    }
-                                    updateCharacterShowStats(element, index, newStats);
-                                  }}
-                                />
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </Box>
-                </Box>
-              );
-            })}
-          </>
+        {tab === 1 && (
+          <CharacterTabContent
+            t={t}
+            lang={lang}
+            templates={templates}
+            selectedTemplateId={selectedTemplateId}
+            handleTemplateChange={handleTemplateChange}
+            isRenaming={isRenaming}
+            renameId={renameId}
+            renameValue={renameValue}
+            setRenameValue={setRenameValue}
+            confirmRename={confirmRename}
+            setIsRenaming={setIsRenaming}
+            setRenameId={setRenameId}
+            startRenameTemplate={startRenameTemplate}
+            handleDeleteTemplate={handleDeleteTemplate}
+            handleCreateTemplate={handleCreateTemplate}
+            triggerCharacterImport={triggerCharacterImport}
+            handleExportCharacters={handleExportCharacters}
+            handleClearAllCharacters={handleClearAllCharacters}
+            characters={characters}
+            getElementName={getElementName}
+            openFilterDialog={openFilterDialog}
+            equipStatKeys={equipStatKeys}
+            equipStatLabels={equipStatLabels}
+            toggleHeaderCellSx={toggleHeaderCellSx}
+            toggleCellSx={toggleCellSx}
+            getNikkeAvatarUrl={getNikkeAvatarUrl}
+            getDisplayName={getDisplayName}
+            updateCharacterPriority={updateCharacterPriority}
+            getPriorityColor={getPriorityColor}
+            updateCharacterShowStats={updateCharacterShowStats}
+            basicStatKeys={basicStatKeys}
+            showStatsConfigMarker={SHOW_STATS_CONFIG_MARKER}
+            nikkeNameMinWidthPx={NIKKE_NAME_MIN_WIDTH_PX}
+            nikkePriorityWidthPx={NIKKE_PRIORITY_WIDTH_PX}
+            nikkeDragHandleWidthPx={NIKKE_DRAG_HANDLE_WIDTH_PX}
+            nikkeToggleMinWidthPx={NIKKE_TOGGLE_MIN_WIDTH_PX}
+            charDragging={charDragging}
+            onCharDragStart={onCharDragStart}
+            onCharDragOver={onCharDragOver}
+            onCharDrop={onCharDrop}
+            onCharDragEnd={onCharDragEnd}
+          />
         )}
       </Container>
       
-      {/* Character Filter Dialog */}
-      <Dialog
+      <CharacterFilterDialog
+        t={t}
         open={filterDialogOpen}
         onClose={handleCloseFilterDialog}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{ sx: { borderRadius: '8px' } }}
-      >
-        <DialogTitle>{t("characterFilter")}</DialogTitle>
-        <DialogContent>
-          <Box display="flex" flexDirection="column" gap={2} sx={{ mt: 1 }}>
-            {/* 搜索框 */}
-            <TextField
-              size="small"
-              label={t("characterName")}
-              value={filters.name}
-              onChange={(e) => setFilters(prev => ({ ...prev, name: e.target.value }))}
-              placeholder={t("searchPlaceholder")}
-              fullWidth
-            />
-
-            {/* 筛选条件：按顺序显示 — 代码、阶段、职业、企业、武器（5 等分） */}
-            <Box
-              sx={{
-                display: 'grid',
-                gap: 2,
-                gridTemplateColumns: 'repeat(5, 1fr)'
-              }}
-            >
-              <FormControl size="small" fullWidth sx={{ minWidth: 0 }}>
-                <InputLabel>{t("element")}</InputLabel>
-                <Select
-                  value={filters.element}
-                  onChange={(e) => setFilters(prev => ({ ...prev, element: e.target.value }))}
-                  label={t("element")}
-                  MenuProps={{
-                    PaperProps: {
-                      style: { maxHeight: 200, width: 'auto' }
-                    },
-                    anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
-                    transformOrigin: { vertical: 'top', horizontal: 'left' }
-                  }}
-                >
-                  <MenuItem value="">{t("all")}</MenuItem>
-                  <MenuItem value="Iron">{t("iron")}</MenuItem>
-                  <MenuItem value="Fire">{t("fire")}</MenuItem>
-                  <MenuItem value="Water">{t("water")}</MenuItem>
-                  <MenuItem value="Wind">{t("wind")}</MenuItem>
-                  <MenuItem value="Electronic">{t("electronic")}</MenuItem>
-                </Select>
-              </FormControl>
-
-              <FormControl size="small" fullWidth sx={{ minWidth: 0 }}>
-                <InputLabel>{t("burstSkill")}</InputLabel>
-                <Select
-                  value={filters.use_burst_skill}
-                  onChange={(e) => setFilters(prev => ({ ...prev, use_burst_skill: e.target.value }))}
-                  label={t("burstSkill")}
-                  MenuProps={{
-                    PaperProps: {
-                      style: { maxHeight: 200, width: 'auto' }
-                    },
-                    anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
-                    transformOrigin: { vertical: 'top', horizontal: 'left' }
-                  }}
-                >
-                  <MenuItem value="">{t("all")}</MenuItem>
-                  <MenuItem value="Step1">{t("burstStage1")}</MenuItem>
-                  <MenuItem value="Step2">{t("burstStage2")}</MenuItem>
-                  <MenuItem value="Step3">{t("burstStage3")}</MenuItem>
-                </Select>
-              </FormControl>
-
-              <FormControl size="small" fullWidth sx={{ minWidth: 0 }}>
-                <InputLabel>{t("class")}</InputLabel>
-                <Select
-                  value={filters.class}
-                  onChange={(e) => setFilters(prev => ({ ...prev, class: e.target.value }))}
-                  label={t("class")}
-                  MenuProps={{
-                    PaperProps: {
-                      style: { maxHeight: 200, width: 'auto' }
-                    },
-                    anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
-                    transformOrigin: { vertical: 'top', horizontal: 'left' }
-                  }}
-                >
-                  <MenuItem value="">{t("all")}</MenuItem>
-                  <MenuItem value="Attacker">{t("attacker")}</MenuItem>
-                  <MenuItem value="Defender">{t("defender")}</MenuItem>
-                  <MenuItem value="Supporter">{t("supporter")}</MenuItem>
-                </Select>
-              </FormControl>
-              
-              <FormControl size="small" fullWidth sx={{ minWidth: 0 }}>
-                <InputLabel>{t("corporation")}</InputLabel>
-                <Select
-                  value={filters.corporation}
-                  onChange={(e) => setFilters(prev => ({ ...prev, corporation: e.target.value }))}
-                  label={t("corporation")}
-                  MenuProps={{
-                    PaperProps: {
-                      style: { maxHeight: 200, width: 'auto' }
-                    },
-                    anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
-                    transformOrigin: { vertical: 'top', horizontal: 'left' }
-                  }}
-                >
-                  <MenuItem value="">{t("all")}</MenuItem>
-                  <MenuItem value="ELYSION">{t("elysion")}</MenuItem>
-                  <MenuItem value="MISSILIS">{t("missilis")}</MenuItem>
-                  <MenuItem value="TETRA">{t("tetra")}</MenuItem>
-                  <MenuItem value="PILGRIM">{t("pilgrim")}</MenuItem>
-                  <MenuItem value="ABNORMAL">{t("abnormal")}</MenuItem>
-                </Select>
-              </FormControl>
-              
-              <FormControl size="small" fullWidth sx={{ minWidth: 0 }}>
-                <InputLabel>{t("weaponType")}</InputLabel>
-                <Select
-                  value={filters.weapon_type}
-                  onChange={(e) => setFilters(prev => ({ ...prev, weapon_type: e.target.value }))}
-                  label={t("weaponType")}
-                  MenuProps={{
-                    PaperProps: {
-                      style: { maxHeight: 200, width: 'auto' }
-                    },
-                    anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
-                    transformOrigin: { vertical: 'top', horizontal: 'left' }
-                  }}
-                >
-                  <MenuItem value="">{t("all")}</MenuItem>
-                  <MenuItem value="AR">AR</MenuItem>
-                  <MenuItem value="SMG">SMG</MenuItem>
-                  <MenuItem value="SG">SG</MenuItem>
-                  <MenuItem value="SR">SR</MenuItem>
-                  <MenuItem value="MG">MG</MenuItem>
-                  <MenuItem value="RL">RL</MenuItem>
-                </Select>
-              </FormControl>
-              
-            </Box>
-            
-            <Typography variant="subtitle2">{t("filterResults")} ({filteredNikkes.length})</Typography>
-            
-            <Box sx={{ maxHeight: 400, overflow: 'auto' }}>              
-              {filteredNikkes.length > 0 ? (
-                <List dense>
-                  {filteredNikkes.map((nikke) => {
-                    const isSelected = selectedNikkes.some((item) => item.id === nikke.id);
-                    const alreadyAdded = effectiveExistingElementIds.has(nikke.id);
-                    const displayName = getDisplayName(nikke);
-                    const avatarUrl = getNikkeAvatarUrl(nikke);
-                    return (
-                      <ListItem
-                        key={nikke.id}
-                        alignItems="stretch"
-                        sx={{ py: 0.5 }}
-                        secondaryAction={
-                          <Button
-                            variant="contained"
-                            size="small"
-                            onClick={() => handleSelectNikke(nikke)}
-                            color={(isSelected || alreadyAdded) ? 'success' : 'primary'}
-                            disabled={alreadyAdded}
-                            sx={{ minWidth: 84 }}
-                          >
-                            {(isSelected || alreadyAdded) ? t("selectedTag") : t("choose")}
-                          </Button>
-                        }
-                      >
-                        <ListItemAvatar sx={{ minWidth: 68, width: 68, alignSelf: 'stretch', display: 'flex', alignItems: 'stretch' }}>
-                          {avatarUrl ? (
-                            <Box
-                              component="img"
-                              src={avatarUrl}
-                              alt={displayName}
-                              loading="lazy"
-                              sx={{
-                                height: '100%',
-                                maxHeight: 56,
-                                aspectRatio: '1 / 1',
-                                borderRadius: '8px',
-                                objectFit: 'cover'
-                              }}
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                              }}
-                            />
-                          ) : (
-                            <Box
-                              sx={{
-                                height: '100%',
-                                maxHeight: 56,
-                                aspectRatio: '1 / 1',
-                                borderRadius: '8px',
-                                backgroundColor: 'action.disabledBackground'
-                              }}
-                              title={displayName}
-                            />
-                          )}
-                        </ListItemAvatar>
-                        <ListItemText
-                          primary={displayName}
-                          secondary={`${getElementName(nikke.element)} | ${getBurstStageName(nikke.use_burst_skill)} | ${getClassName(nikke.class)} | ${getCorporationName(nikke.corporation)} | ${nikke.weapon_type}`}
-                          primaryTypographyProps={{ noWrap: true, variant: 'body1' }}
-                          secondaryTypographyProps={{ noWrap: true, variant: 'caption' }}
-                          sx={{ my: 0 }}
-                        />
-                      </ListItem>
-                    );
-                  })}
-                </List>
-              ) : (
-                <Typography color="textSecondary">{t("notFound")}</Typography>
-              )}
-            </Box>
-
-            <Box sx={{ mt: 2 }}>
-              <Divider sx={{ mb: 2 }} />
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                {selectionLabel}
-              </Typography>
-              {totalSelectionCount === 0 ? (
-                <Typography color="textSecondary">{t("selectedEmpty")}</Typography>
-              ) : (
-                <Stack direction="row" spacing={0.75} flexWrap="wrap">
-                  {effectiveExistingElementCharacters.map((nikke) => {
-                    const name = getDisplayName(nikke);
-                    const avatarUrl = getNikkeAvatarUrl(nikke);
-                    return (
-                      <Box
-                        key={`existing-${nikke.id}`}
-                        sx={{
-                          position: 'relative',
-                          width: 56,
-                          height: 56,
-                          borderRadius: '8px',
-                          overflow: 'hidden',
-                          backgroundColor: 'action.disabledBackground'
-                        }}
-                        title={name}
-                      >
-                        {avatarUrl ? (
-                          <Box
-                            component="img"
-                            src={avatarUrl}
-                            alt={name}
-                            loading="lazy"
-                            sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none';
-                            }}
-                          />
-                        ) : null}
-
-                        <IconButton
-                          size="small"
-                          aria-label={t("remove") || 'remove'}
-                          onClick={() => handleRemoveExistingNikke(nikke.id)}
-                          sx={{
-                            position: 'absolute',
-                            top: 2,
-                            right: 2,
-                            width: 18,
-                            height: 18,
-                            p: 0,
-                            backgroundColor: 'background.paper',
-                            border: '1px solid',
-                            borderColor: 'divider',
-                            '&:hover': {
-                              backgroundColor: 'background.paper'
-                            }
-                          }}
-                        >
-                          <CloseIcon sx={{ fontSize: 14 }} />
-                        </IconButton>
-                      </Box>
-                    );
-                  })}
-
-                  {selectedNikkes.map((nikke) => {
-                    const name = getDisplayName(nikke);
-                    const avatarUrl = getNikkeAvatarUrl(nikke);
-                    return (
-                      <Box
-                        key={`pending-${nikke.id}`}
-                        sx={{
-                          position: 'relative',
-                          width: 56,
-                          height: 56,
-                          borderRadius: '8px',
-                          overflow: 'hidden',
-                          backgroundColor: 'action.disabledBackground'
-                        }}
-                        title={name}
-                      >
-                        {avatarUrl ? (
-                          <Box
-                            component="img"
-                            src={avatarUrl}
-                            alt={name}
-                            loading="lazy"
-                            sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none';
-                            }}
-                          />
-                        ) : null}
-
-                        <IconButton
-                          size="small"
-                          aria-label={t("remove") || 'remove'}
-                          onClick={() => handleRemoveSelectedNikke(nikke.id)}
-                          sx={{
-                            position: 'absolute',
-                            top: 2,
-                            right: 2,
-                            width: 18,
-                            height: 18,
-                            p: 0,
-                            backgroundColor: 'background.paper',
-                            border: '1px solid',
-                            borderColor: 'divider',
-                            '&:hover': {
-                              backgroundColor: 'background.paper'
-                            }
-                          }}
-                        >
-                          <CloseIcon sx={{ fontSize: 14 }} />
-                        </IconButton>
-                      </Box>
-                    );
-                  })}
-                </Stack>
-              )}
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2, pt: 1.5 }}>
-          <Button
-            variant="outlined"
-            onClick={handleCloseFilterDialog}
-            sx={{ minWidth: 96, px: 2, py: 0.75, borderRadius: '8px' }}
-          >
-            {t("cancel")}
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleConfirmSelection}
-            disabled={pendingSelectionCount === 0 && removedExistingIds.length === 0}
-            sx={{ minWidth: 120, px: 2.5, py: 0.75, borderRadius: '8px' }}
-          >
-            {t("confirmSelection")}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        filters={filters}
+        setFilters={setFilters}
+        filteredNikkes={filteredNikkes}
+        selectedNikkes={selectedNikkes}
+        effectiveExistingElementIds={effectiveExistingElementIds}
+        getDisplayName={getDisplayName}
+        getNikkeAvatarUrl={getNikkeAvatarUrl}
+        getElementName={getElementName}
+        getBurstStageName={getBurstStageName}
+        getClassName={getClassName}
+        getCorporationName={getCorporationName}
+        handleSelectNikke={handleSelectNikke}
+        selectionLabel={selectionLabel}
+        totalSelectionCount={totalSelectionCount}
+        effectiveExistingElementCharacters={effectiveExistingElementCharacters}
+        handleRemoveExistingNikke={handleRemoveExistingNikke}
+        handleRemoveSelectedNikke={handleRemoveSelectedNikke}
+        pendingSelectionCount={pendingSelectionCount}
+        removedExistingIds={removedExistingIds}
+        handleConfirmSelection={handleConfirmSelection}
+      />
 
       <Snackbar
         open={snackbar.open}

@@ -58,7 +58,10 @@ export default function App() {
   // ========== 初始化设置加载 ==========
   useEffect(() => {
     (async () => {
-      const s = await getSettings();
+      const [s, chars] = await Promise.all([
+        getSettings(),
+        getCharacters().catch(() => null),
+      ]);
       setLang(s.lang || (navigator.language.startsWith("zh") ? "zh" : "en"));
       setSaveAsZip(Boolean(s.saveAsZip));
       setExportJson(Boolean(s.exportJson));
@@ -68,12 +71,7 @@ export default function App() {
       setSortFlag(s.sortFlag || "1");
 
       // 读取全局“折叠词条细节”开关（存储为 characters.options.showEquipDetails：true=显示细节，false=折叠隐藏）
-      try {
-        const chars = await getCharacters();
-        setCollapseEquipDetails(chars?.options?.showEquipDetails === false);
-      } catch {
-        setCollapseEquipDetails(false);
-      }
+      setCollapseEquipDetails(chars?.options?.showEquipDetails === false);
     })();
   }, []);
 
@@ -203,30 +201,38 @@ export default function App() {
     setLoading(true);
     try {
       addLog(t("starting"));
+      const tasks = [];
       // 如选择了 Excel，则合并并下载 merged.xlsx
       if (excelFilesToMerge.length) {
-        addLog(`开始合并 Excel (${excelFilesToMerge.length} 个)`);
-        const mergedBuffer = await mergeWorkbooks(excelFilesToMerge, sortFlag, addLog);
-        const blob = new Blob([mergedBuffer], {
-          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        });
-        const url = URL.createObjectURL(blob);
-        chrome.downloads.download({ url, filename: "merged.xlsx" }, () =>
-          URL.revokeObjectURL(url)
-        );
-        addLog("Excel 合并完成");
+        tasks.push((async () => {
+          addLog(`开始合并 Excel (${excelFilesToMerge.length} 个)`);
+          const mergedBuffer = await mergeWorkbooks(excelFilesToMerge, sortFlag, addLog);
+          const blob = new Blob([mergedBuffer], {
+            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          });
+          const url = URL.createObjectURL(blob);
+          chrome.downloads.download({ url, filename: "merged.xlsx" }, () =>
+            URL.revokeObjectURL(url)
+          );
+          addLog("Excel 合并完成");
+        })());
       }
 
       // 如选择了 JSON，则合并并下载 merged.json
       if (jsonFilesToMerge.length) {
-        addLog(`开始合并 JSON (${jsonFilesToMerge.length} 个)`);
-        const mergedJsonStr = await mergeJsons(jsonFilesToMerge, sortFlag, addLog);
-        const blob = new Blob([mergedJsonStr], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        chrome.downloads.download({ url, filename: "merged.json" }, () =>
-          URL.revokeObjectURL(url)
-        );
-        addLog("JSON 合并完成");
+        tasks.push((async () => {
+          addLog(`开始合并 JSON (${jsonFilesToMerge.length} 个)`);
+          const mergedJsonStr = await mergeJsons(jsonFilesToMerge, sortFlag, addLog);
+          const blob = new Blob([mergedJsonStr], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          chrome.downloads.download({ url, filename: "merged.json" }, () =>
+            URL.revokeObjectURL(url)
+          );
+          addLog("JSON 合并完成");
+        })());
+      }
+      if (tasks.length) {
+        await Promise.all(tasks);
       }
       addLog(t("done"));
     } catch (e) {
@@ -521,11 +527,13 @@ export default function App() {
     const allNameCodes = [];
     Object.values(dict.elements).forEach(characterArray => {
       characterArray.forEach(details => {
-        allNameCodes.push(details.name_code);
+        if (details.name_code !== undefined && details.name_code !== null && details.name_code !== "") {
+          allNameCodes.push(details.name_code);
+        }
       });
     });
-    
-    if (allNameCodes.length === 0) return;
+    const uniqueNameCodes = Array.from(new Set(allNameCodes));
+    if (uniqueNameCodes.length === 0) return;
     
     try {
       // 首先获取所有角色的基础信息（包含core和grade）
@@ -536,9 +544,12 @@ export default function App() {
       userCharacters.forEach(char => {
         userCharMap[char.name_code] = char;
       });
-      
-      // 批量获取角色详情和装备信息
-      const characterDetails = await getCharacterDetails(areaId, allNameCodes);
+      const ownedSet = new Set(userCharacters.map((char) => char.name_code));
+      const filteredNameCodes = uniqueNameCodes.filter((code) => ownedSet.has(code));
+      if (filteredNameCodes.length === 0) return;
+
+      // 批量获取角色详情和装备信息（一次请求）
+      const characterDetails = await getCharacterDetails(areaId, filteredNameCodes);
       
       // 创建name_code到详情的映射
       const detailsMap = {};
@@ -732,6 +743,8 @@ export default function App() {
           <img
             src={iconUrl}
             alt="logo"
+            width={32}
+            height={32}
             style={{ width: 32, height: 32, marginRight: 8 }}
           />
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
@@ -739,7 +752,13 @@ export default function App() {
           </Typography>
           <Box display="flex" alignItems="center" sx={{ ml: 1, color: "white" }}>
             <Typography variant="caption">中文</Typography>
-            <Switch size="small" color="default" checked={lang === "en"} onChange={toggleLang} />
+            <Switch
+              size="small"
+              color="default"
+              checked={lang === "en"}
+              onChange={toggleLang}
+              inputProps={{ "aria-label": t("langLabel") }}
+            />
             <Typography variant="caption">EN</Typography>
           </Box>
         </Toolbar>
@@ -751,6 +770,7 @@ export default function App() {
           exclusive
           fullWidth
           onChange={handleTabChange}
+          aria-label={t("crawlerTab")}
           sx={{ mb: 2 }}
         >
           <ToggleButton value="crawler">{t("crawlerTab")}</ToggleButton>
@@ -834,6 +854,7 @@ export default function App() {
                   fullWidth
                   value={server}
                   onChange={changeServer}
+                  inputProps={{ "aria-label": t("server") }}
                 >
                   <MenuItem value="hmt">{t("hmt")}</MenuItem>
                   <MenuItem value="global">{t("global")}</MenuItem>
@@ -900,6 +921,7 @@ export default function App() {
                   fullWidth
                   value={sortFlag}
                   onChange={handleSortChange}
+                  inputProps={{ "aria-label": t("mergeOption") }}
                 >
                   <MenuItem value="1">{t("nameAsc")}</MenuItem>
                   <MenuItem value="2">{t("nameDesc")}</MenuItem>
