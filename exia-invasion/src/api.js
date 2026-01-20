@@ -74,6 +74,29 @@ const postJson = async (url, bodyObj) => {
   return res.json();
 };
 
+/**
+ * 带账号标识的 POST 请求（用于并发模式）
+ * 在 URL 后附加 _acct_id 参数，由 declarativeNetRequest 规则注入对应 Cookie
+ * @param {string} url - 请求 URL
+ * @param {object} bodyObj - 请求体
+ * @param {string} accountId - 账号 ID
+ * @returns {Promise<object>} - 响应 JSON
+ */
+const postJsonWithAccount = async (url, bodyObj, accountId) => {
+  // 在 URL 后附加账号标识参数
+  const separator = url.includes("?") ? "&" : "?";
+  const urlWithId = `${url}${separator}_acct_id=${accountId}`;
+  
+  const res = await fetch(urlWithId, {
+    method: "POST",
+    headers: buildHeader(),
+    body: JSON.stringify(bodyObj),
+    credentials: "omit", // 不携带浏览器 Cookie，由拦截器注入
+  });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.json();
+};
+
 /* ========== 游戏API接口 ========== */
 
 // 从Cookie中获取intl_open_id
@@ -389,6 +412,258 @@ export const getUserCharacters = async (areaId) => {
     console.error("获取用户角色列表失败:", error);
     throw error;
   }
+};
+
+/* ========== 并发模式专用 API（使用账号标识隔离请求） ========== */
+
+/**
+ * 从账号 Cookie 字符串中解析指定 cookie 值
+ * @param {string} cookieStr - Cookie 字符串
+ * @param {string} name - Cookie 名称
+ * @returns {string|null}
+ */
+const parseCookieValue = (cookieStr, name) => {
+  if (!cookieStr) return null;
+  const match = cookieStr.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
+  return match ? match[1] : null;
+};
+
+/**
+ * 验证账号 Cookie 是否有效（并发模式）
+ * @param {{id: string, cookie: string}} account - 账号对象
+ * @returns {Promise<{valid: boolean, roleInfo?: {role_name: string, area_id: string}, error?: string}>}
+ */
+export const validateCookieWithAccount = async (account) => {
+  if (!account.cookie) {
+    return { valid: false, error: "无 Cookie" };
+  }
+  
+  try {
+    const resp = await postJsonWithAccount(
+      "https://api.blablalink.com/api/ugc/direct/standalonesite/User/GetUserGamePlayerInfo",
+      {},
+      account.id
+    );
+    
+    const areaId = resp?.data?.area_id;
+    const roleName = resp?.data?.role_name || "";
+    
+    if (!areaId) {
+      return { valid: false, error: "area_id 为空" };
+    }
+    
+    // 尝试获取更详细的信息
+    const intlOpenId = parseCookieValue(account.cookie, "game_openid") || "";
+    const payload = { nikke_area_id: parseInt(areaId) };
+    if (intlOpenId) payload.intl_open_id = intlOpenId;
+    
+    const basicResp = await postJsonWithAccount(
+      "https://api.blablalink.com/api/game/proxy/Game/GetUserProfileBasicInfo",
+      payload,
+      account.id
+    ).catch(() => null);
+    
+    const finalName = basicResp?.data?.basic_info?.nickname || roleName || "";
+    
+    return {
+      valid: true,
+      roleInfo: {
+        role_name: finalName,
+        area_id: String(areaId)
+      }
+    };
+  } catch (error) {
+    return { valid: false, error: error.message };
+  }
+};
+
+/**
+ * 获取前哨信息（并发模式）
+ * @param {{id: string, cookie: string}} account - 账号对象
+ * @param {string} areaId - 区域 ID
+ * @returns {Promise<{synchroLevel: number, outpostLevel: number}>}
+ */
+export const getOutpostInfoWithAccount = async (account, areaId) => {
+  if (!areaId) return { synchroLevel: 0, outpostLevel: 0 };
+  
+  try {
+    const resp = await postJsonWithAccount(
+      "https://api.blablalink.com/api/game/proxy/Game/GetUserProfileOutpostInfo",
+      { nikke_area_id: parseInt(areaId) },
+      account.id
+    );
+    const info = resp?.data?.outpost_info || {};
+    return {
+      synchroLevel: Number.isFinite(info.synchro_level) ? info.synchro_level : 0,
+      outpostLevel: Number.isFinite(info.outpost_battle_level) ? info.outpost_battle_level : 0,
+    };
+  } catch (error) {
+    console.warn("获取前哨信息失败:", error);
+    return { synchroLevel: 0, outpostLevel: 0 };
+  }
+};
+
+/**
+ * 获取主线进度（并发模式）
+ * @param {{id: string, cookie: string}} account - 账号对象
+ * @param {string} areaId - 区域 ID
+ * @param {object} catalogMapObj - 主线目录映射
+ * @returns {Promise<{normal: string, hard: string}>}
+ */
+export const getCampaignProgressWithAccount = async (account, areaId, catalogMapObj) => {
+  if (!areaId) return { normal: "", hard: "" };
+  
+  const intlOpenId = parseCookieValue(account.cookie, "game_openid") || "";
+  
+  try {
+    const payload = { nikke_area_id: parseInt(areaId) };
+    if (intlOpenId) payload.intl_open_id = intlOpenId;
+    
+    const resp = await postJsonWithAccount(
+      "https://api.blablalink.com/api/game/proxy/Game/GetUserProfileBasicInfo",
+      payload,
+      account.id
+    );
+    
+    const info = resp?.data?.basic_info || {};
+    const normalId = info.progress_normal_campaign ?? info.progress_campaign_normal ?? info.progress_normal ?? 0;
+    const hardId = info.progress_hard_campaign ?? info.progress_campaign_hard ?? info.progress_hard ?? 0;
+    
+    return {
+      normal: mapStageIdToShortName(catalogMapObj || {}, normalId),
+      hard: mapStageIdToShortName(catalogMapObj || {}, hardId),
+    };
+  } catch (error) {
+    console.warn("获取主线进度失败:", error);
+    return { normal: "", hard: "" };
+  }
+};
+
+/**
+ * 获取用户角色列表（并发模式）
+ * @param {{id: string, cookie: string}} account - 账号对象
+ * @param {string} areaId - 区域 ID
+ * @returns {Promise<Array>}
+ */
+export const getUserCharactersWithAccount = async (account, areaId) => {
+  const intlOpenId = parseCookieValue(account.cookie, "game_openid") || "";
+  
+  try {
+    const resp = await postJsonWithAccount(
+      "https://api.blablalink.com/api/game/proxy/Game/GetUserCharacters",
+      {
+        intl_open_id: intlOpenId,
+        nikke_area_id: parseInt(areaId)
+      },
+      account.id
+    );
+    
+    if (resp?.data?.characters) {
+      return resp.data.characters.map(char => ({
+        name_code: char.name_code,
+        lv: char.lv || 1,
+        combat: char.combat || 0,
+        core: char.core || 0,
+        grade: char.grade || 0,
+        costume_id: char.costume_id || 0
+      }));
+    }
+    return [];
+  } catch (error) {
+    console.error("获取用户角色列表失败:", error);
+    throw error;
+  }
+};
+
+/**
+ * 获取角色详情（并发模式）
+ * @param {{id: string, cookie: string}} account - 账号对象
+ * @param {string} areaId - 区域 ID
+ * @param {Array<string>} nameCodes - 角色 name_code 列表
+ * @returns {Promise<Array>}
+ */
+export const getCharacterDetailsWithAccount = async (account, areaId, nameCodes) => {
+  const intlOpenId = parseCookieValue(account.cookie, "game_openid") || "";
+  const allCharacterDetails = [];
+  const allStateEffects = [];
+
+  const uniqueCodes = Array.isArray(nameCodes)
+    ? Array.from(new Set(nameCodes.filter((v) => v !== undefined && v !== null && v !== "")))
+    : [];
+  if (uniqueCodes.length === 0) return [];
+
+  try {
+    const response = await postJsonWithAccount(
+      "https://api.blablalink.com/api/game/proxy/Game/GetUserCharacterDetails",
+      {
+        intl_open_id: intlOpenId,
+        nikke_area_id: parseInt(areaId),
+        name_codes: uniqueCodes
+      },
+      account.id
+    );
+
+    if (response?.data?.character_details) {
+      allCharacterDetails.push(...response.data.character_details);
+    }
+    if (response?.data?.state_effects) {
+      allStateEffects.push(...response.data.state_effects);
+    }
+  } catch (error) {
+    console.warn("获取角色详情失败:", error.message);
+  }
+  
+  // 创建state_effects的映射表，便于查找
+  const effectsMap = {};
+  allStateEffects.forEach(effect => {
+    effectsMap[effect.id] = effect;
+  });
+  
+  return allCharacterDetails.map(char => {
+    const limitBreak = {
+      grade: char.grade || 0,
+      core: char.core || 0
+    };
+    
+    const equipments = {};
+    const equipSlots = ['head', 'torso', 'arm', 'leg'];
+    
+    equipSlots.forEach((slot, idx) => {
+      const details = [];
+      for (let i = 1; i <= 3; i++) {
+        const optionKey = `${slot}_equip_option${i}_id`;
+        const optionId = char[optionKey];
+        if (optionId && optionId !== 0) {
+          const effect = effectsMap[optionId.toString()];
+          if (effect && effect.function_details) {
+            effect.function_details.forEach(func => {
+              details.push({
+                function_type: func.function_type,
+                function_value: Math.abs(func.function_value) / 100,
+                level: func.level,
+              });
+            });
+          }
+        }
+      }
+      equipments[idx] = details;
+    });
+    
+    return {
+      name_code: char.name_code,
+      lv: char.lv || 1,
+      skill1_lv: char.skill1_lv || 1,
+      skill2_lv: char.skill2_lv || 1,
+      ulti_skill_lv: char.ulti_skill_lv || 1,
+      favorite_item_lv: char.favorite_item_lv || 0,
+      favorite_item_tid: char.favorite_item_tid || 0,
+      combat: char.combat || 0,
+      limitBreak: limitBreak,
+      equipments: equipments,
+      cube_id: char.harmony_cube_tid || 0,
+      cube_level: char.harmony_cube_lv || 0
+    };
+  });
 };
 
 // 保持兼容性的旧接口（已废弃，但保留以防其他地方调用）

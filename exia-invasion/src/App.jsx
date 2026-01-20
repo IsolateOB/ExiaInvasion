@@ -31,9 +31,10 @@ import { computeAELForDict } from "./ael.js";
 import TRANSLATIONS from "./translations";
 import { getAccounts, setAccounts, getSettings, setSettings, getCharacters, setCharacters } from "./storage";
 import { applyCookieStr, clearSiteCookies, getCurrentCookies } from "./cookie.js";
-import { loadBaseAccountDict, getRoleName, getOutpostInfo, getCharacterDetails, getUserCharacters, prefetchMainlineCatalog, getCampaignProgress } from "./api.js";
+import { loadBaseAccountDict, getRoleName, prefetchMainlineCatalog, validateCookieWithAccount, getOutpostInfoWithAccount, getCampaignProgressWithAccount, getUserCharactersWithAccount, getCharacterDetailsWithAccount } from "./api.js";
 import { mergeWorkbooks, mergeJsons } from "./merge.js";
 import { v4 as uuidv4 } from "uuid";
+import { registerCookieRules, unregisterAllRules } from "./requestInterceptor.js";
 
 // ========== React 主组件 ==========
 export default function App() {
@@ -242,13 +243,17 @@ export default function App() {
     }
   };
   
-  // ========== 数据爬取主流程 ==========
+  // ========== 数据爬取主流程（并发模式） ==========
   const handleStart = async () => {
     setLogs([]);
     setLoading(true);
     
     // 保存当前的cookie，以便运行完成后恢复
     let originalCookies = "";
+    
+    // 并发控制参数
+    const BATCH_SIZE = 5;        // 每批次最大并发数
+    const STAGGER_DELAY = 1000;  // 批次内请求间隔（毫秒）
     
     try {
       // 保存原始cookie
@@ -275,6 +280,7 @@ export default function App() {
       }
       
       addLog(t("starting"));
+      addLog(`共 ${accounts.length} 个账号，开始并发验证...`);
       
       // 预抓取主线目录（仅执行一次）
       let catalogMap = {};
@@ -285,214 +291,211 @@ export default function App() {
       }
 
       const zip = new JSZip();
-      const excelMime =
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+      const excelMime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
       
-      // 统计成功和失败的账号
-      const successAccounts = [];
-      const failedAccounts = [];
+      // ========== 阶段1: 并发验证所有账号 Cookie ==========
+      addLog(`----------------------------`);
+      addLog(`[阶段1] 并发验证 Cookie...`);
       
-      // ========== 步骤2: 遍历每个账号 ==========
-      for (let i = 0; i < accounts.length; ++i) {
-        await clearSiteCookies(); // 清除之前的Cookie，避免干扰
-        const acc = { ...accounts[i] }; // 浅拷贝，避免直接修改状态
+      // 注册拦截规则
+      await registerCookieRules(accounts);
+      
+      const validAccounts = [];   // Cookie有效的账号
+      const invalidAccounts = []; // 需要重新登录的账号
+      const noCredAccounts = [];  // 没有密码无法重登的账号
+      
+      // 分批并发验证
+      for (let batchStart = 0; batchStart < accounts.length; batchStart += BATCH_SIZE) {
+        const batch = accounts.slice(batchStart, batchStart + BATCH_SIZE);
+        
+        // 批次内交错发起请求
+        const batchPromises = batch.map((acc, idx) => {
+          const delay = idx * STAGGER_DELAY;
+          return (async () => {
+            await new Promise(r => setTimeout(r, delay));
+            const result = await validateCookieWithAccount(acc);
+            return { acc, result };
+          })();
+        });
+        
+        const batchResults = await Promise.all(batchPromises);
+        
+        for (const { acc, result } of batchResults) {
+          if (result.valid) {
+            validAccounts.push({ ...acc, roleInfo: result.roleInfo });
+            addLog(`✓ ${acc.username || acc.name || t("noName")} - Cookie 有效`);
+          } else {
+            if (acc.password) {
+              invalidAccounts.push(acc);
+              addLog(`✗ ${acc.username || acc.name || t("noName")} - Cookie 失效，待重登`);
+            } else {
+              noCredAccounts.push({ acc, reason: result.error || "Cookie 失效且无密码" });
+              addLog(`✗ ${acc.username || acc.name || t("noName")} - ${result.error || "Cookie 失效"}，无密码跳过`);
+            }
+          }
+        }
+      }
+      
+      addLog(`验证完成: ${validAccounts.length} 有效, ${invalidAccounts.length} 待重登, ${noCredAccounts.length} 无法处理`);
+      
+      // ========== 阶段2: 串行重新登录失效账号 ==========
+      if (invalidAccounts.length > 0) {
         addLog(`----------------------------`);
-        addLog(`${t("processAccount")}${acc.name || acc.username || t("noName")}`);
+        addLog(`[阶段2] 串行重新登录 ${invalidAccounts.length} 个账号...`);
         
-        // 2-1. 获取可用的Cookie——优先本地缓存，其次邮箱/密码登录
-        let cookieStr = acc.cookie || "";
-        let usedSavedCookie = false;
-        
-        if (cookieStr) {
-          addLog(t("loginWithCookie"));
-          await applyCookieStr(cookieStr);
-          usedSavedCookie = true;
-        }
-        
-        if (!cookieStr) {
-          if (!acc.password) {
-            addLog(t("noPwd"));
-            failedAccounts.push({ name: acc.name || acc.username || t("noName"), reason: t("noPwd") });
-            continue;
-          }
-          addLog(t("loginWithPwd"));
+        for (const acc of invalidAccounts) {
+          addLog(`正在登录: ${acc.username || acc.name || acc.email || t("noName")}`);
+          
           try {
+            // 清除浏览器 Cookie 并执行登录
+            await clearSiteCookies();
             await loginAndGetCookie(acc, server);
-          } catch (e) {
-            addLog(`${t("loginFail")}${e}`);
-            failedAccounts.push({ name: acc.name || acc.username || t("noName"), reason: t("loginFail") });
-            continue;
-          }
-        }
-        
-        /* 2-2. 校验 Cookie 是否有效，顺带拿角色名和区域ID */
-        let roleInfo = { role_name: "", area_id: "" };
-        try {
-          roleInfo = await getRoleName();
-          console.log(`角色名：${roleInfo.role_name}, 区域ID：${roleInfo.area_id}`);
-          // 空昵称不再直接判定为 Cookie 失效
-        } catch (err) { // 请求异常才认为 Cookie 失效
-          if (usedSavedCookie && acc.password) {
-            addLog(t("cookieExpired"));
-            try {
-              await loginAndGetCookie(acc, server);
-              roleInfo = await getRoleName();
-            } catch (err2) {
-              addLog(`${t("reloginFail")}${err2}`);
-              failedAccounts.push({ name: acc.name || acc.username || t("noName"), reason: t("reloginFail") });
-              continue;
-            }
-          } else {
-            addLog(`${t("getRoleNameFail")}${err}`);
-            failedAccounts.push({ name: acc.name || acc.username || t("noName"), reason: t("getRoleNameFail") });
-            continue;
-          }
-        }
-
-        // 二次校验：若 area_id 缺失或（昵称与旧名都缺）视为 Cookie 失效，尝试重登一次
-        const invalidRole = !roleInfo.area_id || roleInfo.area_id === "";
-        if (invalidRole) {
-          if (usedSavedCookie && acc.password) {
-            addLog(t("cookieExpired"));
-            try {
-              await loginAndGetCookie(acc, server);
-              roleInfo = await getRoleName();
-              if (!roleInfo.area_id) {
-                addLog(t("getRoleNameFail") + "area_id empty after relogin");
-                failedAccounts.push({ name: acc.name || acc.username || t("noName"), reason: "area_id empty" });
-                continue;
+            
+            // 获取新 Cookie
+            const cks = (await chrome.cookies.getAll({}))
+              .filter(c => c.domain.endsWith("blablalink.com"));
+            const newCookieStr = cookieArrToStr(cks);
+            acc.cookie = newCookieStr;
+            
+            // 验证新 Cookie
+            await applyCookieStr(newCookieStr);
+            const roleInfo = await getRoleName();
+            
+            if (roleInfo.area_id) {
+              validAccounts.push({ ...acc, roleInfo });
+              addLog(`✓ ${acc.username || roleInfo.role_name || t("noName")} - 登录成功`);
+              
+              // 回写账号信息
+              if (autoSaveData) {
+                const gameUidCookie = cks.find(c => c.name === "game_uid");
+                if (gameUidCookie) acc.game_uid = gameUidCookie.value;
+                if (roleInfo.role_name) acc.username = roleInfo.role_name;
+                
+                const all = await getAccounts();
+                const idx = all.findIndex(a => a.id === acc.id);
+                if (idx !== -1) all[idx] = acc;
+                await setAccounts(all);
               }
-            } catch (e) {
-              addLog(t("reloginFail") + e);
-              failedAccounts.push({ name: acc.name || acc.username || t("noName"), reason: t("reloginFail") });
-              continue;
+            } else {
+              noCredAccounts.push({ acc, reason: "登录后 area_id 为空" });
+              addLog(`✗ ${acc.username || acc.name || t("noName")} - 登录后验证失败`);
             }
-          } else {
-            addLog(t("getRoleNameFail") + "area_id empty");
-            failedAccounts.push({ name: acc.name || acc.username || t("noName"), reason: "area_id empty" });
-            continue;
+          } catch (err) {
+            noCredAccounts.push({ acc, reason: `登录失败: ${err.message}` });
+            addLog(`✗ ${acc.username || acc.name || t("noName")} - ${err.message}`);
           }
         }
-        addLog(`${t("roleOk")}${roleInfo.role_name}`);
         
-        /* 回写账号cookie、用户名和game_uid */
-        if (autoSaveData) {
-          const cks = (await chrome.cookies.getAll({}))
-            .filter(c => c.domain.endsWith("blablalink.com"));
-          acc.cookie = cookieArrToStr(cks);
-          if (roleInfo.role_name) {
-            acc.username = roleInfo.role_name; // 仅在非空时覆盖用户名
-          }
-          
-          // 提取并保存game_uid
-          const gameUidCookie = cks.find(c => c.name === "game_uid");
-          if (gameUidCookie) {
-            acc.game_uid = gameUidCookie.value;
-          }
-          
-          const all = await getAccounts();
-          const idx = all.findIndex(a => a.id === acc.id);
-          if (idx !== -1) all[idx] = acc;
-          await setAccounts(all);
-          addLog(t("dataUpdated"));
-        }
+        // 更新拦截规则（包含新登录的账号）
+        await registerCookieRules(validAccounts);
+      }
+      
+      if (validAccounts.length === 0) {
+        addLog(`----------------------------`);
+        addLog(`没有可用账号，流程结束`);
+        return;
+      }
+      
+      // ========== 阶段3: 并发爬取数据 ==========
+      addLog(`----------------------------`);
+      addLog(`[阶段3] 并发爬取 ${validAccounts.length} 个账号数据...`);
+      
+      const successAccounts = [];
+      const failedAccounts = [...noCredAccounts.map(({ acc, reason }) => ({ name: acc.username || acc.name || t("noName"), reason }))];
+      
+      // 单个账号的数据爬取函数
+      const crawlAccountData = async (acc) => {
+        const accountName = acc.roleInfo?.role_name || acc.username || acc.name || t("noName");
         
-        // ========== 步骤3: 构建数据字典 ==========
-        let dict;
         try {
-          // 3-1. 载入基础模板并写入账号名 / game_uid / area_id / cookie
-          dict = await loadBaseAccountDict();
-          dict.name = roleInfo.role_name;
-          dict.area_id = roleInfo.area_id;
+          // 构建数据字典
+          const dict = await loadBaseAccountDict();
+          dict.name = acc.roleInfo.role_name;
+          dict.area_id = acc.roleInfo.area_id;
           dict.cookie = acc.cookie || "";
           
-          // 写入 game_uid：优先使用账号已有值；否则尝试从当前 Cookie 读取
-          dict.game_uid = acc.game_uid || "";
-          if (!dict.game_uid) {
-            try {
-              const cks = (await chrome.cookies.getAll({}))
-                .filter(c => c.domain.endsWith("blablalink.com"));
-              const gameUidCookie = cks.find(c => c.name === "game_uid");
-              if (gameUidCookie) dict.game_uid = gameUidCookie.value;
-            } catch {
-              // ignore
-            }
-          }
+          // 解析 game_uid
+          const gameUidMatch = acc.cookie?.match(/game_uid=([^;]*)/);
+          dict.game_uid = acc.game_uid || (gameUidMatch ? gameUidMatch[1] : "");
           
-          // 3-2. 获取同步器等级 + 前哨基地等级
-          if (roleInfo.area_id) {
-            const { synchroLevel, outpostLevel } = await getOutpostInfo(roleInfo.area_id);
-            dict.synchroLevel = synchroLevel;
-            dict.outpostLevel = outpostLevel;
-            // 3-2.2 获取主线进度（Normal/Hard）
-            const prog = await getCampaignProgress(roleInfo.area_id, catalogMap);
-            dict.normalProgress = prog.normal || "";
-            dict.hardProgress = prog.hard || "";
-          } else {
-            addLog(t("getRoleNameFail") + "area_id empty");
-          }
+          // 获取前哨信息
+          const { synchroLevel, outpostLevel } = await getOutpostInfoWithAccount(acc, acc.roleInfo.area_id);
+          dict.synchroLevel = synchroLevel;
+          dict.outpostLevel = outpostLevel;
           
-          // 3-3. 获取角色详情和装备信息（合并请求）
-          await addCharacterDetailsToDict(dict, roleInfo.area_id);
-          // 3-4. 计算 AEL 分并写入字典，便于 JSON 导出携带同样数值
+          // 获取主线进度
+          const prog = await getCampaignProgressWithAccount(acc, acc.roleInfo.area_id, catalogMap);
+          dict.normalProgress = prog.normal || "";
+          dict.hardProgress = prog.hard || "";
+          
+          // 获取角色详情（并发模式版本）
+          await addCharacterDetailsToDictWithAccount(dict, acc);
+          
+          // 计算 AEL 分
           computeAELForDict(dict);
-          addLog(t("characterDetailsOk"));
+          
+          // 生成 Excel
+          const excelBuffer = await saveDictToExcel(dict, lang);
+          
+          return { success: true, accountName, dict, excelBuffer };
         } catch (err) {
-          addLog(`${t("dictFail")}${err}`);
-          failedAccounts.push({ name: acc.name || acc.username || roleInfo.role_name || t("noName"), reason: t("dictFail") });
-          continue;
+          return { success: false, accountName, error: err.message };
         }
+      };
+      
+      // 分批并发爬取
+      for (let batchStart = 0; batchStart < validAccounts.length; batchStart += BATCH_SIZE) {
+        const batch = validAccounts.slice(batchStart, batchStart + BATCH_SIZE);
         
-        // ========== 步骤4: 生成Excel文件 ==========
-        let excelBuffer;
-        try {
-          excelBuffer = await saveDictToExcel(dict, lang);
-        } catch (err) {
-          addLog(`${t("excelFail")}${err}`);
-          failedAccounts.push({ name: acc.name || acc.username || roleInfo.role_name || t("noName"), reason: t("excelFail") });
-          continue;
-        }
+        // 批次内交错发起请求
+        const batchPromises = batch.map((acc, idx) => {
+          const delay = idx * STAGGER_DELAY;
+          return (async () => {
+            await new Promise(r => setTimeout(r, delay));
+            return await crawlAccountData(acc);
+          })();
+        });
         
-        // ========== 步骤5: 导出JSON文件 ==========
-        if (exportJson) {
-          const jsonName = `${roleInfo.role_name || acc.name || acc.username}.json`;
-          if (saveAsZip) {
-            zip.file(jsonName, JSON.stringify(dict, null, 4));
+        const batchResults = await Promise.all(batchPromises);
+        
+        for (const result of batchResults) {
+          if (result.success) {
+            successAccounts.push(result.accountName);
+            addLog(`✓ ${result.accountName} - 数据爬取完成`);
+            
+            // 导出文件
+            if (exportJson) {
+              const jsonName = `${result.accountName}.json`;
+              if (saveAsZip) {
+                zip.file(jsonName, JSON.stringify(result.dict, null, 4));
+              } else {
+                const blob = new Blob([JSON.stringify(result.dict, null, 4)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                chrome.downloads.download({ url, filename: jsonName }, () => URL.revokeObjectURL(url));
+              }
+            }
+            
+            if (saveAsZip) {
+              zip.file(`${result.accountName}.xlsx`, result.excelBuffer);
+            } else {
+              const url = URL.createObjectURL(new Blob([result.excelBuffer], { type: excelMime }));
+              chrome.downloads.download({ url, filename: `${result.accountName}.xlsx` }, () => URL.revokeObjectURL(url));
+            }
           } else {
-            const blob = new Blob([JSON.stringify(dict, null, 4)], {
-              type: "application/json",
-            });
-            const url = URL.createObjectURL(blob);
-            chrome.downloads.download(
-              { url, filename: jsonName },
-              () => URL.revokeObjectURL(url)
-            );
+            failedAccounts.push({ name: result.accountName, reason: result.error });
+            addLog(`✗ ${result.accountName} - ${result.error}`);
           }
         }
-        
-        // ========== 步骤6: 导出Excel文件 ==========
-        if (saveAsZip) {
-          zip.file(`${roleInfo.role_name || acc.name || acc.username}.xlsx`, excelBuffer);
-        } else {
-          const url = URL.createObjectURL(new Blob([excelBuffer], { type: excelMime }));
-          chrome.downloads.download(
-            { url, filename: `${roleInfo.role_name || acc.name || acc.username}.xlsx` },
-            () => URL.revokeObjectURL(url)
-          );
-        }
-        
-        // 记录成功的账号
-        successAccounts.push(roleInfo.role_name || acc.name || acc.username || t("noName"));
-      } // for-loop 结束
+      }
       
-      /* ---------- 步骤6: 完成所有账号处理 ---------- */
-      if (saveAsZip) {
+      // 清理拦截规则
+      await unregisterAllRules();
+      
+      // 导出 ZIP
+      if (saveAsZip && successAccounts.length > 0) {
         const zipBlob = await zip.generateAsync({ type: "blob" });
         const url = URL.createObjectURL(zipBlob);
-        chrome.downloads.download(
-          { url, filename: "accounts.zip" },
-          () => URL.revokeObjectURL(url)
-        );
+        chrome.downloads.download({ url, filename: "accounts.zip" }, () => URL.revokeObjectURL(url));
       }
       
       // 输出统计信息
@@ -511,6 +514,8 @@ export default function App() {
     } catch (e) {
       setLogs((l) => [...l, `[异常] ${e}`]);
       addLog(`${t("fail")}${e}`);
+      // 确保清理规则
+      await unregisterAllRules().catch(() => {});
     } finally {
       // 恢复原始cookie
       if (originalCookies) {
@@ -521,9 +526,8 @@ export default function App() {
     }
   };
   
-  /* ========== 辅助函数：填充角色详情和装备信息 ========== */
-  const addCharacterDetailsToDict = async (dict, areaId) => {
-    // 收集所有需要查询的name_codes
+  /* ========== 辅助函数：填充角色详情（并发模式版本） ========== */
+  const addCharacterDetailsToDictWithAccount = async (dict, account) => {
     const allNameCodes = [];
     Object.values(dict.elements).forEach(characterArray => {
       characterArray.forEach(details => {
@@ -536,42 +540,33 @@ export default function App() {
     if (uniqueNameCodes.length === 0) return;
     
     try {
-      // 首先获取所有角色的基础信息（包含core和grade）
-      const userCharacters = await getUserCharacters(areaId);
+      const userCharacters = await getUserCharactersWithAccount(account, account.roleInfo.area_id);
       
-      // 创建name_code到基础信息的映射
       const userCharMap = {};
       userCharacters.forEach(char => {
         userCharMap[char.name_code] = char;
       });
-      const ownedSet = new Set(userCharacters.map((char) => char.name_code));
-      const filteredNameCodes = uniqueNameCodes.filter((code) => ownedSet.has(code));
+      const ownedSet = new Set(userCharacters.map(char => char.name_code));
+      const filteredNameCodes = uniqueNameCodes.filter(code => ownedSet.has(code));
       if (filteredNameCodes.length === 0) return;
 
-      // 批量获取角色详情和装备信息（一次请求）
-      const characterDetails = await getCharacterDetails(areaId, filteredNameCodes);
+      const characterDetails = await getCharacterDetailsWithAccount(account, account.roleInfo.area_id, filteredNameCodes);
       
-      // 创建name_code到详情的映射
       const detailsMap = {};
       characterDetails.forEach(detail => {
         detailsMap[detail.name_code] = detail;
       });
       
-      // 更新dict中的角色信息
       Object.keys(dict.elements).forEach(elementKey => {
         const characterArray = dict.elements[elementKey];
         characterArray.forEach(details => {
           const charDetail = detailsMap[details.name_code];
           if (charDetail) {
-            // 更新技能等级
             details.skill1_level = charDetail.skill1_lv;
             details.skill2_level = charDetail.skill2_lv;
             details.skill_burst_level = charDetail.ulti_skill_lv;
-            
-            // 更新珍藏品信息
             details.item_level = charDetail.favorite_item_lv >= 0 ? charDetail.favorite_item_lv : "";
             
-            // 根据favorite_item_tid判断珍藏品稀有度
             if (charDetail.favorite_item_tid) {
               const tidStr = charDetail.favorite_item_tid.toString();
               const firstDigit = parseInt(tidStr.charAt(0));
@@ -580,13 +575,7 @@ export default function App() {
               if (firstDigit === 2) {
                 details.item_rare = "SSR";
               } else if (firstDigit === 1) {
-                if (lastDigit === 1) {
-                  details.item_rare = "R";
-                } else if (lastDigit === 2) {
-                  details.item_rare = "SR";
-                } else {
-                  details.item_rare = "";
-                }
+                details.item_rare = lastDigit === 1 ? "R" : lastDigit === 2 ? "SR" : "";
               } else {
                 details.item_rare = "";
               }
@@ -594,30 +583,17 @@ export default function App() {
               details.item_rare = "";
             }
             
-            // 更新突破信息（优先使用getUserCharacters的数据）
             const userChar = userCharMap[details.name_code];
             if (userChar) {
-              details.limit_break = {
-                grade: userChar.grade,
-                core: userChar.core
-              };
+              details.limit_break = { grade: userChar.grade, core: userChar.core };
             } else if (charDetail) {
-              // 如果getUserCharacters没有数据，使用详情API的数据作为备用
-              details.limit_break = {
-                grade: charDetail.limitBreak?.grade || 0,
-                core: charDetail.limitBreak?.core || 0
-              };
+              details.limit_break = { grade: charDetail.limitBreak?.grade || 0, core: charDetail.limitBreak?.core || 0 };
             } else {
-              details.limit_break = {
-                grade: 0,
-                core: 0
-              };
+              details.limit_break = { grade: 0, core: 0 };
             }
             
-            // 更新装备信息
             details.equipments = charDetail.equipments;
             
-            // 更新魔方等级（如果角色有魔方信息）
             if (charDetail.cube_id && charDetail.cube_level) {
               const cube = dict.cubes.find(c => c.cube_id === charDetail.cube_id);
               if (cube && charDetail.cube_level > cube.cube_level) {
@@ -712,8 +688,8 @@ export default function App() {
       args: [{ email: acc.email, password: acc.password, server: serverFlag }],
     });
     
-    await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error("login timeout")), 15000);
+    await new Promise((resolve) => {
+      // 移除超时限制，允许用户充分时间处理验证码
       const onChanged = (chg) => {
         const c = chg.cookie;
         if (
@@ -722,7 +698,6 @@ export default function App() {
           c.name === "game_token"
         ) {
           chrome.cookies.onChanged.removeListener(onChanged);
-          clearTimeout(timeout);
           resolve();
         }
       };
