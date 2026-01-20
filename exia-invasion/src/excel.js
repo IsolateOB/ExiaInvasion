@@ -3,6 +3,8 @@
 import ExcelJS from "exceljs";
 import { computeAELScore, isUnowned, getEquipSumStats } from './ael.js';
 import TRANSLATIONS from './translations.js';
+import { getNikkeAvatarUrl } from './nikkeAvatar.js';
+import { fetchAndCacheNikkeDirectory, getCachedNikkeDirectory } from './api.js';
 
 // 边框样式定义
 const mediumSide = { style: "medium", color: { argb: "FF000000" } };
@@ -42,6 +44,25 @@ const setVerticalBorder = (ws, r1, r2, col, side = thinSide, pos = "right") => {
 const setHorizontalBorder = (ws, row, c1, c2, side = thinSide, pos = "bottom") => {
   for (let c = c1; c <= c2; ++c)
     ws.getCell(row, c).border = { ...ws.getCell(row, c).border, [pos]: side };
+};
+
+const getAvatarFillByElement = (elementName) => {
+  // 颜色：
+  // 电击(Electronic) #FF00FF
+  // 风压(Wind)       #00FF16
+  // 燃烧(Fire)       #FF0000
+  // 水冷(Water)      #007EFF
+  // 铁甲(Iron)       #FF9201
+  const map = {
+    Electronic: "FFFF00FF",
+    Wind: "FF00FF16",
+    Fire: "FFFF0000",
+    Water: "FF007EFF",
+    Iron: "FFFF9201",
+  };
+  const argb = map[elementName];
+  if (!argb) return null;
+  return { type: "pattern", pattern: "solid", fgColor: { argb } };
 };
 
 /* ========== 数据格式化函数 ========== */
@@ -105,10 +126,46 @@ const getFontByLevel = (lvl) => {
 /* ========== 主函数：生成Excel表格 ========== */
 export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) => TRANSLATIONS[lang][key] || key;
   const wb = new ExcelJS.Workbook();
+  // 确保打开文件时强制重算，避免新函数/外部数据导致初始缓存结果（如 #NAME?）
+  wb.calcProperties.fullCalcOnLoad = true;
   const ws = wb.addWorksheet(t("playerInfo"));
+
+  // 词条细节：折叠时隐藏 4 行装备细节，仅显示“总和”
+  const showEquipDetails = dict?.options?.showEquipDetails !== false;
+
+  // 角色头像需要 resource_id：优先读缓存目录，缺失则在线拉取一次
+  let nikkeDir = [];
+  try {
+    nikkeDir = await getCachedNikkeDirectory();
+  } catch {
+    nikkeDir = [];
+  }
+  if (!Array.isArray(nikkeDir) || nikkeDir.length === 0) {
+    try {
+      nikkeDir = await fetchAndCacheNikkeDirectory();
+    } catch {
+      nikkeDir = [];
+    }
+  }
+  const resourceIdMap = new Map();
+  if (Array.isArray(nikkeDir)) {
+    for (const n of nikkeDir) {
+      if (!n) continue;
+      if (n.id === undefined || n.id === null) continue;
+      if (n.resource_id === undefined || n.resource_id === null || n.resource_id === "") continue;
+      resourceIdMap.set(n.id, n.resource_id);
+    }
+  }
   
-  // 设置行高
-  [1,2,3].forEach(r => ws.getRow(r).height = 25);
+  // 设置行高（第1行头像更高；第2行名称；第3行表头）
+  ws.getRow(1).height = 60;
+  ws.getRow(2).height = 25;
+  ws.getRow(3).height = 25;
+
+  // 装备细节行：5-8（4 行）。折叠细节时隐藏它们，等价于“折叠 4 行”
+  for (let r = 5; r <= 8; r++) {
+    ws.getRow(r).hidden = !showEquipDetails;
+  }
   
   /* ========== 基本信息区：序号/名称/同步器 ========== */
   // 表头合并单元格：A1:B3 和 C1:C3
@@ -138,7 +195,8 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
   setOuterBorder(ws,4,1,8,3,mediumSide);
   setVerticalBorder(ws, 1, 8, 3, mediumSide, "left");
     /* ========== 角色信息区 ========== */
-  const widthPerChar = 17; // 固定包含攻优突破分列
+  // 角色块宽度：与属性列一一对应（第1行=名称合并；第2行=头像合并）
+  const widthPerChar = 17;
   // 将 AEL 列移至人物块最右侧
   const propertyKeys = [
     "limit_break","skill1_level","skill2_level","skill_burst_level",
@@ -161,19 +219,10 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
   const t10Idx = propertyLabels.findIndex(lbl => lbl === t("t10"));
   const itemLevelIdx = propertyKeys.indexOf("item_level");
 
-  const equipRowLabels = [t("head"), t("torso"), t("arm"), t("leg"), t("total")];
+  // 将“总和”放在第 4 行（首行），避免隐藏细节行后看不到突破/技能等合并单元格内容
+  const equipRowLabels = [t("total"), t("head"), t("torso"), t("arm"), t("leg")];
 
-  // 元素名称映射，用于显示，固定排序
-  const elementMapping = {
-    "Electronic": t("electronic"),
-    "Fire": t("fire"), 
-    "Wind": t("wind"),
-    "Water": t("water"),
-    "Iron": t("iron"),
-    "Utility": t("utility")
-  };
-  
-  // 固定的元素顺序
+  // 固定的元素顺序（仍按元素顺序拼接，但不再输出“元素分类”表头行）
   const elementOrder = ["Electronic", "Fire", "Wind", "Water", "Iron", "Utility"];    let startCol = 4;
   for (const elementName of elementOrder) {
     const charsArray = Array.isArray(dict.elements[elementName]) ? dict.elements[elementName] : [];
@@ -181,50 +230,68 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
     
     if (charsArray.length === 0) continue; // 跳过空元素
     
-    // 元素表头 - 使用映射的名称
-    ws.mergeCells(1,startCol,1,startCol+totalWidth-1);
-    const elemCell = ws.getCell(1,startCol);
-    elemCell.value = elementMapping[elementName] || elementName;
-    elemCell.alignment = { horizontal:"center", vertical:"middle" };
-    elemCell.font = { bold:true };
-    setOuterBorder(ws,1,startCol,1,startCol+totalWidth-1,mediumSide);
-    
     let colCursor = startCol;
     for (const charInfo of charsArray) {
-      // 角色名行
-      ws.mergeCells(2,colCursor,2,colCursor+widthPerChar-1);
-      const cChar = ws.getCell(2,colCursor);
-      // 使用对应语言的角色名称
+      // 第1行：头像（整块合并，占用所有合并单元格）
+      ws.mergeCells(1, colCursor, 1, colCursor + widthPerChar - 1);
+      const avatarCell = ws.getCell(1, colCursor);
+      avatarCell.value = "";
+      avatarCell.alignment = { horizontal: "center", vertical: "middle" };
+
+      // 按元素给头像区域填充底色（整个合并区域都填充，避免仅左上角生效）
+      const avatarFill = getAvatarFillByElement(elementName);
+      if (avatarFill) {
+        for (let c = colCursor; c <= colCursor + widthPerChar - 1; c++) {
+          ws.getCell(1, c).fill = avatarFill;
+        }
+      }
+
+      // 第2行：人物名称（整块合并）
+      ws.mergeCells(2, colCursor, 2, colCursor + widthPerChar - 1);
+      const nameCell = ws.getCell(2, colCursor);
       const characterName = lang === "en" ? charInfo.name_en : charInfo.name_cn;
-      cChar.value = characterName || charInfo.id;
-      cChar.alignment = { horizontal:"center", vertical:"middle" };
-      // 下方细线
-      setHorizontalBorder(ws,2,colCursor,colCursor+widthPerChar-1,thinSide,"bottom");
+      nameCell.value = characterName || charInfo.id;
+      nameCell.alignment = { horizontal: "center", vertical: "middle" };
+
+      // 下方细线：头像行下方（第1行）
+      setHorizontalBorder(ws,1,colCursor,colCursor+widthPerChar-1,thinSide,"bottom");
+
+      // 属性列起始（与人物块起始列一致；头像仅占用第2行）
+      const baseCol = colCursor;
+
+      // 使用 Excel IMAGE() 公式：支持 IMAGE 的 Excel 会把图片作为“单元格内图片”渲染
+      // 不支持 IMAGE 的版本会显示 #NAME?（这是预期行为）
+      const avatarUrl = getNikkeAvatarUrl(charInfo, resourceIdMap);
+      if (avatarUrl) {
+        const safeUrl = String(avatarUrl).replace(/"/g, '""');
+        // 使用 _xlfn 前缀写入新函数，Excel 365 打开时更稳定识别；旧版依旧会显示 #NAME?
+        avatarCell.value = { formula: `_xlfn.IMAGE("${safeUrl}")`, result: "" };
+      }
       
       // 优先级颜色设置
       switch(charInfo.priority){
         case "black":
-          cChar.fill = { type:"pattern", pattern:"solid", fgColor:{argb:"FF000000"}};
-          cChar.font = { color:{argb:"FFFFFF"}, bold:true };
+          nameCell.fill = { type:"pattern", pattern:"solid", fgColor:{argb:"FF000000"}};
+          nameCell.font = { color:{argb:"FFFFFF"}, bold:true };
           break;
         case "red":
-          cChar.fill = { type:"pattern", pattern:"solid", fgColor:{argb:"FF7777"}};
-          cChar.font = { color:{argb:"FFFFFF"}, bold:true };
+          nameCell.fill = { type:"pattern", pattern:"solid", fgColor:{argb:"FF7777"}};
+          nameCell.font = { color:{argb:"FFFFFF"}, bold:true };
           break;
         case "blue":
-          cChar.fill = { type:"pattern", pattern:"solid", fgColor:{argb:"99CCFF"}};
-          cChar.font = { bold:true };
+          nameCell.fill = { type:"pattern", pattern:"solid", fgColor:{argb:"99CCFF"}};
+          nameCell.font = { bold:true };
           break;
         case "yellow":
-          cChar.fill = { type:"pattern", pattern:"solid", fgColor:{argb:"FFFF88"}};
-          cChar.font = { bold:true };
+          nameCell.fill = { type:"pattern", pattern:"solid", fgColor:{argb:"FFFF88"}};
+          nameCell.font = { bold:true };
           break;
       }
       
       // 属性列标签行
       propertyLabels.forEach((lbl,i)=>{
         if(lbl===null) return;
-        const colIdx = colCursor + i;
+        const colIdx = baseCol + i;
         // "道具"表头覆盖两列（稀有度+等级）
         if(lbl === t("item")) ws.mergeCells(3,colIdx,3,colIdx+1);
         const headCell = ws.getCell(3,colIdx);
@@ -250,27 +317,27 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
       let baseOffset = 0;
       // AEL列保持合并但不写占位值；仅在有数据时回填分数
       if (!unowned) {
-        ws.getCell(4,colCursor+baseOffset).value = getLimitBreakStr(limit_break);
-        if (typeof skill1_level !== 'undefined') ws.getCell(4,colCursor+baseOffset+1).value = skill1_level;
-        if (typeof skill2_level !== 'undefined') ws.getCell(4,colCursor+baseOffset+2).value = skill2_level;
-        if (typeof skill_burst_level !== 'undefined') ws.getCell(4,colCursor+baseOffset+3).value = skill_burst_level;
+        ws.getCell(4,baseCol+baseOffset).value = getLimitBreakStr(limit_break);
+        if (typeof skill1_level !== 'undefined') ws.getCell(4,baseCol+baseOffset+1).value = skill1_level;
+        if (typeof skill2_level !== 'undefined') ws.getCell(4,baseCol+baseOffset+2).value = skill2_level;
+        if (typeof skill_burst_level !== 'undefined') ws.getCell(4,baseCol+baseOffset+3).value = skill_burst_level;
         // 仅当存在珍藏品时填写稀有度与等级，避免无珍藏品时出现等级0
         if (item_rare) {
-          ws.getCell(4,colCursor+baseOffset+4).value = item_rare;
+          ws.getCell(4,baseCol+baseOffset+4).value = item_rare;
           if (typeof item_level !== 'undefined') {
-            ws.getCell(4,colCursor+baseOffset+5).value = getItemLevelStr(item_rare,item_level);
+            ws.getCell(4,baseCol+baseOffset+5).value = getItemLevelStr(item_rare,item_level);
           }
         }
       }
       
       // 设置居中对齐（含可选的攻优突破分列、LB与装备稀有度/等级）
       for(let i=0;i<=itemLevelIdx;i++){
-        ws.getCell(4,colCursor+i).alignment = { horizontal:"center", vertical:"middle" };
+        ws.getCell(4,baseCol+i).alignment = { horizontal:"center", vertical:"middle" };
       }
       
       // 合并基础区纵向单元格 (第4-8行)（不含 AEL）
       for(let i=0;i<=itemLevelIdx;i++){
-        ws.mergeCells(4,colCursor+i,8,colCursor+i);
+        ws.mergeCells(4,baseCol+i,8,baseCol+i);
       }
       
       // 装备词条处理 (第4-7行每个装备槽) 和 汇总 (第8行)
@@ -281,20 +348,21 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
       
       // 设置行标题
       equipRowLabels.forEach((lbl,rowIdx)=>{
-        ws.getCell(4+rowIdx,colCursor+t10Idx).value = lbl;
-        ws.getCell(4+rowIdx,colCursor+t10Idx).alignment = { horizontal:"center", vertical:"middle" };
+        ws.getCell(4+rowIdx,baseCol+t10Idx).value = lbl;
+        ws.getCell(4+rowIdx,baseCol+t10Idx).alignment = { horizontal:"center", vertical:"middle" };
       });
       
       const pctFmt = "0.00%"; // 百分比格式
       
       // 处理4个装备槽位
       for(let slot=0;slot<4;slot++){
-        const rowIdx = 4+slot;
+        // 装备槽位行：5-8（总和在第4行）
+        const rowIdx = 5+slot;
         const eqList = (equipments?.[slot] ?? []);
         // 先清空单元格
         propertyKeys.slice(statsStartIdx).forEach((prop,iProp)=>{
-          ws.getCell(rowIdx,colCursor+statsStartIdx+iProp).value = "";
-          ws.getCell(rowIdx,colCursor+statsStartIdx+iProp).alignment = { horizontal:"center", vertical:"middle" };
+          ws.getCell(rowIdx,baseCol+statsStartIdx+iProp).value = "";
+          ws.getCell(rowIdx,baseCol+statsStartIdx+iProp).alignment = { horizontal:"center", vertical:"middle" };
         });
         
         // 填入装备词条数据
@@ -304,7 +372,7 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
           }
           const iProp = propertyKeys.indexOf(function_type);
           if (iProp >= statsStartIdx) {
-            const cell = ws.getCell(rowIdx, colCursor + iProp);
+            const cell = ws.getCell(rowIdx, baseCol + iProp);
             cell.value = function_value / 100;
             cell.numFmt = pctFmt;
             cell.alignment = { horizontal: "center", vertical: "middle" };
@@ -316,11 +384,11 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
         });
       }
       
-      // 汇总行 (第8行)
+      // 汇总行（改为第4行）
       if (!unowned) {
         Object.entries(sumStats).forEach(([k, v]) => {
           const idx = propertyKeys.indexOf(k);
-          const cell = ws.getCell(8, colCursor + idx);
+          const cell = ws.getCell(4, baseCol + idx);
           cell.value = v;
           cell.numFmt = pctFmt;             // 统一百分数格式
           cell.alignment = { horizontal: "center", vertical: "middle" };
@@ -334,15 +402,15 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
         const { StatAtk: atk = 0, IncElementDmg: elem = 0 } = getEquipSumStats(equipments);
         const score = computeAELScore({ grade, core, atk, elem });
         const aelIdx = propertyKeys.indexOf("AtkElemLbScore");
-        const scoreCell = ws.getCell(4, colCursor + aelIdx);
+        const scoreCell = ws.getCell(4, baseCol + aelIdx);
         scoreCell.value = score;
         scoreCell.numFmt = "0.00";
         scoreCell.alignment = { horizontal:"center", vertical:"middle" };
         // 合并 AEL 列（第4-8行）并设置居中
-        ws.mergeCells(4, colCursor + aelIdx, 8, colCursor + aelIdx);
-        ws.getCell(5, colCursor + aelIdx).alignment = { horizontal:"center", vertical:"middle" };
-        ws.getCell(6, colCursor + aelIdx).alignment = { horizontal:"center", vertical:"middle" };
-        ws.getCell(7, colCursor + aelIdx).alignment = { horizontal:"center", vertical:"middle" };
+        ws.mergeCells(4, baseCol + aelIdx, 8, baseCol + aelIdx);
+        ws.getCell(5, baseCol + aelIdx).alignment = { horizontal:"center", vertical:"middle" };
+        ws.getCell(6, baseCol + aelIdx).alignment = { horizontal:"center", vertical:"middle" };
+        ws.getCell(7, baseCol + aelIdx).alignment = { horizontal:"center", vertical:"middle" };
         // 按阈值上色（与词条颜色一致）：
       // >=3.2 黑底白字；<3.2且>=2.7 蓝；<2.7且>=2.2 黄；>0且<2.2 红
         let aelFill = null;
@@ -361,40 +429,76 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
         }
         if (aelFill || aelFont) {
           for (let r = 4; r <= 8; r++) {
-            const mCell = ws.getCell(r, colCursor + aelIdx);
+            const mCell = ws.getCell(r, baseCol + aelIdx);
             if (aelFill) mCell.fill = aelFill;
             if (aelFont) mCell.font = { ...(mCell.font || {}), ...aelFont };
           }
         }
       }
       
-      // 设置边框
-  setOuterBorder(ws,2,colCursor,3,colCursor+widthPerChar-1,mediumSide); // 角色标题区
-  setOuterBorder(ws,4,colCursor,8,colCursor+widthPerChar-1,mediumSide); // 数据内容区
+        // 设置边框
+      setOuterBorder(ws,1,colCursor,3,colCursor+widthPerChar-1,mediumSide); // 标题区（名称+头像+表头）
+      setOuterBorder(ws,4,colCursor,8,colCursor+widthPerChar-1,mediumSide); // 数据内容区
       // 将分隔细线移动到 AEL 列左侧
       {
         const aelIdx = propertyKeys.indexOf("AtkElemLbScore");
-        setVerticalBorder(ws,3,8,colCursor + aelIdx,thinSide,"left");
+        setVerticalBorder(ws,3,8,baseCol + aelIdx,thinSide,"left");
       }
-      if (itemIdx >= 0) setVerticalBorder(ws,3,8,colCursor+itemIdx,thinSide,"left");
-      if (itemIdx >= 0) setVerticalBorder(ws,3,8,colCursor+itemIdx+1,thinSide,"right");
-      if (t10Idx  >= 0) setVerticalBorder(ws,3,8,colCursor+t10Idx,thinSide,"right");
-  setHorizontalBorder(ws,8,colCursor+t10Idx,colCursor+propertyKeys.length-1,thinSide,"top");
+      if (itemIdx >= 0) setVerticalBorder(ws,3,8,baseCol+itemIdx,thinSide,"left");
+      if (itemIdx >= 0) setVerticalBorder(ws,3,8,baseCol+itemIdx+1,thinSide,"right");
+      if (t10Idx  >= 0) setVerticalBorder(ws,3,8,baseCol+t10Idx,thinSide,"right");
+  // 总和在第4行：用底线分隔总和与细节（细节在 5-8 行）
+  setHorizontalBorder(ws,4,baseCol+t10Idx,baseCol+propertyKeys.length-1,thinSide,"bottom");
 
-      // 根据选择的属性隐藏列
+      // ===== 按角色配置隐藏列（showStats） =====
+      // 兼容旧数据：若 showStats 缺失则全部显示
       if (Array.isArray(charInfo.showStats)) {
-        for (let i = statsStartIdx; i < propertyKeys.length; i++) {
-          const key = propertyKeys[i];
-          if (!key) continue;
-          const colIdx = colCursor + i;
-          ws.getColumn(colIdx).hidden = !charInfo.showStats.includes(key);
+        const rawShowStats = charInfo.showStats;
+        const configured = rawShowStats.includes("__showStatsConfigured");
+        const showStats = rawShowStats.filter(
+          (k) => typeof k === "string" && !k.startsWith("__")
+        );
+
+        // 旧数据（未配置）默认基础列全显示
+        const effectiveStats = configured
+          ? showStats
+          : [...showStats, "limit_break", "skill1_level", "skill2_level", "skill_burst_level"];
+
+        // 若一个勾也没打：整个人物块完全折叠
+        // 仅当“用户已配置且确实全不勾”时才折叠；否则视为旧数据默认不折叠
+        if (configured && showStats.length === 0) {
+          for (let i = 0; i < widthPerChar; i++) {
+            ws.getColumn(colCursor + i).hidden = true;
+          }
+        } else {
+          // 基础列（突破/技能）：兼容旧数据（若未出现任何基础 key，则默认全显示）
+          const basicKeys = ["limit_break", "skill1_level", "skill2_level", "skill_burst_level"];
+          const hasAnyBasic = basicKeys.some((k) => effectiveStats.includes(k));
+          for (let i = 0; i < basicKeys.length; i++) {
+            ws.getColumn(baseCol + i).hidden = hasAnyBasic ? !effectiveStats.includes(basicKeys[i]) : false;
+          }
+
+          const aelIdx = propertyKeys.indexOf("AtkElemLbScore");
+          const equipOnlyKeys = propertyKeys
+            .slice(statsStartIdx, aelIdx)
+            .filter((k) => typeof k === "string" && k);
+          const hasAnyEquipStat = equipOnlyKeys.some((k) => effectiveStats.includes(k));
+
+          // 如果一个装备词条都没勾：T10 装备列也隐藏
+          if (t10Idx >= 0) {
+            ws.getColumn(baseCol + t10Idx).hidden = !hasAnyEquipStat;
+          }
+
+          // 装备词条列（不包含 AEL）
+          for (let i = statsStartIdx; i < aelIdx; i++) {
+            const key = propertyKeys[i];
+            if (!key) continue;
+            ws.getColumn(baseCol + i).hidden = !effectiveStats.includes(key);
+          }
+
+          // AEL 列
+          ws.getColumn(baseCol + aelIdx).hidden = !effectiveStats.includes("AtkElemLbScore");
         }
-      }
-
-      // 依据 showStats 是否包含 'AtkElemLbScore' 隐藏/显示该列
-      const aelIdxCol = colCursor + propertyKeys.indexOf("AtkElemLbScore");
-      if (Array.isArray(charInfo.showStats)) {
-        ws.getColumn(aelIdxCol).hidden = !charInfo.showStats.includes('AtkElemLbScore');
       }
       colCursor += widthPerChar;
     }
@@ -519,6 +623,8 @@ export const saveDictToExcel = async (dict, lang = "en") => {  const t = (key) =
       else ws.getColumn(col).width = 10;
     }
   }
+
+  // 第1行头像为整块合并单元格：行高已在上方设置
 
   // 魔方列的宽度设置
   const cubeWidth = lang === "en" ? 19 : 14;

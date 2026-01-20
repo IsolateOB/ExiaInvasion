@@ -29,7 +29,7 @@ import JSZip from "jszip";
 import saveDictToExcel from "./excel.js";
 import { computeAELForDict } from "./ael.js";
 import TRANSLATIONS from "./translations";
-import { getAccounts, setAccounts, getSettings, setSettings, getCharacters } from "./storage";
+import { getAccounts, setAccounts, getSettings, setSettings, getCharacters, setCharacters } from "./storage";
 import { applyCookieStr, clearSiteCookies, getCurrentCookies } from "./cookie.js";
 import { loadBaseAccountDict, getRoleName, getOutpostInfo, getCharacterDetails, getUserCharacters, prefetchMainlineCatalog, getCampaignProgress } from "./api.js";
 import { mergeWorkbooks, mergeJsons } from "./merge.js";
@@ -50,10 +50,7 @@ export default function App() {
   const [sortFlag, setSortFlag] = useState("1");
   const [excelFilesToMerge, setExcelFilesToMerge] = useState([]);
   const [jsonFilesToMerge, setJsonFilesToMerge] = useState([]);
-  // 移除了不再需要的弹窗相关状态变量
-  // const [dlgOpen, setDlgOpen] = useState(false);
-  // const [username, setUsername] = useState("");
-  // const [pendingCookieStr, setPendingCookieStr] = useState("");
+  const [collapseEquipDetails, setCollapseEquipDetails] = useState(false);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const addLog = (msg) => setLogs((prev) => [...prev, msg]);
@@ -61,7 +58,10 @@ export default function App() {
   // ========== 初始化设置加载 ==========
   useEffect(() => {
     (async () => {
-      const s = await getSettings();
+      const [s, chars] = await Promise.all([
+        getSettings(),
+        getCharacters().catch(() => null),
+      ]);
       setLang(s.lang || (navigator.language.startsWith("zh") ? "zh" : "en"));
       setSaveAsZip(Boolean(s.saveAsZip));
       setExportJson(Boolean(s.exportJson));
@@ -69,8 +69,25 @@ export default function App() {
       setActivateTab(Boolean(s.activateTab));
       setServer(s.server || "global");
       setSortFlag(s.sortFlag || "1");
+
+      // 读取全局“折叠词条细节”开关（存储为 characters.options.showEquipDetails：true=显示细节，false=折叠隐藏）
+      setCollapseEquipDetails(chars?.options?.showEquipDetails === false);
     })();
   }, []);
+
+  const toggleEquipDetail = async (e) => {
+    const collapse = e.target.checked;
+    setCollapseEquipDetails(collapse);
+    const chars = await getCharacters();
+    const next = {
+      ...chars,
+      options: {
+        ...(chars?.options || {}),
+        showEquipDetails: !collapse,
+      },
+    };
+    await setCharacters(next);
+  };
   
   // 持久化设置到存储
   const persistSettings = (upd) =>
@@ -128,10 +145,9 @@ export default function App() {
       } catch (error) {
         console.warn("自动获取用户名失败:", error);
         addLog(t("autoGetUsernameFail"));
-        autoUsername = t("noName"); // 使用默认名称
+        autoUsername = t("noName");
       }
       
-      // 直接保存账号，无需弹窗
       const cookieStr = cookies.map((c) => `${c.name}=${c.value}`).join("; ");
       
       // 提取game_uid
@@ -185,30 +201,38 @@ export default function App() {
     setLoading(true);
     try {
       addLog(t("starting"));
+      const tasks = [];
       // 如选择了 Excel，则合并并下载 merged.xlsx
       if (excelFilesToMerge.length) {
-        addLog(`开始合并 Excel (${excelFilesToMerge.length} 个)`);
-        const mergedBuffer = await mergeWorkbooks(excelFilesToMerge, sortFlag, addLog);
-        const blob = new Blob([mergedBuffer], {
-          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        });
-        const url = URL.createObjectURL(blob);
-        chrome.downloads.download({ url, filename: "merged.xlsx" }, () =>
-          URL.revokeObjectURL(url)
-        );
-        addLog("Excel 合并完成");
+        tasks.push((async () => {
+          addLog(`开始合并 Excel (${excelFilesToMerge.length} 个)`);
+          const mergedBuffer = await mergeWorkbooks(excelFilesToMerge, sortFlag, addLog);
+          const blob = new Blob([mergedBuffer], {
+            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          });
+          const url = URL.createObjectURL(blob);
+          chrome.downloads.download({ url, filename: "merged.xlsx" }, () =>
+            URL.revokeObjectURL(url)
+          );
+          addLog("Excel 合并完成");
+        })());
       }
 
       // 如选择了 JSON，则合并并下载 merged.json
       if (jsonFilesToMerge.length) {
-        addLog(`开始合并 JSON (${jsonFilesToMerge.length} 个)`);
-        const mergedJsonStr = await mergeJsons(jsonFilesToMerge, sortFlag, addLog);
-        const blob = new Blob([mergedJsonStr], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        chrome.downloads.download({ url, filename: "merged.json" }, () =>
-          URL.revokeObjectURL(url)
-        );
-        addLog("JSON 合并完成");
+        tasks.push((async () => {
+          addLog(`开始合并 JSON (${jsonFilesToMerge.length} 个)`);
+          const mergedJsonStr = await mergeJsons(jsonFilesToMerge, sortFlag, addLog);
+          const blob = new Blob([mergedJsonStr], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          chrome.downloads.download({ url, filename: "merged.json" }, () =>
+            URL.revokeObjectURL(url)
+          );
+          addLog("JSON 合并完成");
+        })());
+      }
+      if (tasks.length) {
+        await Promise.all(tasks);
       }
       addLog(t("done"));
     } catch (e) {
@@ -503,11 +527,13 @@ export default function App() {
     const allNameCodes = [];
     Object.values(dict.elements).forEach(characterArray => {
       characterArray.forEach(details => {
-        allNameCodes.push(details.name_code);
+        if (details.name_code !== undefined && details.name_code !== null && details.name_code !== "") {
+          allNameCodes.push(details.name_code);
+        }
       });
     });
-    
-    if (allNameCodes.length === 0) return;
+    const uniqueNameCodes = Array.from(new Set(allNameCodes));
+    if (uniqueNameCodes.length === 0) return;
     
     try {
       // 首先获取所有角色的基础信息（包含core和grade）
@@ -518,9 +544,12 @@ export default function App() {
       userCharacters.forEach(char => {
         userCharMap[char.name_code] = char;
       });
-      
-      // 批量获取角色详情和装备信息
-      const characterDetails = await getCharacterDetails(areaId, allNameCodes);
+      const ownedSet = new Set(userCharacters.map((char) => char.name_code));
+      const filteredNameCodes = uniqueNameCodes.filter((code) => ownedSet.has(code));
+      if (filteredNameCodes.length === 0) return;
+
+      // 批量获取角色详情和装备信息（一次请求）
+      const characterDetails = await getCharacterDetails(areaId, filteredNameCodes);
       
       // 创建name_code到详情的映射
       const detailsMap = {};
@@ -714,6 +743,8 @@ export default function App() {
           <img
             src={iconUrl}
             alt="logo"
+            width={32}
+            height={32}
             style={{ width: 32, height: 32, marginRight: 8 }}
           />
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
@@ -721,7 +752,13 @@ export default function App() {
           </Typography>
           <Box display="flex" alignItems="center" sx={{ ml: 1, color: "white" }}>
             <Typography variant="caption">中文</Typography>
-            <Switch size="small" color="default" checked={lang === "en"} onChange={toggleLang} />
+            <Switch
+              size="small"
+              color="default"
+              checked={lang === "en"}
+              onChange={toggleLang}
+              inputProps={{ "aria-label": t("langLabel") }}
+            />
             <Typography variant="caption">EN</Typography>
           </Box>
         </Toolbar>
@@ -733,6 +770,7 @@ export default function App() {
           exclusive
           fullWidth
           onChange={handleTabChange}
+          aria-label={t("crawlerTab")}
           sx={{ mb: 2 }}
         >
           <ToggleButton value="crawler">{t("crawlerTab")}</ToggleButton>
@@ -789,6 +827,10 @@ export default function App() {
                   label={t("exportJson")}
                 />
                 <FormControlLabel
+                      control={<Switch checked={collapseEquipDetails} onChange={toggleEquipDetail} />}
+                  label={t("equipDetail")}
+                />
+                <FormControlLabel
                   control={
                     <Switch
                       checked={activateTab}
@@ -812,6 +854,7 @@ export default function App() {
                   fullWidth
                   value={server}
                   onChange={changeServer}
+                  inputProps={{ "aria-label": t("server") }}
                 >
                   <MenuItem value="hmt">{t("hmt")}</MenuItem>
                   <MenuItem value="global">{t("global")}</MenuItem>
@@ -878,6 +921,7 @@ export default function App() {
                   fullWidth
                   value={sortFlag}
                   onChange={handleSortChange}
+                  inputProps={{ "aria-label": t("mergeOption") }}
                 >
                   <MenuItem value="1">{t("nameAsc")}</MenuItem>
                   <MenuItem value="2">{t("nameDesc")}</MenuItem>

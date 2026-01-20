@@ -3,59 +3,23 @@
 // 主要功能：账户管理、角色数据管理、装备统计配置等
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import ExcelJS from 'exceljs';
+import ExcelJS from "exceljs";
 import {
-  AppBar,
-  Toolbar,
-  Typography,
-  IconButton,
   Container,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
-  TextField,
-  Switch,
-  Box,
   Tabs,
   Tab,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Checkbox,
-  List,
-  ListItem,
-  ListItemText,
   Snackbar,
   Alert,
-  Tooltip,
-  Stack,
-  Chip,
-  Divider,
 } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
-import EditIcon from "@mui/icons-material/Edit";
-import SaveIcon from "@mui/icons-material/Save";
-import DeleteIcon from "@mui/icons-material/Delete";
-import Visibility from "@mui/icons-material/Visibility";
-import VisibilityOff from "@mui/icons-material/VisibilityOff";
-import InputAdornment from "@mui/material/InputAdornment";
-import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
-import FileUploadIcon from '@mui/icons-material/FileUpload';
-import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import TRANSLATIONS from "./translations.js";
 import { fetchAndCacheNikkeDirectory, getCachedNikkeDirectory } from "./api.js";
 import { v4 as uuidv4 } from "uuid";
-import { getCharacters, setCharacters, getTemplates, saveTemplate, deleteTemplate, getCurrentTemplateId, setCurrentTemplateId } from "./storage.js";
-import CheckIcon from "@mui/icons-material/Check";
-import CloseIcon from "@mui/icons-material/Close";
+import { getCharacters, setCharacters, getTemplates, saveTemplate, deleteTemplate, getCurrentTemplateId, setCurrentTemplateId, getAccountTemplates, saveAccountTemplate, deleteAccountTemplate, getCurrentAccountTemplateId, setCurrentAccountTemplateId } from "./storage.js";
+import { getNikkeAvatarUrl as buildNikkeAvatarUrl } from "./nikkeAvatar.js";
+import ManagementHeader from "./components/management/ManagementHeader.jsx";
+import AccountTabContent from "./components/management/AccountTabContent.jsx";
+import CharacterTabContent from "./components/management/CharacterTabContent.jsx";
+import CharacterFilterDialog from "./components/management/CharacterFilterDialog.jsx";
 
 // ========== 常量定义 ==========
 // 默认账户行数据结构
@@ -82,6 +46,27 @@ const equipStatKeys = [
   "StatDef"           // 防御力
 ];
 
+// 基础列（突破/技能）键名：用于控制 Excel 导出列是否隐藏
+const basicStatKeys = [
+  "limit_break",
+  "skill1_level",
+  "skill2_level",
+  "skill_burst_level"
+];
+
+// 妮姬列表开关列数量：AEL + 基础(突破/技能) + 装备词条
+const NIKKE_TOGGLE_COL_COUNT = 1 + basicStatKeys.length + equipStatKeys.length;
+
+// 妮姬表格列宽：固定列 + 剩余空间均分给开关列
+const NIKKE_NAME_MIN_WIDTH_PX = 240;
+const NIKKE_PRIORITY_WIDTH_PX = 120;
+const NIKKE_DRAG_HANDLE_WIDTH_PX = 36;
+const NIKKE_TOGGLE_MIN_WIDTH_PX = 40;
+
+// showStats 配置标记：用于区分“旧数据默认基础列全开”与“用户已手动配置”。
+// 注意：该标记不代表任何列的显示，导出端会忽略它。
+const SHOW_STATS_CONFIG_MARKER = "__showStatsConfigured";
+
 // ========== 管理页面主组件 ==========
 
 const ManagementPage = () => {
@@ -103,7 +88,10 @@ const ManagementPage = () => {
       Water: [], 
       Iron: [], 
       Utility: [] 
-    } 
+    },
+    options: {
+      showEquipDetails: true
+    }
   });
   const [nikkeList, setNikkeList] = useState([]);
   const [filterDialogOpen, setFilterDialogOpen] = useState(false);
@@ -118,9 +106,29 @@ const ManagementPage = () => {
   });
   const [filteredNikkes, setFilteredNikkes] = useState([]);
   const [selectedNikkes, setSelectedNikkes] = useState([]);
+  const [removedExistingIds, setRemovedExistingIds] = useState([]);
   // 拖拽状态（角色列表）：区分源分组与当前悬停分组，统一跨组视觉
   const [charDragging, setCharDragging] = useState({ sourceElement: null, currentElement: null, draggingIndex: null, overIndex: null });
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
+
+  // 妮姬页开关列：统一宽度/间距，避免后几列被挤压
+  const toggleCellSx = useMemo(
+    () => ({
+      textAlign: 'center',
+      padding: '4px',
+      // 每列最小宽度 + 均分剩余空间
+      minWidth: NIKKE_TOGGLE_MIN_WIDTH_PX,
+      width: `max(${NIKKE_TOGGLE_MIN_WIDTH_PX}px, calc((100% - ${NIKKE_DRAG_HANDLE_WIDTH_PX}px - ${NIKKE_NAME_MIN_WIDTH_PX}px - ${NIKKE_PRIORITY_WIDTH_PX}px) / ${NIKKE_TOGGLE_COL_COUNT}))`,
+    }),
+    []
+  );
+  const toggleHeaderCellSx = useMemo(
+    () => ({
+      ...toggleCellSx,
+      fontSize: '0.75rem'
+    }),
+    [toggleCellSx]
+  );
   
   // 模板管理相关状态
   const [templates, setTemplates] = useState([]);
@@ -129,17 +137,55 @@ const ManagementPage = () => {
   const [renameId, setRenameId] = useState("");
   const [renameValue, setRenameValue] = useState("");
   
+  // 账号模板管理相关状态
+  const [accountTemplates, setAccountTemplates] = useState([]);
+  const [selectedAccountTemplateId, setSelectedAccountTemplateId] = useState("");
+  const [isAccountRenaming, setIsAccountRenaming] = useState(false);
+  const [accountRenameId, setAccountRenameId] = useState("");
+  const [accountRenameValue, setAccountRenameValue] = useState("");
+  
   // 全选/全不选状态
   const isAllEnabled = useMemo(() => accounts.every(acc => acc.enabled !== false), [accounts]);
   const existingElementCharacters = useMemo(() => {
     if (!selectedElement) return [];
     return characters.elements[selectedElement] || [];
   }, [selectedElement, characters]);
-  const existingElementIds = useMemo(() => new Set(existingElementCharacters.map((char) => char.id)), [existingElementCharacters]);
+  const effectiveExistingElementCharacters = useMemo(() => {
+    if (!removedExistingIds.length) return existingElementCharacters;
+    const removedSet = new Set(removedExistingIds);
+    return existingElementCharacters.filter((char) => !removedSet.has(char.id));
+  }, [existingElementCharacters, removedExistingIds]);
+  const effectiveExistingElementIds = useMemo(() => new Set(effectiveExistingElementCharacters.map((char) => char.id)), [effectiveExistingElementCharacters]);
+
+  const nikkeResourceIdMap = useMemo(() => {
+    const map = new Map();
+    (nikkeList || []).forEach((n) => {
+      if (!n) return;
+      if (n.id === undefined || n.id === null) return;
+      if (n.resource_id === undefined || n.resource_id === null || n.resource_id === "") return;
+      map.set(n.id, n.resource_id);
+    });
+    return map;
+  }, [nikkeList]);
   
   /* ========== 语言设置同步 ========== */
   const [lang, setLang] = useState("zh");
   const t = useCallback((k) => TRANSLATIONS[lang][k] || k, [lang]);
+
+  // 管理页 Tab 持久化：刷新时保持停留在当前页（账号/妮姬）
+  useEffect(() => {
+    chrome.storage.local.get("managementTab", (r) => {
+      const saved = Number(r.managementTab);
+      if (saved === 0 || saved === 1) setTab(saved);
+    });
+  }, []);
+
+  const handleManagementTabChange = (e, newTab) => {
+    if (newTab === 0 || newTab === 1) {
+      setTab(newTab);
+      chrome.storage.local.set({ managementTab: newTab });
+    }
+  };
   
   useEffect(() => {
     chrome.storage.local.get("settings", (r) => {
@@ -161,10 +207,20 @@ const ManagementPage = () => {
       const fallback = {
         elements: {
           Electronic: [], Fire: [], Wind: [], Water: [], Iron: [], Utility: []
+        },
+        options: {
+          showEquipDetails: true
         }
       };
       const valid = (data && data.elements && typeof data.elements === 'object') ? data : fallback;
-      setCharactersData(valid);
+      const merged = {
+        ...fallback,
+        ...valid,
+        options: {
+          showEquipDetails: valid?.options?.showEquipDetails !== false
+        }
+      };
+      setCharactersData(merged);
     });
     
     // 加载人物目录：优先在线获取并写入本地，其次回退缓存
@@ -196,6 +252,121 @@ const ManagementPage = () => {
   const refreshTemplates = async () => {
     const list = await getTemplates();
     setTemplates(list || []);
+  };
+
+  /* ========== 账号模板管理初始化 ========== */
+  useEffect(() => {
+    // 加载账号模板列表
+    getAccountTemplates().then(list => {
+      setAccountTemplates(list || []);
+    });
+    
+    // 加载当前选中的账号模板ID
+    getCurrentAccountTemplateId().then(id => {
+      setSelectedAccountTemplateId(id || "");
+    });
+  }, []);
+  
+  // 刷新账号模板列表
+  const refreshAccountTemplates = async () => {
+    const list = await getAccountTemplates();
+    setAccountTemplates(list || []);
+  };
+  
+  // 生成下一个默认账号模板名称
+  const generateNextAccountDefaultName = () => {
+    const existing = accountTemplates.map(t => t.name);
+    let n = 1;
+    while (existing.includes(`${t("accountTemplate")}${n}`)) n++;
+    return `${t("accountTemplate")}${n}`;
+  };
+  
+  // 应用账号模板
+  const applyAccountTemplate = async (tpl) => {
+    if (!tpl || !tpl.data) return;
+    const data = tpl.data;
+    setAccounts(data);
+    setEditing(Array(data.length).fill(false));
+    setShowPwds(Array(data.length).fill(false));
+    await persist(data);
+  };
+  
+  // 保存当前账号为模板
+  const handleCreateAccountTemplate = async () => {
+    const id = uuidv4();
+    const template = {
+      id,
+      name: generateNextAccountDefaultName(),
+      data: accounts,
+      createdAt: Date.now()
+    };
+    await saveAccountTemplate(template);
+    await refreshAccountTemplates();
+    setSelectedAccountTemplateId(id);
+    await setCurrentAccountTemplateId(id);
+    showMessage(t("accountTemplateSaved"), "success");
+  };
+  
+  // 删除账号模板
+  const handleDeleteAccountTemplate = async (id) => {
+    if (!id) return;
+    await deleteAccountTemplate(id);
+    await refreshAccountTemplates();
+    if (selectedAccountTemplateId === id) {
+      setSelectedAccountTemplateId("");
+      await setCurrentAccountTemplateId("");
+    }
+    showMessage(t("accountTemplateDeleted"), "success");
+  };
+  
+  // 重命名账号模板
+  const startRenameAccountTemplate = (id) => {
+    setIsAccountRenaming(true);
+    setAccountRenameId(id);
+    const tpl = accountTemplates.find(t => t.id === id);
+    setAccountRenameValue(tpl?.name || "");
+  };
+  
+  const confirmAccountRename = async () => {
+    const id = accountRenameId;
+    const name = accountRenameValue.trim();
+    if (!id || !name) return;
+    
+    const tpl = accountTemplates.find(t => t.id === id);
+    if (!tpl) return;
+    
+    tpl.name = name;
+    await saveAccountTemplate(tpl);
+    await refreshAccountTemplates();
+    setSelectedAccountTemplateId(id);
+    setIsAccountRenaming(false);
+    setAccountRenameId("");
+    setAccountRenameValue("");
+    showMessage(t("accountTemplateRenamed"), "success");
+  };
+  
+  // 账号模板选择变化
+  const handleAccountTemplateChange = async (id) => {
+    setSelectedAccountTemplateId(id);
+    await setCurrentAccountTemplateId(id);
+    if (id) {
+      const tpl = accountTemplates.find(t => t.id === id);
+      if (tpl) {
+        await applyAccountTemplate(tpl);
+        showMessage(t("accountTemplateLoaded"), "success");
+      }
+    }
+  };
+  
+  // 清空所有账号
+  const handleClearAllAccounts = async () => {
+    if (!window.confirm(t("clearAllAccountsConfirm"))) {
+      return;
+    }
+    setAccounts([]);
+    setEditing([]);
+    setShowPwds([]);
+    await persist([]);
   };
   
   // 生成下一个默认模板名称
@@ -672,6 +843,10 @@ const elementTranslationKeys = {
     return lang === "zh" ? zhName : enName;
   };
 
+  const getNikkeAvatarUrl = useCallback((nikke) => {
+    return buildNikkeAvatarUrl(nikke, nikkeResourceIdMap);
+  }, [nikkeResourceIdMap]);
+
   const openFilterDialog = (element) => {
     setSelectedElement(element);
     const initialFilters = {
@@ -690,6 +865,7 @@ const elementTranslationKeys = {
     }
     setFilteredNikkes(filtered);
     setSelectedNikkes([]);
+    setRemovedExistingIds([]);
     setFilterDialogOpen(true);
   };
 
@@ -709,14 +885,8 @@ const elementTranslationKeys = {
       }
 
       if (key === "use_burst_skill") {
-        const burstMapping = {
-          "1": "Step1",
-          "2": "Step2",
-          "3": "Step3"
-        };
-        const mappedValue = burstMapping[value] || value;
         filtered = filtered.filter(
-          (nikke) => nikke[key] === mappedValue || nikke[key] === "AllStep"
+          (nikke) => nikke[key] === value || nikke[key] === "AllStep"
         );
         return;
       }
@@ -730,14 +900,18 @@ const elementTranslationKeys = {
   const handleCloseFilterDialog = () => {
     setFilterDialogOpen(false);
     setSelectedNikkes([]);
+    setRemovedExistingIds([]);
   };
 
-  const toggleNikkeSelection = (nikke) => {
+  // 与 ExiaAnalysis 选择器一致：点击“选择/已选择”只会加入，不会再次点击取消；取消通过“已选择”区右上角 X
+  const handleSelectNikke = (nikke) => {
+    // 如果该人物在当前元素里但被标记为删除，则点击“选择”视为撤销删除
+    if (removedExistingIds.includes(nikke.id)) {
+      setRemovedExistingIds((prev) => prev.filter((id) => id !== nikke.id));
+      return;
+    }
     setSelectedNikkes((prev) => {
-      const exists = prev.some((item) => item.id === nikke.id);
-      if (exists) {
-        return prev.filter((item) => item.id !== nikke.id);
-      }
+      if (prev.some((item) => item.id === nikke.id)) return prev;
       return [...prev, nikke];
     });
   };
@@ -746,30 +920,48 @@ const elementTranslationKeys = {
     setSelectedNikkes((prev) => prev.filter((item) => item.id !== nikkeId));
   };
 
+  const handleRemoveExistingNikke = (nikkeId) => {
+    setRemovedExistingIds((prev) => (prev.includes(nikkeId) ? prev : [...prev, nikkeId]));
+    // 若刚好也在待新增里，一并移除
+    setSelectedNikkes((prev) => prev.filter((item) => item.id !== nikkeId));
+  };
+
   const handleConfirmSelection = () => {
-    if (!selectedElement || selectedNikkes.length === 0) {
+    if (!selectedElement) {
       handleCloseFilterDialog();
       return;
     }
 
+    // 先应用删除（从原列表中移除被标记的人）
     const existingList = characters.elements[selectedElement] || [];
-    const existingIds = new Set(existingList.map((char) => char.id));
+    const removedSet = new Set(removedExistingIds);
+    const keptList = removedExistingIds.length ? existingList.filter((c) => !removedSet.has(c.id)) : existingList;
+
+    // 再应用新增（在“删除已应用后”的基础上去重）
+    const keptIds = new Set(keptList.map((char) => char.id));
     const newEntries = selectedNikkes
-      .filter((nikke) => !existingIds.has(nikke.id))
+      .filter((nikke) => !keptIds.has(nikke.id))
       .map((nikke) => ({
         name_code: nikke.name_code,
         id: nikke.id,
+        resource_id: nikke.resource_id,
         name_cn: nikke.name_cn,
         name_en: nikke.name_en,
         priority: "yellow",
-        showStats: ["AtkElemLbScore", ...equipStatKeys]
+        showStats: [SHOW_STATS_CONFIG_MARKER, ...basicStatKeys, "AtkElemLbScore", ...equipStatKeys]
       }));
+
+    // 若没有任何变更，直接关闭
+    if (newEntries.length === 0 && removedExistingIds.length === 0) {
+      handleCloseFilterDialog();
+      return;
+    }
 
     const nextCharacters = {
       ...characters,
       elements: {
         ...characters.elements,
-        [selectedElement]: [...existingList, ...newEntries]
+        [selectedElement]: [...keptList, ...newEntries]
       }
     };
 
@@ -807,18 +999,24 @@ const elementTranslationKeys = {
     setCharactersData(newCharacters);
     setCharacters(newCharacters);
   };
-  
-  const deleteCharacter = (element, characterIndex) => {
-    const newCharacters = {
-      ...characters,
+
+  // 清空所有妮姬列表
+  const handleClearAllCharacters = () => {
+    if (!window.confirm(t("clearAllNikkesConfirm"))) {
+      return;
+    }
+    const emptyCharacters = {
       elements: {
-        ...characters.elements,
-        [element]: characters.elements[element].filter((_, index) => index !== characterIndex)
+        Electronic: [],
+        Fire: [],
+        Wind: [],
+        Water: [],
+        Iron: [],
+        Utility: []
       }
     };
-    
-    setCharactersData(newCharacters);
-    setCharacters(newCharacters);
+    setCharactersData(emptyCharacters);
+    setCharacters(emptyCharacters);
   };
     const getPriorityColor = (priority) => {
       // 与 excel.js 保持一致：
@@ -920,799 +1118,131 @@ const elementTranslationKeys = {
   }, [applyFilters]);
 
   const pendingSelectionCount = selectedNikkes.length;
-  const totalSelectionCount = pendingSelectionCount + existingElementCharacters.length;
+  const totalSelectionCount = pendingSelectionCount + effectiveExistingElementCharacters.length;
   const selectionLabelTemplate = t("selectedCharactersLabel") || "Selected {count}";
   const selectionLabel = selectionLabelTemplate.replace("{count}", String(totalSelectionCount));
     /* ---------- 渲染 ---------- */
   return (
     <>
-      <AppBar position="sticky" sx={{ top: 0, zIndex: (theme) => theme.zIndex.appBar }}>
-        <Toolbar>
-          <img
-            src={iconUrl}
-            alt="logo"
-            style={{ width: 32, height: 32, marginRight: 8 }}
-          />
-          <Typography variant="h6">ExiaInvasion</Typography>
-        </Toolbar>
-      </AppBar>
+      <ManagementHeader iconUrl={iconUrl} />
       
-      <Container sx={{ mt: 4, pb: 8 }}>
-        <Tabs value={tab} onChange={(e, newTab) => setTab(newTab)} sx={{ mb: 3 }}>
+      <Container maxWidth="xl" sx={{ mt: 4, pb: 8 }}>
+        <Tabs value={tab} onChange={handleManagementTabChange} sx={{ mb: 3 }} aria-label={t("management")}>
           <Tab label={t("accountTable")} />
           <Tab label={t("characterManagement")} />
         </Tabs>
-          {tab === 0 && (
-          <>
-            {/* 账户管理标题和操作按钮 */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6">
-                {t("accountTable")}
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={handleToggleAllEnabled}
-                  sx={{ minWidth: 80 }}
-                >
-                  {isAllEnabled ? t("deselectAll") : t("selectAll")}
-                </Button>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={<FileDownloadIcon />}
-                  onClick={handleImportAccounts}
-                  sx={{ minWidth: 80 }}
-                >
-                  {t("import")}
-                </Button>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={<FileUploadIcon />}
-                  onClick={handleExportAccounts}
-                  sx={{ minWidth: 80 }}
-                >
-                  {t("export")}
-                </Button>
-              </Box>
-            </Box>
-            
-            {/* Account management table */}
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell width="3%" sx={{ textAlign: 'center', paddingLeft: '2px', paddingRight: '2px' }}>
-                    {/* Drag handle header */}
-                  </TableCell>
-                  <TableCell width="5%">{t("no")}</TableCell>
-                  <TableCell width="5%">{t("enabled")}</TableCell>
-                  <TableCell width="15%">{t("username")}</TableCell>
-                  <TableCell width="20%">{t("email")}</TableCell>
-                  <TableCell width="15%">{t("password")}</TableCell>
-                  <TableCell width="20%">{t("cookie")}</TableCell>
-                  <TableCell width="15%" align="right" />
-                </TableRow>
-              </TableHead>
-              
-              <TableBody>
-                {accounts.map((row, idx) => {
-                  const isEdit = editing[idx];
-                  return (
-                    <TableRow
-                      key={row.id}
-                      draggable={!isEdit}
-                      onDragStart={(e) => !isEdit && onAccountDragStart(e, idx)}
-                      onDragOver={(e) => !isEdit && onAccountDragOver(e, idx)}
-                      onDrop={() => !isEdit && onAccountDrop(idx)}
-                      onDragEnd={onAccountDragEnd}
-                      sx={{
-                        "& > *": { verticalAlign: "top" },
-                        cursor: !isEdit ? "grab" : "default",
-                        backgroundColor: accDragging.overIndex === idx && accDragging.draggingIndex !== null ? 'action.hover' : 'inherit'
-                      }}
-                    >                      <TableCell sx={{ textAlign: 'center', cursor: !isEdit ? 'grab' : 'default', paddingLeft: '2px', paddingRight: '2px' }}>
-                        {!isEdit && <DragIndicatorIcon fontSize="small" />}
-                      </TableCell>
-                      <TableCell>{idx + 1}</TableCell>
-                      <TableCell>
-                        <Switch
-                          size="small"
-                          checked={row.enabled !== false}
-                          onChange={() => {
-                            const nextAccounts = accounts.map((r, i) =>
-                              i === idx ? { ...r, enabled: !r.enabled } : r
-                            );
-                            setAccounts(nextAccounts);
-                            persist(nextAccounts);
-                          }}
-                          disabled={isEdit}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {isEdit ? (
-                          <TextField
-                            variant="standard"
-                            value={row.username}
-                            onChange={(e) => updateField(idx, "username", e.target.value)}
-                            fullWidth
-                          />
-                        ) : (
-                          renderText(row.username)
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isEdit ? (
-                          <TextField
-                            variant="standard"
-                            value={row.email}
-                            onChange={(e) => updateField(idx, "email", e.target.value)}
-                            fullWidth
-                          />
-                        ) : (
-                          renderText(row.email)
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isEdit ? (
-                          <TextField
-                            variant="standard"
-                            type={showPwds[idx] ? "text" : "password"}
-                            value={row.password}
-                            onChange={(e) => updateField(idx, "password", e.target.value)}
-                            fullWidth
-                            slotProps={{
-                              input: {
-                                endAdornment: (
-                                  <InputAdornment position="end">
-                                    <IconButton
-                                      size="small"
-                                      onClick={() =>
-                                        setShowPwds((v) => v.map((f, i) => (i === idx ? !f : f)))
-                                      }
-                                      edge="end"
-                                    >
-                                      {showPwds[idx] ? <VisibilityOff /> : <Visibility />}
-                                    </IconButton>
-                                  </InputAdornment>
-                                ),
-                                sx: {
-                                  '& input[type="password"]::-ms-reveal': {
-                                    display: 'none'
-                                  },
-                                  '& input[type="password"]::-ms-clear': {
-                                    display: 'none'
-                                  },
-                                  '& input[type="password"]::-webkit-credentials-auto-fill-button': {
-                                    display: 'none !important'
-                                  },
-                                  '& input[type="password"]::-webkit-contacts-auto-fill-button': {
-                                    display: 'none !important'
-                                  }
-                                }
-                              },
-                            }}
-                          />
-                        ) : row.password ? (
-                          "••••••"
-                        ) : (
-                          "—"
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isEdit ? (
-                          <TextField
-                            variant="standard"
-                            multiline
-                            maxRows={3}
-                            value={row.cookie}
-                            onChange={(e) => updateField(idx, "cookie", e.target.value)}
-                            fullWidth
-                          />
-                        ) : row.cookie ? (
-                          t("saved")
-                        ) : (
-                          "—"
-                        )}
-                      </TableCell>
-                      <TableCell align="right">
-                        <Box display="flex" flexDirection="row" justifyContent="flex-end">
-                          {isEdit ? (
-                            <IconButton
-                              color="primary"
-                              onClick={() => saveRow(idx)}
-                              size="small"
-                            >
-                              <SaveIcon />
-                            </IconButton>
-                          ) : (
-                            <IconButton onClick={() => startEdit(idx)} size="small">
-                              <EditIcon />
-                            </IconButton>
-                          )}
-                          <IconButton
-                            color="error"
-                            onClick={() => deleteRow(idx)}
-                            sx={{ ml: 0.5 }}
-                            size="small"
-                            disabled={isEdit}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-                
-                <TableRow>
-                  <TableCell colSpan={8} sx={{ pt: 2, borderBottom: 'none' }}>
-                    <Box display="flex" justifyContent="center">
-                      <IconButton color="primary" onClick={addRow}>
-                        <AddIcon />
-                      </IconButton>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </>
+        {tab === 0 && (
+          <AccountTabContent
+            t={t}
+            accountTemplates={accountTemplates}
+            selectedAccountTemplateId={selectedAccountTemplateId}
+            handleAccountTemplateChange={handleAccountTemplateChange}
+            isAccountRenaming={isAccountRenaming}
+            accountRenameId={accountRenameId}
+            accountRenameValue={accountRenameValue}
+            setAccountRenameValue={setAccountRenameValue}
+            confirmAccountRename={confirmAccountRename}
+            setIsAccountRenaming={setIsAccountRenaming}
+            setAccountRenameId={setAccountRenameId}
+            startRenameAccountTemplate={startRenameAccountTemplate}
+            handleDeleteAccountTemplate={handleDeleteAccountTemplate}
+            handleCreateAccountTemplate={handleCreateAccountTemplate}
+            isAllEnabled={isAllEnabled}
+            handleToggleAllEnabled={handleToggleAllEnabled}
+            handleImportAccounts={handleImportAccounts}
+            handleExportAccounts={handleExportAccounts}
+            handleClearAllAccounts={handleClearAllAccounts}
+            accounts={accounts}
+            editing={editing}
+            showPwds={showPwds}
+            accDragging={accDragging}
+            onAccountDragStart={onAccountDragStart}
+            onAccountDragOver={onAccountDragOver}
+            onAccountDrop={onAccountDrop}
+            onAccountDragEnd={onAccountDragEnd}
+            updateField={updateField}
+            setAccounts={setAccounts}
+            persist={persist}
+            setShowPwds={setShowPwds}
+            saveRow={saveRow}
+            startEdit={startEdit}
+            deleteRow={deleteRow}
+            addRow={addRow}
+            renderText={renderText}
+          />
         )}
-          {tab === 1 && (
-          <>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, gap: 2 }}>
-              <Typography variant="h6">
-                {t("characterManagement")}
-              </Typography>
-              
-              {/* 右侧：模板选择器 + 导入导出按钮 */}
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: 'flex-end' }}>
-                {/* 第一行：导入导出按钮 */}
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<FileDownloadIcon />}
-                    onClick={triggerCharacterImport}
-                    sx={{ minWidth: 80 }}
-                  >
-                    {t("import")}
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<FileUploadIcon/>}
-                    onClick={handleExportCharacters}
-                    sx={{ minWidth: 80 }}
-                  >
-                    {t("export")}
-                  </Button>
-                </Box>
-                
-                {/* 第二行：模板选择器 */}
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                  <Select
-                    size="small"
-                    value={selectedTemplateId || ''}
-                    onChange={(e) => handleTemplateChange(e.target.value)}
-                    displayEmpty
-                    sx={{ minWidth: 200, width: 240 }}
-                    renderValue={(val) => {
-                      const id = String(val || '');
-                      const item = templates.find(tp => tp.id === id);
-                      const name = item?.name || '';
-                      const display = name || t("templateNotSelected");
-                      return (
-                        <Typography noWrap title={display} sx={{ maxWidth: '100%' }}>{display}</Typography>
-                      );
-                    }}
-                    MenuProps={{ PaperProps: { style: { maxHeight: 300 } } }}
-                  >
-                    <MenuItem value=""><em>{t("templateNotSelected")}</em></MenuItem>
-                    {templates.map((tpl) => (
-                      <MenuItem key={tpl.id} value={tpl.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {isRenaming && renameId === tpl.id ? (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, width: '100%' }} onClick={(e)=>e.stopPropagation()}>
-                            <TextField
-                              size="small"
-                              placeholder={t("templateInputName")}
-                              value={renameValue}
-                              onChange={(e) => setRenameValue(e.target.value)}
-                              onKeyDown={(e) => { 
-                                if (e.key === 'Enter') { 
-                                  e.stopPropagation(); 
-                                  confirmRename();
-                                }
-                                if (e.key === 'Escape') { 
-                                  e.stopPropagation(); 
-                                  setIsRenaming(false); 
-                                  setRenameId(''); 
-                                  setRenameValue('');
-                                }
-                              }}
-                              autoFocus
-                              sx={{ flex: 1, minWidth: 0 }}
-                            />
-                            <IconButton size="small" color="primary" onClick={(e)=>{ e.stopPropagation(); confirmRename(); }}>
-                              <CheckIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton size="small" onClick={(e)=>{ e.stopPropagation(); setIsRenaming(false); setRenameId(''); setRenameValue(''); }}>
-                              <CloseIcon fontSize="small" />
-                            </IconButton>
-                          </Box>
-                        ) : (
-                          <>
-                            <Box sx={{ flex: 1, minWidth: 0 }}>
-                              <Typography variant="body2" noWrap title={tpl.name}>{tpl.name}</Typography>
-                            </Box>
-                            <Tooltip title={t("templateRename")}>
-                              <IconButton
-                                size="small"
-                                onClick={(e) => { e.stopPropagation(); e.preventDefault(); startRenameTemplate(tpl.id); }}
-                              >
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title={t("templateDelete")}>
-                              <IconButton
-                                size="small"
-                                color="error"
-                                onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDeleteTemplate(tpl.id); }}
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </>
-                        )}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  <Button
-                    variant="contained"
-                    size="small"
-                    startIcon={<SaveIcon />}
-                    onClick={handleCreateTemplate}
-                    disabled={templates.length >= 200}
-                  >
-                    {t("templateSave")}
-                  </Button>
-                </Box>
-              </Box>
-            </Box>
-            
-            {["Electronic", "Fire", "Wind", "Water", "Iron", "Utility"].map((element) => {
-              const elementChars = characters.elements[element] || [];
-              return (
-                <Box key={element} sx={{ mb: 3, border: '1px solid #e0e0e0', borderRadius: 1, p: 2 }}>
-                  <Typography variant="h6" sx={{ mb: 2 }}>
-                    {getElementName(element)} ({elementChars.length})
-                  </Typography>
-                  <Box display="flex" flexDirection="column" gap={1}>
-                    {/* Character Table */}
-                    <Table size="small">                      <TableHead>
-                        <TableRow>
-                          <TableCell width="3%" sx={{ textAlign: 'center', paddingLeft: '2px', paddingRight: '2px' }}>
-                            {/* Drag handle header */}
-                          </TableCell>
-                          <TableCell width="5%">{t("no")}</TableCell>
-                          <TableCell width="20%">{t("characterName")}</TableCell>
-                          <TableCell width="10%">{t("priority")}</TableCell>
-                          {/* 攻优突破分开关列标题（悬停提示） */}
-                          <TableCell width="8%" sx={{ textAlign: 'center', fontSize: '0.75rem' }}>
-                            <Tooltip
-                              arrow
-                              placement="top"
-                              title={
-                                lang === 'zh' ? (
-                                  <Box component="span">
-                                    攻优突破分(AEL)
-                                    <br />
-                                    AEL = (1 + 0.9 × 攻击词条) × (1 + 10% + 优越词条) × (1 + 3% × 极限突破 + 2% × 核心强化)
-                                  </Box>
-                                ) : (
-                                  <Box component="span">
-                                    Attack Element Limit Break Score (AEL)
-                                    <br />
-                                    AEL = (1 + 0.9 × ATK%) × (1 + 10% + Elem%) × (1 + 3% × Limit Break + 2% × Core Refinement)
-                                  </Box>
-                                )
-                              }
-                            >
-                              <Box component="span">{t("atkElemLbScore")}</Box>
-                            </Tooltip>
-                          </TableCell>
-                          {/* 装备词条列标题 */}
-                          {equipStatKeys.map((key, idx) => (
-                            <TableCell key={key} width="6%" sx={{ textAlign: 'center', fontSize: '0.75rem' }}>
-                              {equipStatLabels[idx]}
-                            </TableCell>
-                          ))}
-                          <TableCell width="6%" align="right"></TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {elementChars.map((charData, index) => (
-                          <TableRow
-                            key={`${charData.id}-${index}`}
-                            draggable
-                            onDragStart={(e) => onCharDragStart(e, element, index)}
-                            onDragOver={(e) => onCharDragOver(e, element, index)}
-                            onDrop={() => onCharDrop(element, index)}
-                            onDragEnd={onCharDragEnd}
-                            sx={{
-                              "& > *": { verticalAlign: "top" },
-                              cursor: "grab",
-                              backgroundColor: charDragging.currentElement === element && charDragging.overIndex === index ? 'action.hover' : 'inherit'
-                            }}
-                          >
-                            <TableCell sx={{ textAlign: 'center', cursor: 'grab', paddingLeft: '2px', paddingRight: '2px' }}>
-                              <DragIndicatorIcon fontSize="small" />
-                            </TableCell>
-                            <TableCell>{index + 1}</TableCell>
-                            <TableCell>
-                              <Typography variant="body2">
-                                {lang === "zh" ? charData.name_cn : charData.name_en}
-                              </Typography>
-                            </TableCell>                            <TableCell>
-                              <FormControl size="small" sx={{ minWidth: 100 }}>
-                                <Select
-                                  value={charData.priority}
-                                  onChange={(e) => updateCharacterPriority(element, index, e.target.value)}
-                                  sx={{
-                                    ...getPriorityColor(charData.priority),
-                                    '& .MuiSelect-select': {
-                                      ...getPriorityColor(charData.priority)
-                                    }
-                                  }}
-                                  MenuProps={{
-                                    PaperProps: {
-                                      style: {
-                                        maxHeight: 200,
-                                        width: 'auto',
-                                      },
-                                    },
-                                    anchorOrigin: {
-                                      vertical: 'bottom',
-                                      horizontal: 'left',
-                                    },
-                                    transformOrigin: {
-                                      vertical: 'top',
-                                      horizontal: 'left',
-                                    },
-                                  }}
-                                >
-                                  <MenuItem value="black" sx={{
-                                    ...getPriorityColor("black"),
-                                    '&.Mui-selected': {
-                                      ...getPriorityColor("black"),
-                                    },
-                                    '&.Mui-selected:hover': {
-                                      ...getPriorityColor("black"),
-                                    },
-                                    '&:hover': {
-                                      ...getPriorityColor("black"),
-                                      filter: 'brightness(0.95)'
-                                    }
-                                  }}>{t("black")}</MenuItem>
-                                  <MenuItem value="blue" sx={{
-                                    ...getPriorityColor("blue"),
-                                    '&.Mui-selected': {
-                                      ...getPriorityColor("blue"),
-                                    },
-                                    '&.Mui-selected:hover': {
-                                      ...getPriorityColor("blue"),
-                                    },
-                                    '&:hover': {
-                                      ...getPriorityColor("blue"),
-                                      filter: 'brightness(0.98)'
-                                    }
-                                  }}>{t("blue")}</MenuItem>
-                                  <MenuItem value="yellow" sx={{
-                                    ...getPriorityColor("yellow"),
-                                    '&.Mui-selected': {
-                                      ...getPriorityColor("yellow"),
-                                    },
-                                    '&.Mui-selected:hover': {
-                                      ...getPriorityColor("yellow"),
-                                    },
-                                    '&:hover': {
-                                      ...getPriorityColor("yellow"),
-                                      filter: 'brightness(0.98)'
-                                    }
-                                  }}>{t("yellow")}</MenuItem>
-                                </Select>
-                              </FormControl>
-                            </TableCell>
-                            {/* 攻优突破分开关（行内） */}
-                            <TableCell sx={{ textAlign: 'center', padding: '4px' }}>
-                              <Checkbox
-                                size="small"
-                                checked={Array.isArray(charData.showStats) && charData.showStats.includes('AtkElemLbScore')}
-                                onChange={(e) => {
-                                  const flag = e.target.checked;
-                                  const newShow = Array.isArray(charData.showStats) ? [...charData.showStats] : [];
-                                  const has = newShow.includes('AtkElemLbScore');
-                                  const updated = flag ? (has ? newShow : ['AtkElemLbScore', ...newShow]) : newShow.filter(k => k !== 'AtkElemLbScore');
-                                  const newChar = { ...charData, showStats: updated };
-                                  const newList = characters.elements[element].map((c, i) => i === index ? newChar : c);
-                                  const newCharacters = { ...characters, elements: { ...characters.elements, [element]: newList } };
-                                  setCharactersData(newCharacters);
-                                  setCharacters(newCharacters);
-                                }}
-                              />
-                            </TableCell>
-                            {/* 装备词条复选框 */}
-                            {equipStatKeys.map((key) => (
-                              <TableCell key={key} sx={{ textAlign: 'center', padding: '4px' }}>
-                                <Checkbox
-                                  size="small"
-                                  checked={charData.showStats.includes(key)}
-                                  onChange={(e) => {
-                                    const newStats = e.target.checked
-                                      ? [...charData.showStats, key]
-                                      : charData.showStats.filter(stat => stat !== key);
-                                    updateCharacterShowStats(element, index, newStats);
-                                  }}
-                                />
-                              </TableCell>
-                            ))}
-                            <TableCell align="right">
-                              <IconButton
-                                color="error"
-                                onClick={() => deleteCharacter(element, index)}
-                                size="small"
-                              >
-                                <DeleteIcon />
-                              </IconButton>
-                            </TableCell>
-                          </TableRow>
-                        ))}                        <TableRow>
-                          <TableCell colSpan={4 + equipStatKeys.length + 1} sx={{ pt: 2, borderBottom: 'none' }}>
-                            <Box display="flex" justifyContent="center">
-                              <IconButton color="primary" onClick={() => openFilterDialog(element)}>
-                                <AddIcon />
-                              </IconButton>
-                            </Box>
-                          </TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </Box>
-                </Box>
-              );
-            })}
-          </>
+        {tab === 1 && (
+          <CharacterTabContent
+            t={t}
+            lang={lang}
+            templates={templates}
+            selectedTemplateId={selectedTemplateId}
+            handleTemplateChange={handleTemplateChange}
+            isRenaming={isRenaming}
+            renameId={renameId}
+            renameValue={renameValue}
+            setRenameValue={setRenameValue}
+            confirmRename={confirmRename}
+            setIsRenaming={setIsRenaming}
+            setRenameId={setRenameId}
+            startRenameTemplate={startRenameTemplate}
+            handleDeleteTemplate={handleDeleteTemplate}
+            handleCreateTemplate={handleCreateTemplate}
+            triggerCharacterImport={triggerCharacterImport}
+            handleExportCharacters={handleExportCharacters}
+            handleClearAllCharacters={handleClearAllCharacters}
+            characters={characters}
+            getElementName={getElementName}
+            openFilterDialog={openFilterDialog}
+            equipStatKeys={equipStatKeys}
+            equipStatLabels={equipStatLabels}
+            toggleHeaderCellSx={toggleHeaderCellSx}
+            toggleCellSx={toggleCellSx}
+            getNikkeAvatarUrl={getNikkeAvatarUrl}
+            getDisplayName={getDisplayName}
+            updateCharacterPriority={updateCharacterPriority}
+            getPriorityColor={getPriorityColor}
+            updateCharacterShowStats={updateCharacterShowStats}
+            basicStatKeys={basicStatKeys}
+            showStatsConfigMarker={SHOW_STATS_CONFIG_MARKER}
+            nikkeNameMinWidthPx={NIKKE_NAME_MIN_WIDTH_PX}
+            nikkePriorityWidthPx={NIKKE_PRIORITY_WIDTH_PX}
+            nikkeDragHandleWidthPx={NIKKE_DRAG_HANDLE_WIDTH_PX}
+            nikkeToggleMinWidthPx={NIKKE_TOGGLE_MIN_WIDTH_PX}
+            charDragging={charDragging}
+            onCharDragStart={onCharDragStart}
+            onCharDragOver={onCharDragOver}
+            onCharDrop={onCharDrop}
+            onCharDragEnd={onCharDragEnd}
+          />
         )}
       </Container>
       
-      {/* Character Filter Dialog */}
-      <Dialog open={filterDialogOpen} onClose={handleCloseFilterDialog} maxWidth="md" fullWidth>
-        <DialogTitle>{t("characterFilter")}</DialogTitle>
-        <DialogContent>          <Box display="flex" flexDirection="column" gap={2} sx={{ mt: 1 }}>
-            {/* Name search input */}            <TextField
-              size="small"
-              label={t("characterName")}
-              value={filters.name}
-              onChange={(e) => setFilters(prev => ({ ...prev, name: e.target.value }))}
-              placeholder={t("searchPlaceholder")}
-              fullWidth
-            />            <Box
-              sx={{
-                display: 'grid',
-                gap: 2,
-                gridTemplateColumns: 'repeat(5, 1fr)'
-              }}
-            >
-              <FormControl size="small" fullWidth sx={{ minWidth: 0 }}>
-                <InputLabel>{t("element")}</InputLabel>
-                <Select
-                  value={filters.element}
-                  onChange={(e) => setFilters(prev => ({ ...prev, element: e.target.value }))}
-                  label={t("element")}
-                  MenuProps={{
-                    PaperProps: {
-                      style: { maxHeight: 200, width: 'auto' }
-                    },
-                    anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
-                    transformOrigin: { vertical: 'top', horizontal: 'left' }
-                  }}
-                >
-                  <MenuItem value="">{t("all")}</MenuItem>
-                  <MenuItem value="Iron">{t("iron")}</MenuItem>
-                  <MenuItem value="Fire">{t("fire")}</MenuItem>
-                  <MenuItem value="Water">{t("water")}</MenuItem>
-                  <MenuItem value="Wind">{t("wind")}</MenuItem>
-                  <MenuItem value="Electronic">{t("electronic")}</MenuItem>
-                </Select>
-              </FormControl>
-
-              <FormControl size="small" fullWidth sx={{ minWidth: 0 }}>
-                <InputLabel>{t("burstSkill")}</InputLabel>
-                <Select
-                  value={filters.use_burst_skill}
-                  onChange={(e) => setFilters(prev => ({ ...prev, use_burst_skill: e.target.value }))}
-                  label={t("burstSkill")}
-                  MenuProps={{
-                    PaperProps: {
-                      style: { maxHeight: 200, width: 'auto' }
-                    },
-                    anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
-                    transformOrigin: { vertical: 'top', horizontal: 'left' }
-                  }}
-                >
-                  <MenuItem value="">{t("all")}</MenuItem>
-                  <MenuItem value="1">1</MenuItem>
-                  <MenuItem value="2">2</MenuItem>
-                  <MenuItem value="3">3</MenuItem>
-                </Select>
-              </FormControl>
-
-              <FormControl size="small" fullWidth sx={{ minWidth: 0 }}>
-                <InputLabel>{t("class")}</InputLabel>
-                <Select
-                  value={filters.class}
-                  onChange={(e) => setFilters(prev => ({ ...prev, class: e.target.value }))}
-                  label={t("class")}
-                  MenuProps={{
-                    PaperProps: {
-                      style: { maxHeight: 200, width: 'auto' }
-                    },
-                    anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
-                    transformOrigin: { vertical: 'top', horizontal: 'left' }
-                  }}
-                >
-                  <MenuItem value="">{t("all")}</MenuItem>
-                  <MenuItem value="Attacker">{t("attacker")}</MenuItem>
-                  <MenuItem value="Defender">{t("defender")}</MenuItem>
-                  <MenuItem value="Supporter">{t("supporter")}</MenuItem>
-                </Select>
-              </FormControl>
-              
-              <FormControl size="small" fullWidth sx={{ minWidth: 0 }}>
-                <InputLabel>{t("corporation")}</InputLabel>
-                <Select
-                  value={filters.corporation}
-                  onChange={(e) => setFilters(prev => ({ ...prev, corporation: e.target.value }))}
-                  label={t("corporation")}
-                  MenuProps={{
-                    PaperProps: {
-                      style: { maxHeight: 200, width: 'auto' }
-                    },
-                    anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
-                    transformOrigin: { vertical: 'top', horizontal: 'left' }
-                  }}
-                >
-                  <MenuItem value="">{t("all")}</MenuItem>
-                  <MenuItem value="ELYSION">{t("elysion")}</MenuItem>
-                  <MenuItem value="MISSILIS">{t("missilis")}</MenuItem>
-                  <MenuItem value="TETRA">{t("tetra")}</MenuItem>
-                  <MenuItem value="PILGRIM">{t("pilgrim")}</MenuItem>
-                  <MenuItem value="ABNORMAL">{t("abnormal")}</MenuItem>
-                </Select>
-              </FormControl>
-              
-              <FormControl size="small" fullWidth sx={{ minWidth: 0 }}>
-                <InputLabel>{t("weaponType")}</InputLabel>
-                <Select
-                  value={filters.weapon_type}
-                  onChange={(e) => setFilters(prev => ({ ...prev, weapon_type: e.target.value }))}
-                  label={t("weaponType")}
-                  MenuProps={{
-                    PaperProps: {
-                      style: { maxHeight: 200, width: 'auto' }
-                    },
-                    anchorOrigin: { vertical: 'bottom', horizontal: 'left' },
-                    transformOrigin: { vertical: 'top', horizontal: 'left' }
-                  }}
-                >
-                  <MenuItem value="">{t("all")}</MenuItem>
-                  <MenuItem value="AR">AR</MenuItem>
-                  <MenuItem value="SMG">SMG</MenuItem>
-                  <MenuItem value="SG">SG</MenuItem>
-                  <MenuItem value="SR">SR</MenuItem>
-                  <MenuItem value="MG">MG</MenuItem>
-                  <MenuItem value="RL">RL</MenuItem>
-                </Select>
-              </FormControl>
-              
-            </Box>
-            
-            <Typography variant="subtitle2">{t("filterResults")} ({filteredNikkes.length})</Typography>
-            
-            <Box sx={{ maxHeight: 400, overflow: 'auto' }}>              
-              {filteredNikkes.length > 0 ? (
-                <List>
-                  {filteredNikkes.map((nikke) => {
-                    const isSelected = selectedNikkes.some((item) => item.id === nikke.id);
-                    const alreadyAdded = existingElementIds.has(nikke.id);
-                    const buttonLabel = alreadyAdded
-                      ? t("alreadyAdded")
-                      : isSelected
-                        ? t("selectedTag")
-                        : t("choose");
-                    return (
-                      <ListItem 
-                        key={nikke.id}
-                        secondaryAction={
-                          <Button
-                            variant={isSelected ? "outlined" : "contained"}
-                            size="small"
-                            onClick={() => toggleNikkeSelection(nikke)}
-                              disabled={alreadyAdded}
-                          >
-                            {buttonLabel}
-                          </Button>
-                        }
-                      >
-                        <ListItemText
-                          primary={lang === "zh" ? nikke.name_cn : nikke.name_en}
-                          secondary={`${getElementName(nikke.element)} | ${getBurstStageName(nikke.use_burst_skill)} | ${getClassName(nikke.class)} | ${getCorporationName(nikke.corporation)} | ${nikke.weapon_type}`}
-                        />
-                      </ListItem>
-                    );
-                  })}
-                </List>
-              ) : (
-                <Typography color="textSecondary">{t("noResults")}</Typography>
-              )}
-            </Box>
-
-            <Box sx={{ mt: 2 }}>
-              <Divider sx={{ mb: 2 }} />
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                {selectionLabel}
-              </Typography>
-              {totalSelectionCount === 0 ? (
-                <Typography color="textSecondary">{t("selectedEmpty")}</Typography>
-              ) : (
-                <>
-                  {existingElementCharacters.length > 0 && (
-                    <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                      {existingElementCharacters.map((nikke) => (
-                        <Chip
-                          key={`existing-${nikke.id}`}
-                          label={getDisplayName(nikke)}
-                          size="small"
-                          disabled
-                        />
-                      ))}
-                    </Stack>
-                  )}
-                  {pendingSelectionCount > 0 && (
-                    <Stack
-                      direction="row"
-                      spacing={0.5}
-                      flexWrap="wrap"
-                      sx={{ mt: existingElementCharacters.length ? 1 : 0 }}
-                    >
-                      {selectedNikkes.map((nikke) => (
-                        <Chip
-                          key={nikke.id}
-                          label={getDisplayName(nikke)}
-                          onDelete={() => handleRemoveSelectedNikke(nikke.id)}
-                          variant="outlined"
-                          color="primary"
-                        />
-                      ))}
-                    </Stack>
-                  )}
-                </>
-              )}
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseFilterDialog}>{t("cancel")}</Button>
-          <Button
-            variant="contained"
-            onClick={handleConfirmSelection}
-            disabled={pendingSelectionCount === 0}
-          >
-            {t("confirmSelection")}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <CharacterFilterDialog
+        t={t}
+        open={filterDialogOpen}
+        onClose={handleCloseFilterDialog}
+        filters={filters}
+        setFilters={setFilters}
+        filteredNikkes={filteredNikkes}
+        selectedNikkes={selectedNikkes}
+        effectiveExistingElementIds={effectiveExistingElementIds}
+        getDisplayName={getDisplayName}
+        getNikkeAvatarUrl={getNikkeAvatarUrl}
+        getElementName={getElementName}
+        getBurstStageName={getBurstStageName}
+        getClassName={getClassName}
+        getCorporationName={getCorporationName}
+        handleSelectNikke={handleSelectNikke}
+        selectionLabel={selectionLabel}
+        totalSelectionCount={totalSelectionCount}
+        effectiveExistingElementCharacters={effectiveExistingElementCharacters}
+        handleRemoveExistingNikke={handleRemoveExistingNikke}
+        handleRemoveSelectedNikke={handleRemoveSelectedNikke}
+        pendingSelectionCount={pendingSelectionCount}
+        removedExistingIds={removedExistingIds}
+        handleConfirmSelection={handleConfirmSelection}
+      />
 
       <Snackbar
         open={snackbar.open}

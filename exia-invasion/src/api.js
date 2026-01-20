@@ -22,6 +22,7 @@ export const loadBaseAccountDict = async () => {
 
   // 从存储中获取角色数据（角色管理系统）
   const charactersData = await getCharacters();
+  const showEquipDetails = charactersData?.options?.showEquipDetails !== false;
   
   // 确保所有元素都是数组格式，如需要则进行迁移
   const migratedElements = {};
@@ -47,7 +48,10 @@ export const loadBaseAccountDict = async () => {
     normalProgress: "",
     hardProgress: "",
     cubes: cubes,
-    elements: migratedElements
+    elements: migratedElements,
+    options: {
+      showEquipDetails
+    }
   };
   
   return baseDict;
@@ -274,29 +278,30 @@ export const getCharacterDetails = async (areaId, nameCodes) => {
   const intlOpenId = await getIntlOpenId();
   const allCharacterDetails = [];
   const allStateEffects = [];
-  
-  // 逐个获取角色信息，避免因包含不存在的角色而导致整个请求失败
-  for (const nameCode of nameCodes) {
-    try {
-      const response = await postJson(
-        "https://api.blablalink.com/api/game/proxy/Game/GetUserCharacterDetails",
-        {
-          intl_open_id: intlOpenId,
-          nikke_area_id: parseInt(areaId),
-          name_codes: [nameCode] // 单个角色请求
-        }
-      );
-      
-      if (response?.data?.character_details) {
-        allCharacterDetails.push(...response.data.character_details);
+
+  const uniqueCodes = Array.isArray(nameCodes)
+    ? Array.from(new Set(nameCodes.filter((v) => v !== undefined && v !== null && v !== "")))
+    : [];
+  if (uniqueCodes.length === 0) return [];
+
+  try {
+    const response = await postJson(
+      "https://api.blablalink.com/api/game/proxy/Game/GetUserCharacterDetails",
+      {
+        intl_open_id: intlOpenId,
+        nikke_area_id: parseInt(areaId),
+        name_codes: uniqueCodes
       }
-      if (response?.data?.state_effects) {
-        allStateEffects.push(...response.data.state_effects);
-      }
-    } catch (error) {
-      // 如果单个角色获取失败，记录但继续处理其他角色
-      console.warn(`获取角色 ${nameCode} 详情失败:`, error.message);
+    );
+
+    if (response?.data?.character_details) {
+      allCharacterDetails.push(...response.data.character_details);
     }
+    if (response?.data?.state_effects) {
+      allStateEffects.push(...response.data.state_effects);
+    }
+  } catch (error) {
+    console.warn("获取角色详情失败:", error.message);
   }
   
   // 创建state_effects的映射表，便于查找
@@ -434,6 +439,7 @@ export const fetchAndCacheNikkeDirectory = async () => {
       if (!en) continue; // 跳过没有英文条目的 id
       nikkes.push({
         id: tw.id,
+        resource_id: tw.resource_id,
         name_code: tw.name_code,
         class: tw.class,
         name_cn: tw?.name_localkey?.name,
