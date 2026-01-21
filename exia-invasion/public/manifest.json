@@ -1,7 +1,7 @@
 {
   "name": "ExiaInvasion",
   "description": "A crawler that obtains Nikke character data from blablalink and generates progress tracker.",
-  "version": "2.6.7",
+  "version": "2.6.8",
   "manifest_version": 3,
 
   "action": {
@@ -35,7 +35,9 @@
     "storage",
     "scripting",
     "downloads",
-    "sidePanel"
+    "sidePanel",
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess"
   ],
   "host_permissions": [
     "*://*.blablalink.com/*",
