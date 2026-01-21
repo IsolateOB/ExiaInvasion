@@ -35,7 +35,9 @@
     "storage",
     "scripting",
     "downloads",
-    "sidePanel"
+    "sidePanel",
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess"
   ],
   "host_permissions": [
     "*://*.blablalink.com/*",
