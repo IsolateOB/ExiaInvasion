@@ -69,17 +69,28 @@ export const registerCookieRules = async (accounts) => {
 
 /**
  * 清除所有已注册的动态规则
+ * 会同时清除内存记录的规则和 Chrome 存储中实际存在的规则
  * @returns {Promise<void>}
  */
 export const unregisterAllRules = async () => {
-  if (registeredRuleIds.length === 0) return;
-  
   try {
+    // 从 Chrome 存储中获取实际存在的动态规则
+    const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
+    const existingRuleIds = existingRules.map(rule => rule.id);
+    
+    // 合并内存记录和实际存在的规则ID，并去重
+    const allRuleIds = [...new Set([...registeredRuleIds, ...existingRuleIds])];
+    
+    if (allRuleIds.length === 0) {
+      console.log("[RequestInterceptor] 无规则需要清除");
+      return;
+    }
+    
     await chrome.declarativeNetRequest.updateDynamicRules({
-      removeRuleIds: registeredRuleIds,
+      removeRuleIds: allRuleIds,
       addRules: []
     });
-    console.log(`[RequestInterceptor] 已清除 ${registeredRuleIds.length} 条规则`);
+    console.log(`[RequestInterceptor] 已清除 ${allRuleIds.length} 条规则 (内存记录: ${registeredRuleIds.length}, 实际存在: ${existingRuleIds.length})`);
     registeredRuleIds = [];
   } catch (error) {
     console.error("[RequestInterceptor] 清除规则失败:", error);
