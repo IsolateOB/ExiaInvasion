@@ -1,8 +1,16 @@
-# ExiaInvasion
-
-**ExiaInvasion** is an open source **Browser Extension** that obtains Nikke character data in personal accounts from [blablalink](https://www.blablalink.com/) and generates progress tracker.
+<div align="center">
+	<img src="https://sg-cdn.blablalink.com/socialmedia/_58913bdbcfe6bf42a8d5e92a0483c9c9d7fc3dfa-1200x1200-ori_s_80_50_ori_q_80.webp" alt="icon" width="200"><br>
+	<h1>ExiaInvasion</h1>
+</div>
+<p align="center">
+    <a href="https://github.com/IsolateOB/ExiaInvasion/releases"><img src="https://img.shields.io/github/v/release/IsolateOB/ExiaInvasion?include_prereleases&style=for-the-badge" alt="GitHub release"></a>
+    <a href="https://discord.gg/fRW7PbYZAB"><img src="https://img.shields.io/discord/1039859228640288770?label=Discord&logo=discord&logoColor=white&color=5865F2&style=for-the-badge" alt="Discord"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL3.0-blue.svg?style=for-the-badge" alt="GPL3.0"></a>
+</p>
 
 **ExiaInvasion** 是一个从 [blablalink](https://www.blablalink.com/) 获取个人账号中的 Nikke 人物数据并生成练度表的开源 **浏览器插件**。
+
+**ExiaInvasion** is an open source **Browser Extension** that obtains Nikke character data in personal accounts from [blablalink](https://www.blablalink.com/) and generates progress tracker.
 
 ## 示例输出 Example output
 
@@ -110,20 +118,3 @@ AEL (Attack Element Limit Break Score) is a compact metric for evaluating a char
 
 ​	**AEL** = (1 + 0.9 × 攻击词条 ATK%) × (1 + (优越词条 Elem% + 10%)) × (1 + 3% × 极限突破 Limit Break 	+ 2% × 核心强化 Core Refinement)
 
-## 交流与反馈 Communication and feedback
-
-[Discord](https://discord.gg/rN7CrqmY)
-
-[Github](https://github.com/IsolateOB/ExiaInvasion)
-
-[ExiaInvasion & ExiaAnalysis 交流与反馈](https://qm.qq.com/q/CDQMjjV1Li)
-
-## 许可证 License
-
-本项目自当前版本起以 GPL-3.0-or-later 许可发布。您可以在遵守 GPL 的前提下复制、修改与再发布本项目；再发布的派生作品亦需以 GPL 兼容的方式开源其源代码。
-
-This project is licensed under GPL-3.0-or-later. You may copy, modify, and redistribute under the terms of the GPL; derivative works must also be distributed under a GPL-compatible license with source available.
-
-完整许可文本见仓库根目录的 `LICENSE` 文件。扩展打包时会附带 `public/LICENSE.txt` 作为随附声明。
-
-The full license text can be found in the repository root `LICENSE` file. The packaged extension includes `public/LICENSE.txt` as an accompanying notice.

@@ -1,6 +1,0 @@
-ExiaInvasion is licensed under GPL-3.0-or-later.
-
-For the full license text, see the LICENSE file at the root of this repository:
-https://github.com/IsolateOB/ExiaInvasion
-
-When this extension is distributed as a ZIP/CRX, this file serves as a notice of the license.
