@@ -16,6 +16,7 @@ import {
   InputAdornment,
   IconButton,
   Tooltip,
+  CircularProgress,
 } from "@mui/material";
 import SaveIcon from "@mui/icons-material/Save";
 import EditIcon from "@mui/icons-material/Edit";
@@ -33,6 +34,7 @@ import CloseIcon from "@mui/icons-material/Close";
 const AccountTabContent = ({
   t,
   accountTemplates,
+  defaultAccountTemplateId,
   selectedAccountTemplateId,
   handleAccountTemplateChange,
   isAccountRenaming,
@@ -59,31 +61,46 @@ const AccountTabContent = ({
   onAccountDrop,
   onAccountDragEnd,
   updateField,
-  setAccounts,
-  persist,
+  handleToggleAccountEnabled,
   setShowPwds,
   saveRow,
   startEdit,
   deleteRow,
   addRow,
   renderText,
+  syncLabel,
+  isSyncing,
+  getCookieStatus,
 }) => (
   <>
     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2, gap: 2 }}>
-      <Typography variant="h6">{t("accountTable")}</Typography>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+        <Typography variant="h6">{t("accountTable")}</Typography>
+        {isSyncing ? (
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            <CircularProgress size={14} />
+            <Typography variant="body2" color="text.secondary" noWrap>
+              {t("sync.inProgress") || "同步中"}
+            </Typography>
+          </Box>
+        ) : syncLabel ? (
+          <Typography variant="body2" color="text.secondary" noWrap>
+            {syncLabel}
+          </Typography>
+        ) : null}
+      </Box>
 
       <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
         <Select
           size="small"
           value={selectedAccountTemplateId || ""}
           onChange={(e) => handleAccountTemplateChange(e.target.value)}
-          displayEmpty
           sx={{ minWidth: 200, width: 240 }}
           renderValue={(val) => {
             const id = String(val || "");
             const item = accountTemplates.find((tp) => tp.id === id);
             const name = item?.name || "";
-            const display = name || t("accountTemplateNotSelected");
+            const display = name;
             return (
               <Typography noWrap title={display} sx={{ maxWidth: "100%" }}>
                 {display}
@@ -92,9 +109,6 @@ const AccountTabContent = ({
           }}
           MenuProps={{ PaperProps: { style: { maxHeight: 300 } } }}
         >
-          <MenuItem value="">
-            <em>{t("accountTemplateNotSelected")}</em>
-          </MenuItem>
           {accountTemplates.map((tpl) => (
             <MenuItem key={tpl.id} value={tpl.id} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               {isAccountRenaming && accountRenameId === tpl.id ? (
@@ -138,10 +152,18 @@ const AccountTabContent = ({
                       <EditIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title={t("templateDelete")}>
-                    <IconButton size="small" color="error" aria-label={t("templateDelete")} onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDeleteAccountTemplate(tpl.id); }}>
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
+                  <Tooltip title={tpl.id === defaultAccountTemplateId ? (t("accountTemplateDefaultLocked") || "默认账号列表不可删除") : t("templateDelete")}>
+                    <span>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        aria-label={t("templateDelete")}
+                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDeleteAccountTemplate(tpl.id); }}
+                        disabled={tpl.id === defaultAccountTemplateId}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </span>
                   </Tooltip>
                 </>
               )}
@@ -152,11 +174,11 @@ const AccountTabContent = ({
         <Button
           variant="contained"
           size="small"
-          startIcon={<SaveIcon />}
+          startIcon={<AddIcon />}
           onClick={handleCreateAccountTemplate}
           disabled={accountTemplates.length >= 200}
         >
-          {t("templateSave")}
+          {t("accountTemplateCreate") || "新建"}
         </Button>
 
         <Button size="small" variant="outlined" onClick={handleToggleAllEnabled} sx={{ minWidth: 80 }}>
@@ -186,7 +208,7 @@ const AccountTabContent = ({
           <TableCell width="20%">{t("email")}</TableCell>
           <TableCell width="15%">{t("password")}</TableCell>
           <TableCell width="20%">{t("cookie")}</TableCell>
-          <TableCell width="15%" align="right" />
+          <TableCell align="right" width="10%">{t("actions")}</TableCell>
         </TableRow>
       </TableHead>
 
@@ -195,7 +217,7 @@ const AccountTabContent = ({
           const isEdit = editing[idx];
           return (
             <TableRow
-              key={row.id}
+              key={`${row.game_uid || "row"}-${idx}`}
               draggable={!isEdit}
               onDragStart={(e) => !isEdit && onAccountDragStart(e, idx)}
               onDragOver={(e) => !isEdit && onAccountDragOver(e, idx)}
@@ -215,11 +237,7 @@ const AccountTabContent = ({
                 <Switch
                   size="small"
                   checked={row.enabled !== false}
-                  onChange={() => {
-                    const nextAccounts = accounts.map((r, i) => (i === idx ? { ...r, enabled: !r.enabled } : r));
-                    setAccounts(nextAccounts);
-                    persist(nextAccounts);
-                  }}
+                  onChange={() => handleToggleAccountEnabled(idx)}
                   disabled={isEdit}
                   inputProps={{ "aria-label": t("enabled") }}
                 />
@@ -308,10 +326,19 @@ const AccountTabContent = ({
                     fullWidth
                     inputProps={{ "aria-label": t("cookie"), name: "cookie", autoComplete: "off" }}
                   />
-                ) : row.cookie ? (
-                  t("saved")
                 ) : (
-                  "—"
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: 0.25 }}>
+                    {row.cookie ? t("saved") : "—"}
+                    {(() => {
+                      const status = getCookieStatus ? getCookieStatus(row) : null;
+                      if (!status) return null;
+                      return (
+                        <Typography variant="caption" sx={{ color: status.color }}>
+                          {status.label}
+                        </Typography>
+                      );
+                    })()}
+                  </Box>
                 )}
               </TableCell>
               <TableCell align="right">

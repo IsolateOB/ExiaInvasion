@@ -10,10 +10,10 @@ let registeredRuleIds = [];
 
 /**
  * 为账号列表注册请求拦截规则
- * 每个账号会生成一条规则：当请求 URL 包含 _acct_id=<account.id> 时，
+ * 每个账号会生成一条规则：当请求 URL 包含 _acct_id=<account.game_uid> 时，
  * 将 Cookie 请求头替换为该账号的 Cookie 字符串
  * 
- * @param {Array<{id: string, cookie: string}>} accounts - 账号列表
+ * @param {Array<{game_uid: string, cookie: string}>} accounts - 账号列表
  * @returns {Promise<void>}
  */
 export const registerCookieRules = async (accounts) => {
@@ -26,7 +26,7 @@ export const registerCookieRules = async (accounts) => {
   const newRuleIds = [];
   
   accounts.forEach((account, index) => {
-    if (!account.id || !account.cookie) return;
+    if (!account.game_uid || !account.cookie) return;
     
     const ruleId = RULE_ID_BASE + index;
     newRuleIds.push(ruleId);
@@ -46,7 +46,7 @@ export const registerCookieRules = async (accounts) => {
       },
       condition: {
         // 匹配包含账号标识的 API 请求
-        regexFilter: `.*api\\.blablalink\\.com.*[?&]_acct_id=${account.id}.*`,
+        regexFilter: `.*api\\.blablalink\\.com.*[?&]_acct_id=${account.game_uid}.*`,
         resourceTypes: ["xmlhttprequest"]
       }
     });

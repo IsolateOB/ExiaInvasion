@@ -15,8 +15,9 @@ import {
   FormControl,
   Tooltip,
   Checkbox,
+  CircularProgress,
 } from "@mui/material";
-import SaveIcon from "@mui/icons-material/Save";
+import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
@@ -32,6 +33,7 @@ const CharacterTabContent = ({
   t,
   lang,
   templates,
+  defaultTemplateId,
   selectedTemplateId,
   handleTemplateChange,
   isRenaming,
@@ -70,6 +72,8 @@ const CharacterTabContent = ({
   onCharDragOver,
   onCharDrop,
   onCharDragEnd,
+  syncLabel,
+  isSyncing,
 }) => {
   const toggleMinWidth = typeof nikkeToggleMinWidthPx === "number" ? nikkeToggleMinWidthPx : 56;
   const tableMinWidth =
@@ -83,20 +87,33 @@ const CharacterTabContent = ({
   return (
     <>
     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2, gap: 2 }}>
-      <Typography variant="h6">{t("characterManagement")}</Typography>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+        <Typography variant="h6">{t("characterManagement")}</Typography>
+        {isSyncing ? (
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+            <CircularProgress size={14} />
+            <Typography variant="body2" color="text.secondary" noWrap>
+              {t("sync.inProgress") || "同步中"}
+            </Typography>
+          </Box>
+        ) : syncLabel ? (
+          <Typography variant="body2" color="text.secondary" noWrap>
+            {syncLabel}
+          </Typography>
+        ) : null}
+      </Box>
 
       <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
         <Select
           size="small"
           value={selectedTemplateId || ""}
           onChange={(e) => handleTemplateChange(e.target.value)}
-          displayEmpty
           sx={{ minWidth: 200, width: 240 }}
           renderValue={(val) => {
             const id = String(val || "");
             const item = templates.find((tp) => tp.id === id);
             const name = item?.name || "";
-            const display = name || t("templateNotSelected");
+            const display = name;
             return (
               <Typography noWrap title={display} sx={{ maxWidth: "100%" }}>
                 {display}
@@ -105,9 +122,6 @@ const CharacterTabContent = ({
           }}
           MenuProps={{ PaperProps: { style: { maxHeight: 300 } } }}
         >
-          <MenuItem value="">
-            <em>{t("templateNotSelected")}</em>
-          </MenuItem>
           {templates.map((tpl) => (
             <MenuItem key={tpl.id} value={tpl.id} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               {isRenaming && renameId === tpl.id ? (
@@ -151,10 +165,18 @@ const CharacterTabContent = ({
                       <EditIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title={t("templateDelete")}>
-                    <IconButton size="small" color="error" aria-label={t("templateDelete")} onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDeleteTemplate(tpl.id); }}>
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
+                  <Tooltip title={tpl.id === defaultTemplateId ? (t("templateDefaultLocked") || "默认妮姬列表不可删除") : t("templateDelete")}>
+                    <span>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        aria-label={t("templateDelete")}
+                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDeleteTemplate(tpl.id); }}
+                        disabled={tpl.id === defaultTemplateId}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </span>
                   </Tooltip>
                 </>
               )}
@@ -162,8 +184,8 @@ const CharacterTabContent = ({
           ))}
         </Select>
 
-        <Button variant="contained" size="small" startIcon={<SaveIcon />} onClick={handleCreateTemplate} disabled={templates.length >= 200}>
-          {t("templateSave")}
+        <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={handleCreateTemplate} disabled={templates.length >= 200}>
+          {t("templateCreate") || "新建"}
         </Button>
 
         <Button variant="outlined" size="small" startIcon={<FileDownloadIcon />} onClick={triggerCharacterImport} sx={{ minWidth: 80 }}>

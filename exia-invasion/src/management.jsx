@@ -2,7 +2,7 @@
 // ========== ExiaInvasion 管理页面组件 ==========
 // 主要功能：账户管理、角色数据管理、装备统计配置等
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import ExcelJS from "exceljs";
 import {
   Container,
@@ -10,11 +10,18 @@ import {
   Tab,
   Snackbar,
   Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Box,
+  Typography,
 } from "@mui/material";
 import TRANSLATIONS from "./translations.js";
 import { fetchAndCacheNikkeDirectory, getCachedNikkeDirectory } from "./api.js";
-import { v4 as uuidv4 } from "uuid";
-import { getCharacters, setCharacters, getTemplates, saveTemplate, deleteTemplate, getCurrentTemplateId, setCurrentTemplateId, getAccountTemplates, saveAccountTemplate, deleteAccountTemplate, getCurrentAccountTemplateId, setCurrentAccountTemplateId } from "./storage.js";
+import { getAccounts, getCharacters, setCharacters, getTemplates, setTemplates as setStoredTemplates, saveTemplate, deleteTemplate, getCurrentTemplateId, setCurrentTemplateId, getNextTemplateId, getAccountTemplates, setAccountTemplates as setStoredAccountTemplates, saveAccountTemplate, deleteAccountTemplate, getCurrentAccountTemplateId, setCurrentAccountTemplateId, getNextAccountTemplateId, getSettings, setSettings, getAuth, clearAuth, getSyncMeta, setSyncMeta } from "./storage.js";
+import { normalizeAccountsFromRemote, buildAccountsSignature, buildCharactersSignature } from "./cloudCompare.js";
 import { getNikkeAvatarUrl as buildNikkeAvatarUrl } from "./nikkeAvatar.js";
 import ManagementHeader from "./components/management/ManagementHeader.jsx";
 import AccountTabContent from "./components/management/AccountTabContent.jsx";
@@ -24,12 +31,21 @@ import CharacterFilterDialog from "./components/management/CharacterFilterDialog
 // ========== 常量定义 ==========
 // 默认账户行数据结构
 
+const API_BASE_URL = "https://exia-backend.tigertan1998.workers.dev";
+
+const parseGameUidFromCookie = (cookieStr) => {
+  if (!cookieStr) return "";
+  const match = cookieStr.match(/(?:^|;\s*)game_uid=([^;]*)/);
+  return match ? match[1] : "";
+};
+
 const defaultRow = () => ({
-  id: uuidv4(),
   username: "",
   email: "",
   password: "",
   cookie: "",
+  cookieUpdatedAt: null,
+  game_uid: "",
   enabled: true
 });
 
@@ -70,6 +86,11 @@ const SHOW_STATS_CONFIG_MARKER = "__showStatsConfigured";
 // ========== 管理页面主组件 ==========
 
 const ManagementPage = () => {
+  /* ========== 语言设置同步 ========== */
+  const [lang, setLang] = useState("zh");
+  const [syncAccountSensitive, setSyncAccountSensitive] = useState(false);
+  const t = useCallback((k) => TRANSLATIONS[lang][k] || k, [lang]);
+
   // ========== 状态管理 ==========
   // 账户管理相关状态
   const [accounts, setAccounts] = useState([]);
@@ -110,6 +131,37 @@ const ManagementPage = () => {
   // 拖拽状态（角色列表）：区分源分组与当前悬停分组，统一跨组视觉
   const [charDragging, setCharDragging] = useState({ sourceElement: null, currentElement: null, draggingIndex: null, overIndex: null });
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
+  const [authToken, setAuthToken] = useState(null);
+  const [accountsSyncAt, setAccountsSyncAt] = useState(null);
+  const [charactersSyncAt, setCharactersSyncAt] = useState(null);
+  const [accountsSyncing, setAccountsSyncing] = useState(false);
+  const [charactersSyncing, setCharactersSyncing] = useState(false);
+  const characterTemplateSaveTimerRef = useRef(null);
+  const accountTemplatesInitRef = useRef(false);
+  const templatesInitRef = useRef(false);
+  const accountTemplatesRef = useRef([]);
+  const templatesRef = useRef([]);
+  const [syncConflict, setSyncConflict] = useState({
+    open: false,
+    hasAccounts: false,
+    localAccounts: null,
+    remoteAccounts: null,
+    remoteAccountsUpdatedAt: null,
+    hasCharacters: false,
+    localCharacters: null,
+    remoteCharacters: null,
+    remoteCharactersUpdatedAt: null,
+  });
+
+  const syncTimerRef = useRef(null);
+  const sensitiveSyncTimerRef = useRef(null);
+  const forceAccountsSyncingRef = useRef(false);
+  const syncSensitiveInitRef = useRef(false);
+  const prevSyncSensitiveRef = useRef(null);
+  const lastSyncedAccountsSigRef = useRef(null);
+  const lastSyncedCharactersSigRef = useRef(null);
+  const isInitializedRef = useRef(false);
+  const cloudInitTokenRef = useRef(null);
 
   // 妮姬页开关列：统一宽度/间距，避免后几列被挤压
   const toggleCellSx = useMemo(
@@ -144,6 +196,10 @@ const ManagementPage = () => {
   const [accountRenameId, setAccountRenameId] = useState("");
   const [accountRenameValue, setAccountRenameValue] = useState("");
   
+  // Keep refs in sync with state to avoid closure issues
+  useEffect(() => { accountTemplatesRef.current = accountTemplates; }, [accountTemplates]);
+  useEffect(() => { templatesRef.current = templates; }, [templates]);
+  
   // 全选/全不选状态
   const isAllEnabled = useMemo(() => accounts.every(acc => acc.enabled !== false), [accounts]);
   const existingElementCharacters = useMemo(() => {
@@ -168,9 +224,15 @@ const ManagementPage = () => {
     return map;
   }, [nikkeList]);
   
-  /* ========== 语言设置同步 ========== */
-  const [lang, setLang] = useState("zh");
-  const t = useCallback((k) => TRANSLATIONS[lang][k] || k, [lang]);
+  const toggleLang = async (e) => {
+    const newLang = e.target.checked ? "en" : "zh";
+    setLang(newLang);
+    const current = await getSettings();
+    await setSettings({
+      ...current,
+      lang: newLang
+    });
+  };
 
   // 管理页 Tab 持久化：刷新时保持停留在当前页（账号/妮姬）
   useEffect(() => {
@@ -189,16 +251,310 @@ const ManagementPage = () => {
   
   useEffect(() => {
     chrome.storage.local.get("settings", (r) => {
-  setLang(r.settings?.lang || "zh");
+      const nextLang = r.settings?.lang || "zh";
+      const nextSensitive = Boolean(r.settings?.syncAccountSensitive);
+      setLang(nextLang);
+      setSyncAccountSensitive(nextSensitive);
+      syncSensitiveInitRef.current = true;
+      prevSyncSensitiveRef.current = nextSensitive;
     });
     const handler = (c, area) => {
       if (area === "local" && c.settings) {
-        setLang(c.settings.newValue?.lang || "zh");
+        const nextLang = c.settings.newValue?.lang || "zh";
+        const nextSensitive = Boolean(c.settings.newValue?.syncAccountSensitive);
+        setLang(nextLang);
+        setSyncAccountSensitive(nextSensitive);
+        if (!syncSensitiveInitRef.current) {
+          syncSensitiveInitRef.current = true;
+          prevSyncSensitiveRef.current = nextSensitive;
+        }
       }
     };
     chrome.storage.onChanged.addListener(handler);
     return () => chrome.storage.onChanged.removeListener(handler);
   }, []);
+
+
+  useEffect(() => {
+    getAuth().then((auth) => {
+      if (auth?.token && auth?.username) {
+        setAuthToken(auth.token);
+      }
+    });
+    getSyncMeta().then((meta) => {
+      setAccountsSyncAt(normalizeTimestamp(meta?.accountsLastSyncAt));
+      setCharactersSyncAt(normalizeTimestamp(meta?.charactersLastSyncAt));
+    });
+    const authHandler = (changes, area) => {
+      if (area === "local" && changes.auth) {
+        const next = changes.auth.newValue;
+        if (next?.token && next?.username) {
+          setAuthToken(next.token);
+        } else {
+          setAuthToken(null);
+          cloudInitTokenRef.current = null;
+          setSyncConflict((prev) => ({ ...prev, open: false }));
+        }
+      }
+      if (area === "local" && changes.syncMeta) {
+        const next = changes.syncMeta.newValue || {};
+        setAccountsSyncAt(normalizeTimestamp(next?.accountsLastSyncAt));
+        setCharactersSyncAt(normalizeTimestamp(next?.charactersLastSyncAt));
+      }
+    };
+    chrome.storage.onChanged.addListener(authHandler);
+    return () => chrome.storage.onChanged.removeListener(authHandler);
+  }, []);
+
+  const sanitizeAccountsForCloud = useCallback((list) => {
+    if (!Array.isArray(list)) return [];
+    return list
+      .map((acc) => ({
+        game_uid: acc?.game_uid || acc?.gameUid || "",
+        username: acc?.username || "",
+        cookie: acc?.cookie || "",
+        cookieUpdatedAt: acc?.cookieUpdatedAt ?? acc?.cookie_updated_at ?? null,
+        ...(syncAccountSensitive
+          ? {
+              email: acc?.email || "",
+              password: acc?.password || "",
+            }
+          : {}),
+      }))
+      .filter((acc) => acc.game_uid || acc.cookie || acc.username);
+  }, [syncAccountSensitive]);
+
+  const mergeCloudAccounts = useCallback((localList, remoteList) => {
+    const local = Array.isArray(localList) ? [...localList] : [];
+    const remote = Array.isArray(remoteList) ? remoteList : [];
+
+    const findKey = (acc) => acc?.game_uid || acc?.gameUid || acc?.cookie;
+
+    remote.forEach((remoteAcc) => {
+      const key = findKey(remoteAcc);
+      if (!key) {
+        local.push({ ...remoteAcc });
+        return;
+      }
+      const idx = local.findIndex((acc) => findKey(acc) === key);
+      const cookieUpdatedAt = remoteAcc?.cookieUpdatedAt ?? remoteAcc?.cookie_updated_at ?? null;
+      if (idx >= 0) {
+        local[idx] = {
+          ...local[idx],
+          username: remoteAcc?.username || local[idx]?.username || "",
+          email: remoteAcc?.email ?? local[idx]?.email ?? "",
+          password: remoteAcc?.password ?? local[idx]?.password ?? "",
+          cookie: remoteAcc?.cookie || local[idx]?.cookie || "",
+          cookieUpdatedAt: cookieUpdatedAt ?? local[idx]?.cookieUpdatedAt ?? null,
+          game_uid: remoteAcc?.game_uid || remoteAcc?.gameUid || local[idx]?.game_uid || local[idx]?.gameUid || "",
+          enabled: remoteAcc?.enabled ?? local[idx]?.enabled,
+        };
+      } else {
+        local.push({ ...remoteAcc, cookieUpdatedAt });
+      }
+    });
+
+    return local;
+  }, []);
+
+  const normalizeListId = useCallback((id) => (id === undefined || id === null ? "" : String(id)), []);
+
+  const normalizeAccountLists = useCallback((lists) => {
+    if (!Array.isArray(lists)) return [];
+    return lists
+      .map((item) => ({
+        id: normalizeListId(item?.id),
+        name: item?.name || "",
+        data: Array.isArray(item?.data) ? item.data : (Array.isArray(item?.accounts) ? item.accounts : []),
+      }))
+      .filter((item) => item.id || item.name)
+      .sort((a, b) => a.id.localeCompare(b.id));
+  }, [normalizeListId]);
+
+  const buildCloudAccountLists = useCallback((lists) => {
+    return normalizeAccountLists(lists).map((item) => ({
+      id: item.id,
+      name: item.name,
+      data: sanitizeAccountsForCloud(item.data || []),
+    }));
+  }, [normalizeAccountLists, sanitizeAccountsForCloud]);
+
+  const buildUpdatedAccountTemplates = useCallback((templatesList, templateId, data) => {
+    if (!templateId) return Array.isArray(templatesList) ? templatesList : [];
+    const source = Array.isArray(templatesList) ? templatesList : [];
+    let found = false;
+    const next = source.map((item) => {
+      if (item.id !== templateId) return item;
+      found = true;
+      return { ...item, data };
+    });
+    return found ? next : source;
+  }, []);
+
+  const mergeAccountLists = useCallback((localLists, remoteLists) => {
+    const localNormalized = normalizeAccountLists(localLists);
+    const remoteNormalized = normalizeAccountLists(remoteLists);
+    const localMap = new Map(localNormalized.map((item) => [item.id, item]));
+    return remoteNormalized.map((remoteItem) => {
+      const localItem = localMap.get(remoteItem.id);
+      if (!localItem) return remoteItem;
+      return {
+        ...remoteItem,
+        name: remoteItem.name || localItem.name || "",
+        data: mergeCloudAccounts(localItem.data || [], remoteItem.data || []),
+      };
+    });
+  }, [normalizeAccountLists, mergeCloudAccounts]);
+
+  const normalizeCharacterLists = useCallback((lists) => {
+    if (!Array.isArray(lists)) return [];
+    return lists
+      .map((item) => ({
+        id: normalizeListId(item?.id),
+        name: item?.name || "",
+        data: item?.data || item?.characters || null,
+      }))
+      .filter((item) => item.id || item.name)
+      .sort((a, b) => a.id.localeCompare(b.id));
+  }, [normalizeListId]);
+
+  const buildAccountListsSignature = useCallback((lists) => {
+    const normalized = buildCloudAccountLists(lists).map((item) => ({
+      id: item.id,
+      name: item.name,
+      dataSig: buildAccountsSignature(item.data || []),
+    }));
+    return JSON.stringify(normalized);
+  }, [buildCloudAccountLists]);
+
+  const buildCharacterListsSignature = useCallback((lists) => {
+    const normalized = normalizeCharacterLists(lists).map((item) => ({
+      id: item.id,
+      name: item.name,
+      dataSig: buildCharactersSignature(item.data || {}),
+    }));
+    return JSON.stringify(normalized);
+  }, [normalizeCharacterLists]);
+
+  const syncAccountsToCloud = useCallback(async (lists) => {
+    if (!authToken) return;
+    const payload = buildCloudAccountLists(lists);
+    const uploadResp = await uploadCloudData("/accounts", authToken, { lists: payload });
+    const updatedAt = normalizeTimestamp(uploadResp?.updated_at) || Date.now();
+    await setSyncMeta({ accountsLastSyncAt: updatedAt });
+    setAccountsSyncAt(updatedAt);
+  }, [authToken, buildCloudAccountLists]);
+
+  const syncCharactersToCloud = useCallback(async (lists) => {
+    if (!authToken) return;
+    const payload = normalizeCharacterLists(lists).map((item) => ({
+      id: item.id,
+      name: item.name,
+      data: item.data,
+    }));
+    const uploadResp = await uploadCloudData("/characters", authToken, { lists: payload });
+    const updatedAt = normalizeTimestamp(uploadResp?.updated_at) || Date.now();
+    await setSyncMeta({ charactersLastSyncAt: updatedAt });
+    setCharactersSyncAt(updatedAt);
+  }, [authToken, normalizeCharacterLists]);
+
+  const syncAccountsNow = useCallback(async (lists) => {
+    if (!authToken) return;
+    const payloadLists = Array.isArray(lists) ? lists : accountTemplatesRef.current;
+    setAccountsSyncing(true);
+    try {
+      await syncAccountsToCloud(payloadLists);
+      lastSyncedAccountsSigRef.current = buildAccountListsSignature(payloadLists);
+    } finally {
+      forceAccountsSyncingRef.current = false;
+      setAccountsSyncing(false);
+    }
+  }, [authToken, buildAccountListsSignature, syncAccountsToCloud]);
+
+  useEffect(() => {
+    if (!authToken || !isInitializedRef.current) return;
+    if (!accountTemplatesRef.current.length) return;
+    if (!syncSensitiveInitRef.current) return;
+    if (prevSyncSensitiveRef.current === syncAccountSensitive) return;
+    prevSyncSensitiveRef.current = syncAccountSensitive;
+    if (sensitiveSyncTimerRef.current) {
+      clearTimeout(sensitiveSyncTimerRef.current);
+    }
+    forceAccountsSyncingRef.current = true;
+    setAccountsSyncing(true);
+    sensitiveSyncTimerRef.current = setTimeout(() => {
+      syncAccountsNow(accountTemplatesRef.current);
+    }, 3000);
+    return () => {
+      if (sensitiveSyncTimerRef.current) {
+        clearTimeout(sensitiveSyncTimerRef.current);
+      }
+      if (!forceAccountsSyncingRef.current) {
+        setAccountsSyncing(false);
+      }
+    };
+  }, [authToken, syncAccountSensitive, syncAccountsNow]);
+
+  const flushPendingSync = useCallback(async ({ useKeepalive = false } = {}) => {
+    if (!authToken) return;
+
+    const accountsSig = buildAccountListsSignature(accountTemplates);
+    const charactersSig = buildCharacterListsSignature(templates);
+
+    const shouldSyncAccounts = accountsSig !== lastSyncedAccountsSigRef.current;
+    const shouldSyncCharacters = charactersSig !== lastSyncedCharactersSigRef.current;
+
+    if (!shouldSyncAccounts && !shouldSyncCharacters) return;
+
+    try {
+      if (shouldSyncAccounts) {
+        if (useKeepalive) {
+          fetch(`${API_BASE_URL}/accounts`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${authToken}`,
+            },
+            body: JSON.stringify({ lists: normalizeAccountLists(accountTemplates).map((item) => ({
+              id: item.id,
+              name: item.name,
+              data: sanitizeAccountsForCloud(item.data || []),
+            })) }),
+            keepalive: true,
+          }).catch(() => {});
+        } else {
+          await syncAccountsToCloud(accountTemplates);
+        }
+        lastSyncedAccountsSigRef.current = accountsSig;
+      }
+
+      if (shouldSyncCharacters) {
+        if (useKeepalive) {
+          fetch(`${API_BASE_URL}/characters`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${authToken}`,
+            },
+            body: JSON.stringify({ lists: normalizeCharacterLists(templates).map((item) => ({
+              id: item.id,
+              name: item.name,
+              data: item.data,
+            })) }),
+            keepalive: true,
+          }).catch(() => {});
+        } else {
+          await syncCharactersToCloud(templates);
+        }
+        lastSyncedCharactersSigRef.current = charactersSig;
+      }
+    } catch (error) {
+      console.error("Cloud auto-sync failed:", error);
+    } finally {
+      setAccountsSyncing(buildAccountListsSignature(accountTemplates) !== lastSyncedAccountsSigRef.current);
+      setCharactersSyncing(buildCharacterListsSignature(templates) !== lastSyncedCharactersSigRef.current);
+    }
+  }, [authToken, accountTemplates, templates, syncAccountsToCloud, syncCharactersToCloud, normalizeAccountLists, normalizeCharacterLists, buildAccountListsSignature, buildCharacterListsSignature, sanitizeAccountsForCloud]);
   
   /* ========== 角色数据初始化 ========== */
   useEffect(() => {
@@ -236,42 +592,112 @@ const ManagementPage = () => {
   }, []);
   
   /* ========== 模板管理初始化 ========== */
+  const buildDefaultCharacterTemplate = useCallback(async () => {
+    const id = await getNextTemplateId();
+    return {
+      id,
+      name: `${t("template")}${1}`,
+      data: characters,
+      createdAt: Date.now(),
+      isDefault: true,
+    };
+  }, [characters, t]);
+
+  const applyTemplatesWithDefault = useCallback(async (list, preferredId) => {
+    let nextList = Array.isArray(list) ? list : [];
+    if (!nextList.length) {
+      const template = await buildDefaultCharacterTemplate();
+      nextList = [template];
+    } else if (!nextList.some((tpl) => tpl?.isDefault)) {
+      const sorted = [...nextList].sort((a, b) => String(a?.id || "").localeCompare(String(b?.id || "")));
+      const targetId = sorted[0]?.id;
+      if (targetId) {
+        nextList = nextList.map((tpl) => (tpl.id === targetId ? { ...tpl, isDefault: true } : tpl));
+      }
+    }
+    await setStoredTemplates(nextList);
+    setTemplates(nextList);
+    const defaultId = nextList.find((tpl) => tpl?.isDefault)?.id || nextList[0]?.id || "";
+    const nextId = preferredId && nextList.some((tpl) => tpl.id === preferredId) ? preferredId : defaultId;
+    setSelectedTemplateId(nextId);
+    await setCurrentTemplateId(nextId);
+    return { list: nextList, defaultId: defaultId || nextId };
+  }, [buildDefaultCharacterTemplate]);
+
   useEffect(() => {
-    // 加载模板列表
-    getTemplates().then(list => {
-      setTemplates(list || []);
-    });
-    
-    // 加载当前选中的模板ID
-    getCurrentTemplateId().then(id => {
-      setSelectedTemplateId(id || "");
-    });
-  }, []);
+    if (templatesInitRef.current) return;
+    templatesInitRef.current = true;
+    (async () => {
+      const list = await getTemplates();
+      const currentId = await getCurrentTemplateId();
+      await applyTemplatesWithDefault(list || [], currentId || "");
+    })();
+  }, [applyTemplatesWithDefault]);
   
   // 刷新模板列表
   const refreshTemplates = async () => {
     const list = await getTemplates();
-    setTemplates(list || []);
+    await applyTemplatesWithDefault(list || [], selectedTemplateId || "");
   };
 
   /* ========== 账号模板管理初始化 ========== */
+  const buildDefaultAccountTemplate = useCallback(async () => {
+    const id = await getNextAccountTemplateId();
+    return {
+      id,
+      name: `${t("accountTemplate")}${1}`,
+      data: Array.isArray(accounts) ? accounts : [],
+      createdAt: Date.now(),
+      isDefault: true,
+    };
+  }, [accounts, t]);
+
+  const applyAccountTemplatesWithDefault = useCallback(async (list, preferredId) => {
+    let nextList = Array.isArray(list) ? list : [];
+    if (!nextList.length) {
+      const template = await buildDefaultAccountTemplate();
+      nextList = [template];
+    } else if (!nextList.some((tpl) => tpl?.isDefault)) {
+      const sorted = [...nextList].sort((a, b) => String(a?.id || "").localeCompare(String(b?.id || "")));
+      const targetId = sorted[0]?.id;
+      if (targetId) {
+        nextList = nextList.map((tpl) => (tpl.id === targetId ? { ...tpl, isDefault: true } : tpl));
+      }
+    }
+    await setStoredAccountTemplates(nextList);
+    setAccountTemplates(nextList);
+    const defaultId = nextList.find((tpl) => tpl?.isDefault)?.id || nextList[0]?.id || "";
+    const nextId = preferredId && nextList.some((tpl) => tpl.id === preferredId) ? preferredId : defaultId;
+    setSelectedAccountTemplateId(nextId);
+    await setCurrentAccountTemplateId(nextId);
+    return { list: nextList, defaultId: defaultId || nextId };
+  }, [buildDefaultAccountTemplate]);
+
   useEffect(() => {
-    // 加载账号模板列表
-    getAccountTemplates().then(list => {
-      setAccountTemplates(list || []);
-    });
-    
-    // 加载当前选中的账号模板ID
-    getCurrentAccountTemplateId().then(id => {
-      setSelectedAccountTemplateId(id || "");
-    });
-  }, []);
+    if (accountTemplatesInitRef.current) return;
+    accountTemplatesInitRef.current = true;
+    (async () => {
+      const list = await getAccountTemplates();
+      const currentId = await getCurrentAccountTemplateId();
+      await applyAccountTemplatesWithDefault(list || [], currentId || "");
+    })();
+  }, [applyAccountTemplatesWithDefault]);
   
   // 刷新账号模板列表
   const refreshAccountTemplates = async () => {
     const list = await getAccountTemplates();
-    setAccountTemplates(list || []);
+    await applyAccountTemplatesWithDefault(list || [], selectedAccountTemplateId || "");
   };
+
+  const defaultAccountTemplateId = useMemo(
+    () => accountTemplates.find((tpl) => tpl?.isDefault)?.id || accountTemplates[0]?.id || "",
+    [accountTemplates]
+  );
+
+  const defaultTemplateId = useMemo(
+    () => templates.find((tpl) => tpl?.isDefault)?.id || templates[0]?.id || "",
+    [templates]
+  );
   
   // 生成下一个默认账号模板名称
   const generateNextAccountDefaultName = () => {
@@ -280,6 +706,17 @@ const ManagementPage = () => {
     while (existing.includes(`${t("accountTemplate")}${n}`)) n++;
     return `${t("accountTemplate")}${n}`;
   };
+
+  const syncAccountTemplateData = useCallback(async (templateId, data) => {
+    if (!templateId) return;
+    const currentTemplates = accountTemplatesRef.current;
+    const tpl = currentTemplates.find((item) => item.id === templateId);
+    if (!tpl) return;
+    const nextData = Array.isArray(data) ? data : [];
+    const updated = { ...tpl, data: nextData };
+    setAccountTemplates((prev) => prev.map((item) => (item.id === templateId ? updated : item)));
+    await saveAccountTemplate(updated);
+  }, []);
   
   // 应用账号模板
   const applyAccountTemplate = async (tpl) => {
@@ -293,7 +730,7 @@ const ManagementPage = () => {
   
   // 保存当前账号为模板
   const handleCreateAccountTemplate = async () => {
-    const id = uuidv4();
+    const id = await getNextAccountTemplateId();
     const template = {
       id,
       name: generateNextAccountDefaultName(),
@@ -310,11 +747,16 @@ const ManagementPage = () => {
   // 删除账号模板
   const handleDeleteAccountTemplate = async (id) => {
     if (!id) return;
+    if (id === defaultAccountTemplateId) {
+      showMessage(t("accountTemplateDefaultLocked") || "默认账号列表不可删除", "warning");
+      return;
+    }
     await deleteAccountTemplate(id);
     await refreshAccountTemplates();
     if (selectedAccountTemplateId === id) {
-      setSelectedAccountTemplateId("");
-      await setCurrentAccountTemplateId("");
+      const fallbackId = defaultAccountTemplateId && defaultAccountTemplateId !== id ? defaultAccountTemplateId : "";
+      setSelectedAccountTemplateId(fallbackId);
+      await setCurrentAccountTemplateId(fallbackId);
     }
     showMessage(t("accountTemplateDeleted"), "success");
   };
@@ -347,6 +789,9 @@ const ManagementPage = () => {
   
   // 账号模板选择变化
   const handleAccountTemplateChange = async (id) => {
+    if (selectedAccountTemplateId && selectedAccountTemplateId !== id) {
+      await syncAccountTemplateData(selectedAccountTemplateId, accounts);
+    }
     setSelectedAccountTemplateId(id);
     await setCurrentAccountTemplateId(id);
     if (id) {
@@ -367,6 +812,7 @@ const ManagementPage = () => {
     setEditing([]);
     setShowPwds([]);
     await persist([]);
+    await syncAccountTemplateData(selectedAccountTemplateId, []);
   };
   
   // 生成下一个默认模板名称
@@ -376,6 +822,19 @@ const ManagementPage = () => {
     while (existing.includes(`${t("template")}${n}`)) n++;
     return `${t("template")}${n}`;
   };
+
+  const syncCharacterTemplateData = useCallback(async (templateId, data) => {
+    if (!templateId) return;
+    const currentTemplates = templatesRef.current;
+    const tpl = currentTemplates.find((item) => item.id === templateId);
+    if (!tpl) return;
+    const currentSig = buildCharactersSignature(tpl.data || {});
+    const nextSig = buildCharactersSignature(data || {});
+    if (currentSig === nextSig) return;
+    const updated = { ...tpl, data: data || {} };
+    setTemplates((prev) => prev.map((item) => (item.id === templateId ? updated : item)));
+    await saveTemplate(updated);
+  }, []);
   
   // 应用模板
   const applyTemplate = async (tpl) => {
@@ -386,7 +845,7 @@ const ManagementPage = () => {
   
   // 保存当前配置为模板
   const handleCreateTemplate = async () => {
-    const id = uuidv4();
+    const id = await getNextTemplateId();
     const template = {
       id,
       name: generateNextDefaultName(),
@@ -403,11 +862,16 @@ const ManagementPage = () => {
   // 删除模板
   const handleDeleteTemplate = async (id) => {
     if (!id) return;
+    if (id === defaultTemplateId) {
+      showMessage(t("templateDefaultLocked") || "默认妮姬列表不可删除", "warning");
+      return;
+    }
     await deleteTemplate(id);
     await refreshTemplates();
     if (selectedTemplateId === id) {
-      setSelectedTemplateId("");
-      await setCurrentTemplateId("");
+      const fallbackId = defaultTemplateId && defaultTemplateId !== id ? defaultTemplateId : "";
+      setSelectedTemplateId(fallbackId);
+      await setCurrentTemplateId(fallbackId);
     }
     showMessage(t("templateDeleted"), "success");
   };
@@ -440,6 +904,9 @@ const ManagementPage = () => {
   
   // 模板选择变化
   const handleTemplateChange = async (id) => {
+    if (selectedTemplateId && selectedTemplateId !== id) {
+      await syncCharacterTemplateData(selectedTemplateId, characters);
+    }
     setSelectedTemplateId(id);
     await setCurrentTemplateId(id);
     if (id) {
@@ -456,10 +923,15 @@ const ManagementPage = () => {
   useEffect(() => {
     chrome.storage.local.get("accounts", async (r) => {
       let list = r.accounts || [];
-      // 为没有 ID 的账号添加唯一标识符
-      const updated = list.map(acc =>
-        acc.id ? acc : { ...acc, id: uuidv4() }
-      );
+      const updated = list.map((acc) => {
+        const nextGameUid = acc?.game_uid || acc?.gameUid || parseGameUidFromCookie(acc?.cookie);
+        const { ...rest } = acc || {};
+        return {
+          ...rest,
+          game_uid: nextGameUid || "",
+          cookieUpdatedAt: acc?.cookieUpdatedAt ?? acc?.cookie_updated_at ?? null,
+        };
+      });
       if (JSON.stringify(updated) !== JSON.stringify(list)) {
         await new Promise(res => chrome.storage.local.set({ accounts: updated }, res));
       }
@@ -482,19 +954,46 @@ const ManagementPage = () => {
   useEffect(() => {
     const handler = (changes, area) => {
       if (area === "local" && changes.accounts) {
+        const prev = changes.accounts.oldValue || [];
         const next = changes.accounts.newValue || [];
         setAccounts(next);
         setEditing((e) => (e.length === next.length ? e : Array(next.length).fill(false)));
         setShowPwds((s) => (s.length === next.length ? s : Array(next.length).fill(false)));
+
+        // If cookie-related data changed (e.g., updated from homepage), sync to current template
+        if (selectedAccountTemplateId) {
+          const prevSig = buildAccountsSignature(sanitizeAccountsForCloud(prev));
+          const nextSig = buildAccountsSignature(sanitizeAccountsForCloud(next));
+          if (prevSig !== nextSig) {
+            syncAccountTemplateData(selectedAccountTemplateId, next);
+          }
+        }
       }
     };
     chrome.storage.onChanged.addListener(handler);
     return () => chrome.storage.onChanged.removeListener(handler);
-  }, []);
+  }, [selectedAccountTemplateId, sanitizeAccountsForCloud, syncAccountTemplateData]);
   
   // 持久化账号数据到存储
   const persist = (data) =>
     new Promise((ok) => chrome.storage.local.set({ accounts: data }, ok));
+
+  // Note: Account template updates are triggered explicitly after save/delete/toggle operations.
+
+  useEffect(() => {
+    if (!selectedTemplateId || !templates.length) return;
+    if (characterTemplateSaveTimerRef.current) {
+      clearTimeout(characterTemplateSaveTimerRef.current);
+    }
+    characterTemplateSaveTimerRef.current = setTimeout(() => {
+      syncCharacterTemplateData(selectedTemplateId, characters);
+    }, 200);
+    return () => {
+      if (characterTemplateSaveTimerRef.current) {
+        clearTimeout(characterTemplateSaveTimerRef.current);
+      }
+    };
+  }, [characters, selectedTemplateId, templates.length, syncCharacterTemplateData]);
 
   // 已移除全局设置的持久化（攻优突破分改为按角色行控制）
   
@@ -506,6 +1005,14 @@ const ManagementPage = () => {
       next[idx] = { ...next[idx], [field]: value };
       return next;
     });
+
+  // 切换单个账号启用状态（仅本地更新，不触发云同步）
+  const handleToggleAccountEnabled = async (idx) => {
+    const next = accounts.map((r, i) => (i === idx ? { ...r, enabled: !r.enabled } : r));
+    setAccounts(next);
+    await persist(next);
+    await syncAccountTemplateData(selectedAccountTemplateId, next);
+  };
   
   // 添加新账号行
   const addRow = () => {
@@ -521,18 +1028,31 @@ const ManagementPage = () => {
   
   // 保存指定行的修改
   const saveRow = async (idx) => {
+    const next = accounts.map((acc, i) => {
+      if (i !== idx) return acc;
+      const nextGameUid = acc?.game_uid || parseGameUidFromCookie(acc?.cookie);
+      if (acc?.cookie) {
+        return { ...acc, game_uid: nextGameUid || "", cookieUpdatedAt: Date.now() };
+      }
+      return { ...acc, game_uid: nextGameUid || "", cookieUpdatedAt: acc?.cookieUpdatedAt ?? null };
+    });
+    setAccounts(next);
     setEditing((prev) => prev.map((e, i) => (i === idx ? false : e)));
-    await persist(accounts);
+    await persist(next);
+    await syncAccountTemplateData(selectedAccountTemplateId, next);
+    if (syncAccountSensitive && authToken) {
+      const nextTemplates = buildUpdatedAccountTemplates(accountTemplatesRef.current, selectedAccountTemplateId, next);
+      await syncAccountsNow(nextTemplates);
+    }
   };
     // 删除指定行
   const deleteRow = async (idx) => {
-    setAccounts((prev) => {
-      const next = prev.filter((_, i) => i !== idx);
-      persist(next);
-      return next;
-    });
+    const next = accounts.filter((_, i) => i !== idx);
+    setAccounts(next);
     setEditing((prev) => prev.filter((_, i) => i !== idx));
     setShowPwds((prev) => prev.filter((_, i) => i !== idx));
+    await persist(next);
+    await syncAccountTemplateData(selectedAccountTemplateId, next);
   };
   
   // 全选/全不选启用状态
@@ -544,6 +1064,7 @@ const ManagementPage = () => {
     }));
     setAccounts(updatedAccounts);
     await persist(updatedAccounts);
+    await syncAccountTemplateData(selectedAccountTemplateId, updatedAccounts);
   };
 
   // 导出账号到Excel
@@ -560,6 +1081,7 @@ const ManagementPage = () => {
         { header: '邮箱 Email', key: 'email', width: 30 },
         { header: '密码 Password', key: 'password', width: 25 },
         { header: 'Cookie', key: 'cookie', width: 50 },
+        { header: 'Cookie 更新时间', key: 'cookie_updated_at', width: 22 },
       ];
 
       // 添加数据
@@ -569,7 +1091,8 @@ const ManagementPage = () => {
           username: acc.username || '',
           email: acc.email || '',
           password: acc.password || '',
-          cookie: acc.cookie || ''
+          cookie: acc.cookie || '',
+          cookie_updated_at: acc.cookieUpdatedAt || ''
         });
       });
 
@@ -627,7 +1150,7 @@ const ManagementPage = () => {
 
         // 获取表头行以识别列位置
         const headerRow = worksheet.getRow(1);
-        let gameUidCol = 1, usernameCol = 2, emailCol = 3, passwordCol = 4, cookieCol = 5;
+        let gameUidCol = 1, usernameCol = 2, emailCol = 3, passwordCol = 4, cookieCol = 5, cookieUpdatedAtCol = 0;
         
         // 尝试根据表头内容智能识别列位置（使用 getCellString 处理富文本）
         headerRow.eachCell((cell, colNumber) => {
@@ -642,6 +1165,8 @@ const ManagementPage = () => {
             passwordCol = colNumber;
           } else if (cellValue.includes('cookie')) {
             cookieCol = colNumber;
+          } else if (cellValue.includes('更新时间') || cellValue.includes('updated')) {
+            cookieUpdatedAtCol = colNumber;
           }
         });
 
@@ -654,11 +1179,15 @@ const ManagementPage = () => {
           const email = getCellString(row.getCell(emailCol));
           const password = getCellString(row.getCell(passwordCol));
           const cookie = getCellString(row.getCell(cookieCol));
+          const cookieUpdatedAtRaw = cookieUpdatedAtCol ? getCellString(row.getCell(cookieUpdatedAtCol)) : "";
+          const cookieUpdatedAt = cookieUpdatedAtRaw ? Number(cookieUpdatedAtRaw) : null;
+
+          const resolvedGameUid = gameUid || parseGameUidFromCookie(cookie);
 
           // 查找是否存在相同game_uid的账号（game_uid不能为空）
           let existingIndex = -1;
-          if (gameUid) {
-            existingIndex = currentAccounts.findIndex(acc => acc.game_uid === gameUid);
+          if (resolvedGameUid) {
+            existingIndex = currentAccounts.findIndex(acc => acc.game_uid === resolvedGameUid);
           }
 
           if (existingIndex !== -1) {
@@ -669,18 +1198,19 @@ const ManagementPage = () => {
               email: email || currentAccounts[existingIndex].email,
               password: password || currentAccounts[existingIndex].password,
               cookie: cookie || currentAccounts[existingIndex].cookie,
-              game_uid: gameUid || currentAccounts[existingIndex].game_uid,
+              cookieUpdatedAt: cookieUpdatedAt || currentAccounts[existingIndex].cookieUpdatedAt || null,
+              game_uid: resolvedGameUid || currentAccounts[existingIndex].game_uid,
             };
             updatedCount++;
           } else {
             // 添加新账号
             currentAccounts.push({
-              id: uuidv4(),
               username: username,
               email: email,
               password: password,
               cookie: cookie,
-              game_uid: gameUid,
+              cookieUpdatedAt: cookieUpdatedAt || null,
+              game_uid: resolvedGameUid,
               enabled: true,
             });
             addedCount++;
@@ -689,6 +1219,7 @@ const ManagementPage = () => {
 
         setAccounts(currentAccounts);
         await persist(currentAccounts);
+        await syncAccountTemplateData(selectedAccountTemplateId, currentAccounts);
         
         showMessage(t("importSuccess") + ` (${t("added")}: ${addedCount}, ${t("updated")}: ${updatedCount})`, "success");
       } catch (error) {
@@ -701,6 +1232,339 @@ const ManagementPage = () => {
   // 显示提示消息（统一）
   const showMessage = (message, severity = "success") => {
     setSnackbar({ open: true, message, severity });
+  };
+
+  const normalizeTimestamp = (value) => {
+    if (!value) return null;
+    const num = Number(value);
+    if (!Number.isFinite(num)) return null;
+    return num > 1e12 ? num : Math.round(num * 1000);
+  };
+
+  const formatSyncAge = (timestampMs) => {
+    if (!timestampMs) return "";
+    const diff = Math.max(0, Date.now() - timestampMs);
+    if (diff < 60 * 60 * 1000) {
+      const minutes = Math.max(1, Math.floor(diff / (60 * 1000)));
+      return (t("sync.minutes") || "{count}分钟").replace("{count}", String(minutes));
+    }
+    if (diff < 24 * 60 * 60 * 1000) {
+      const hours = Math.max(1, Math.floor(diff / (60 * 60 * 1000)));
+      return (t("sync.hours") || "{count}小时").replace("{count}", String(hours));
+    }
+    const days = Math.max(1, Math.floor(diff / (24 * 60 * 60 * 1000)));
+    return (t("sync.days") || "{count}天").replace("{count}", String(days));
+  };
+
+  const buildSyncLabel = (timestampMs) => {
+    if (!authToken || !timestampMs) return null;
+    const prefix = t("sync.status") || "已同步，最后更新时间：";
+    return `${prefix}${formatSyncAge(timestampMs)}`;
+  };
+
+  const formatCookieRemaining = useCallback((timestampMs) => {
+    if (!timestampMs) return null;
+    const expireAt = timestampMs + 30 * 24 * 60 * 60 * 1000;
+    const remainingMs = expireAt - Date.now();
+    if (remainingMs <= 0) return { label: t("cookieExpired") || "已过期", color: "error.main" };
+    const remainingHours = Math.ceil(remainingMs / (60 * 60 * 1000));
+    const remainingDays = Math.ceil(remainingMs / (24 * 60 * 60 * 1000));
+    if (remainingDays >= 1) {
+      const label = (t("cookieValidForDays") || "可用 {count} 天").replace("{count}", String(remainingDays));
+      return { label, color: "success.main" };
+    }
+    const label = (t("cookieValidForHours") || "可用 {count} 小时").replace("{count}", String(remainingHours));
+    return { label, color: "success.main" };
+  }, [t]);
+
+  const getCookieStatus = useCallback((account) => {
+    if (!account?.cookie) return null;
+    const ts = normalizeTimestamp(account.cookieUpdatedAt ?? account.cookie_updated_at);
+    if (!ts) {
+      return { label: t("cookieUnknown") || "未知", color: "text.secondary" };
+    }
+    return formatCookieRemaining(ts);
+  }, [formatCookieRemaining, t]);
+
+  const fetchCloudData = async (path, token) => {
+    const res = await fetch(`${API_BASE_URL}${path}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`Cloud fetch failed: ${path}`);
+    return res.json();
+  };
+
+  const uploadCloudData = async (path, token, payload) => {
+    const res = await fetch(`${API_BASE_URL}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`Cloud upload failed: ${path}`);
+    return res.json();
+  };
+
+
+  useEffect(() => {
+    if (!authToken) return;
+    if (cloudInitTokenRef.current === authToken) return;
+    cloudInitTokenRef.current = authToken;
+    let cancelled = false;
+
+    setSyncConflict((prev) => ({ ...prev, open: false }));
+
+    (async () => {
+      try {
+        const [
+          localAccountTemplates,
+          localCharacterTemplates,
+          storedAccountTemplateId,
+          storedTemplateId,
+          localAccounts,
+          remoteAccountsResp,
+          remoteCharactersResp,
+        ] = await Promise.all([
+          getAccountTemplates(),
+          getTemplates(),
+          getCurrentAccountTemplateId(),
+          getCurrentTemplateId(),
+          getAccounts(),
+          fetchCloudData("/accounts", authToken).catch(() => null),
+          fetchCloudData("/characters", authToken).catch(() => null),
+        ]);
+
+        if (cancelled) return;
+
+        const remoteAccounts = normalizeAccountsFromRemote(remoteAccountsResp?.lists);
+        const remoteAccountsUpdatedAt = normalizeTimestamp(remoteAccountsResp?.updated_at) || null;
+        const remoteCharacters = remoteCharactersResp?.lists || null;
+        const remoteCharactersUpdatedAt = normalizeTimestamp(remoteCharactersResp?.updated_at) || null;
+
+        const localAccountLists = localAccountTemplates || [];
+        const localCharacterLists = localCharacterTemplates || [];
+        const remoteAccountLists = normalizeAccountLists(remoteAccounts);
+        const remoteCharacterLists = normalizeCharacterLists(remoteCharacters);
+
+        const localAccountsList = Array.isArray(localAccounts) ? localAccounts : [];
+        const hasLocalAccounts = localAccountsList.length > 0;
+        const fallbackAccountListId = storedAccountTemplateId || remoteAccountLists[0]?.id || "1";
+        const fallbackAccountListName = `${t("accountTemplate")}${1}`;
+        const effectiveLocalAccountLists = localAccountLists.length
+          ? localAccountLists
+          : (hasLocalAccounts
+            ? [{ id: String(fallbackAccountListId), name: fallbackAccountListName, data: localAccountsList }]
+            : []);
+
+        const localAccountsEmpty = !effectiveLocalAccountLists.length;
+        const remoteAccountsEmpty = !remoteAccountLists.length;
+        const localCharactersEmpty = !localCharacterLists.length;
+        const remoteCharactersEmpty = !remoteCharacterLists.length;
+
+        let nextConflict = {
+          open: false,
+          hasAccounts: false,
+          localAccounts: null,
+          remoteAccounts: null,
+          remoteAccountsUpdatedAt: null,
+          hasCharacters: false,
+          localCharacters: null,
+          remoteCharacters: null,
+          remoteCharactersUpdatedAt: null,
+        };
+
+        // Accounts sync
+        if (!localAccountsEmpty && remoteAccountsEmpty) {
+          const uploadResp = await uploadCloudData("/accounts", authToken, { lists: buildCloudAccountLists(effectiveLocalAccountLists) });
+          const updatedAt = normalizeTimestamp(uploadResp?.updated_at) || Date.now();
+          await setSyncMeta({ accountsLastSyncAt: updatedAt });
+        } else if (localAccountLists.length === 0 && hasLocalAccounts && !remoteAccountsEmpty) {
+          const mergedAccountLists = mergeAccountLists(effectiveLocalAccountLists, remoteAccountLists);
+          await applyAccountTemplatesWithDefault(mergedAccountLists, storedAccountTemplateId || "");
+          const appliedId = storedAccountTemplateId || mergedAccountLists[0]?.id || "";
+          const applied = mergedAccountLists.find((item) => item.id === appliedId) || mergedAccountLists[0];
+          if (applied?.data) {
+            setAccounts(applied.data);
+            await persist(applied.data);
+          }
+          if (remoteAccountsUpdatedAt) {
+            await setSyncMeta({ accountsLastSyncAt: remoteAccountsUpdatedAt });
+          }
+        } else if (localAccountsEmpty && !remoteAccountsEmpty) {
+          const mergedAccountLists = mergeAccountLists(effectiveLocalAccountLists, remoteAccountLists);
+          await applyAccountTemplatesWithDefault(mergedAccountLists, storedAccountTemplateId || "");
+          const appliedId = storedAccountTemplateId || mergedAccountLists[0]?.id || "";
+          const applied = mergedAccountLists.find((item) => item.id === appliedId) || mergedAccountLists[0];
+          if (applied?.data) {
+            setAccounts(applied.data);
+            await persist(applied.data);
+          }
+          if (remoteAccountsUpdatedAt) {
+            await setSyncMeta({ accountsLastSyncAt: remoteAccountsUpdatedAt });
+          }
+        } else if (!localAccountsEmpty && !remoteAccountsEmpty) {
+          const localSig = buildAccountListsSignature(effectiveLocalAccountLists);
+          const remoteSig = buildAccountListsSignature(remoteAccountLists);
+          if (localSig !== remoteSig) {
+            nextConflict = {
+              ...nextConflict,
+              open: true,
+              hasAccounts: true,
+              localAccounts: effectiveLocalAccountLists,
+              remoteAccounts: remoteAccountLists,
+              remoteAccountsUpdatedAt,
+            };
+          } else if (remoteAccountsUpdatedAt) {
+            await setSyncMeta({ accountsLastSyncAt: remoteAccountsUpdatedAt });
+          }
+        }
+
+        // Characters sync
+        if (!localCharactersEmpty && remoteCharactersEmpty) {
+          const uploadResp = await uploadCloudData("/characters", authToken, { lists: normalizeCharacterLists(localCharacterLists) });
+          const updatedAt = normalizeTimestamp(uploadResp?.updated_at) || Date.now();
+          await setSyncMeta({ charactersLastSyncAt: updatedAt });
+        } else if (localCharactersEmpty && !remoteCharactersEmpty) {
+          await applyTemplatesWithDefault(remoteCharacterLists, storedTemplateId || "");
+          if (remoteCharactersUpdatedAt) {
+            await setSyncMeta({ charactersLastSyncAt: remoteCharactersUpdatedAt });
+          }
+        } else if (!localCharactersEmpty && !remoteCharactersEmpty) {
+          const localSig = buildCharacterListsSignature(localCharacterLists);
+          const remoteSig = buildCharacterListsSignature(remoteCharacterLists);
+          if (localSig !== remoteSig) {
+            nextConflict = {
+              ...nextConflict,
+              open: true,
+              hasCharacters: true,
+              localCharacters: localCharacterLists,
+              remoteCharacters: remoteCharacterLists,
+              remoteCharactersUpdatedAt,
+            };
+          } else if (remoteCharactersUpdatedAt) {
+            await setSyncMeta({ charactersLastSyncAt: remoteCharactersUpdatedAt });
+          }
+        }
+
+        if (nextConflict.open) {
+          setSyncConflict((prev) => ({ ...prev, ...nextConflict, open: true }));
+        }
+
+        if (!lastSyncedAccountsSigRef.current) {
+          lastSyncedAccountsSigRef.current = buildAccountListsSignature(effectiveLocalAccountLists);
+        }
+        if (!lastSyncedCharactersSigRef.current) {
+          lastSyncedCharactersSigRef.current = buildCharacterListsSignature(localCharacterLists);
+        }
+
+        setAccountsSyncing(false);
+        setCharactersSyncing(false);
+
+        isInitializedRef.current = true;
+      } catch (error) {
+        console.error("cloud sync failed", error);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authToken, mergeCloudAccounts, mergeAccountLists, sanitizeAccountsForCloud, buildCloudAccountLists, buildAccountListsSignature, buildCharacterListsSignature, normalizeAccountLists, normalizeCharacterLists, applyAccountTemplatesWithDefault, applyTemplatesWithDefault, t]);
+
+  useEffect(() => {
+    if (!authToken || !isInitializedRef.current) return;
+
+    if (syncTimerRef.current) {
+      clearTimeout(syncTimerRef.current);
+    }
+
+    const accountsDirty = buildAccountListsSignature(accountTemplates) !== lastSyncedAccountsSigRef.current;
+    const charactersDirty = buildCharacterListsSignature(templates) !== lastSyncedCharactersSigRef.current;
+    setAccountsSyncing(forceAccountsSyncingRef.current || accountsDirty);
+    setCharactersSyncing(charactersDirty);
+
+    if (!accountsDirty && !charactersDirty) return;
+
+    syncTimerRef.current = setTimeout(() => {
+      flushPendingSync().catch(() => {});
+    }, 3000);
+
+    return () => {
+      if (syncTimerRef.current) {
+        clearTimeout(syncTimerRef.current);
+      }
+    };
+  }, [accountTemplates, templates, authToken, flushPendingSync, buildAccountListsSignature, buildCharacterListsSignature]);
+
+  useEffect(() => {
+    if (!authToken) return;
+    const handleBeforeUnload = () => {
+      flushPendingSync({ useKeepalive: true }).catch(() => {});
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [authToken, flushPendingSync]);
+
+  const handleConflictUseLocal = async () => {
+    if (!authToken) return;
+    try {
+      if (syncConflict.hasAccounts && syncConflict.localAccounts) {
+        const uploadResp = await uploadCloudData("/accounts", authToken, { lists: buildCloudAccountLists(syncConflict.localAccounts) });
+        const updatedAt = normalizeTimestamp(uploadResp?.updated_at) || Date.now();
+        await setSyncMeta({ accountsLastSyncAt: updatedAt });
+      }
+      if (syncConflict.hasCharacters && syncConflict.localCharacters) {
+        const uploadResp = await uploadCloudData("/characters", authToken, { lists: normalizeCharacterLists(syncConflict.localCharacters) });
+        const updatedAt = normalizeTimestamp(uploadResp?.updated_at) || Date.now();
+        await setSyncMeta({ charactersLastSyncAt: updatedAt });
+      }
+      setSyncConflict((prev) => ({ ...prev, open: false }));
+      showMessage(t("sync.useLocal") || "本地上传到云", "success");
+    } catch (error) {
+      console.error(error);
+      showMessage(t("exportError") || "导出失败", "error");
+    }
+  };
+
+  const handleConflictUseCloud = async () => {
+    try {
+      if (syncConflict.hasAccounts && syncConflict.remoteAccounts) {
+        const remoteLists = normalizeAccountLists(syncConflict.remoteAccounts);
+        const mergedLists = mergeAccountLists(accountTemplates, remoteLists);
+        await applyAccountTemplatesWithDefault(mergedLists, selectedAccountTemplateId || "");
+        const appliedId = selectedAccountTemplateId || mergedLists[0]?.id || "";
+        const applied = mergedLists.find((item) => item.id === appliedId) || mergedLists[0];
+        if (applied?.data) {
+          setAccounts(applied.data);
+          await persist(applied.data);
+        }
+        if (syncConflict.remoteAccountsUpdatedAt) {
+          await setSyncMeta({ accountsLastSyncAt: syncConflict.remoteAccountsUpdatedAt });
+        }
+      }
+      if (syncConflict.hasCharacters && syncConflict.remoteCharacters) {
+        const remoteLists = normalizeCharacterLists(syncConflict.remoteCharacters);
+        await applyTemplatesWithDefault(remoteLists, selectedTemplateId || "");
+        if (syncConflict.remoteCharactersUpdatedAt) {
+          await setSyncMeta({ charactersLastSyncAt: syncConflict.remoteCharactersUpdatedAt });
+        }
+      }
+      setSyncConflict((prev) => ({ ...prev, open: false }));
+      showMessage(t("sync.useCloud") || "云覆盖本地", "success");
+    } catch (error) {
+      console.error(error);
+      showMessage(t("importError") || "导入失败", "error");
+    }
+  };
+
+  const handleConflictLogout = async () => {
+    await clearAuth();
+    setAuthToken(null);
+    setSyncConflict((prev) => ({ ...prev, open: false }));
+    showMessage(t("sync.logout") || "退出登录", "info");
   };
 
   // 通用文件下载函数
@@ -766,6 +1630,7 @@ const ManagementPage = () => {
     sw.splice(index, 0, dragShow);
     setShowPwds(sw);
     persist(reordered);
+    syncAccountTemplateData(selectedAccountTemplateId, reordered);
     setAccDragging({ draggingIndex: null, overIndex: null });
   };
   const onAccountDragEnd = () => setAccDragging({ draggingIndex: null, overIndex: null });
@@ -1121,10 +1986,12 @@ const elementTranslationKeys = {
   const totalSelectionCount = pendingSelectionCount + effectiveExistingElementCharacters.length;
   const selectionLabelTemplate = t("selectedCharactersLabel") || "Selected {count}";
   const selectionLabel = selectionLabelTemplate.replace("{count}", String(totalSelectionCount));
+  const accountsSyncLabel = buildSyncLabel(accountsSyncAt);
+  const charactersSyncLabel = buildSyncLabel(charactersSyncAt);
     /* ---------- 渲染 ---------- */
   return (
     <>
-      <ManagementHeader iconUrl={iconUrl} />
+      <ManagementHeader iconUrl={iconUrl} lang={lang} onToggleLang={toggleLang} />
       
       <Container maxWidth="xl" sx={{ mt: 4, pb: 8 }}>
         <Tabs value={tab} onChange={handleManagementTabChange} sx={{ mb: 3 }} aria-label={t("management")}>
@@ -1134,7 +2001,10 @@ const elementTranslationKeys = {
         {tab === 0 && (
           <AccountTabContent
             t={t}
+            syncLabel={accountsSyncLabel}
+            isSyncing={accountsSyncing}
             accountTemplates={accountTemplates}
+            defaultAccountTemplateId={defaultAccountTemplateId}
             selectedAccountTemplateId={selectedAccountTemplateId}
             handleAccountTemplateChange={handleAccountTemplateChange}
             isAccountRenaming={isAccountRenaming}
@@ -1161,21 +2031,24 @@ const elementTranslationKeys = {
             onAccountDrop={onAccountDrop}
             onAccountDragEnd={onAccountDragEnd}
             updateField={updateField}
-            setAccounts={setAccounts}
-            persist={persist}
+            handleToggleAccountEnabled={handleToggleAccountEnabled}
             setShowPwds={setShowPwds}
             saveRow={saveRow}
             startEdit={startEdit}
             deleteRow={deleteRow}
             addRow={addRow}
             renderText={renderText}
+            getCookieStatus={getCookieStatus}
           />
         )}
         {tab === 1 && (
           <CharacterTabContent
             t={t}
             lang={lang}
+            syncLabel={charactersSyncLabel}
+            isSyncing={charactersSyncing}
             templates={templates}
+            defaultTemplateId={defaultTemplateId}
             selectedTemplateId={selectedTemplateId}
             handleTemplateChange={handleTemplateChange}
             isRenaming={isRenaming}
@@ -1243,6 +2116,35 @@ const elementTranslationKeys = {
         removedExistingIds={removedExistingIds}
         handleConfirmSelection={handleConfirmSelection}
       />
+
+      <Dialog open={syncConflict.open} onClose={handleConflictLogout} maxWidth="sm" fullWidth>
+        <DialogTitle>{t("sync.conflictTitle") || "检测到云端冲突"}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {t("sync.conflictDesc") || "本地数据与云端数据不一致，请选择处理方式。"}
+          </Typography>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+            {syncConflict.hasAccounts ? (
+              <Typography variant="body2">• {t("accountTable")}</Typography>
+            ) : null}
+            {syncConflict.hasCharacters ? (
+              <Typography variant="body2">• {t("characterManagement") || "妮姬"}</Typography>
+            ) : null}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button onClick={handleConflictLogout} color="inherit">
+            {t("sync.logout") || "退出登录"}
+          </Button>
+          <Box sx={{ flex: 1 }} />
+          <Button variant="outlined" onClick={handleConflictUseCloud}>
+            {t("sync.useCloud") || "云覆盖本地"}
+          </Button>
+          <Button variant="contained" onClick={handleConflictUseLocal}>
+            {t("sync.useLocal") || "本地上传到云"}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={snackbar.open}

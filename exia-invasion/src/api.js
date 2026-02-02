@@ -79,10 +79,13 @@ const postJson = async (url, bodyObj) => {
  * 在 URL 后附加 _acct_id 参数，由 declarativeNetRequest 规则注入对应 Cookie
  * @param {string} url - 请求 URL
  * @param {object} bodyObj - 请求体
- * @param {string} accountId - 账号 ID
+ * @param {string} accountId - 账号 game_uid
  * @returns {Promise<object>} - 响应 JSON
  */
 const postJsonWithAccount = async (url, bodyObj, accountId) => {
+  if (!accountId) {
+    throw new Error("缺少 game_uid，无法并发请求");
+  }
   // 在 URL 后附加账号标识参数
   const separator = url.includes("?") ? "&" : "?";
   const urlWithId = `${url}${separator}_acct_id=${accountId}`;
@@ -430,7 +433,7 @@ const parseCookieValue = (cookieStr, name) => {
 
 /**
  * 验证账号 Cookie 是否有效（并发模式）
- * @param {{id: string, cookie: string}} account - 账号对象
+ * @param {{game_uid: string, cookie: string}} account - 账号对象
  * @returns {Promise<{valid: boolean, roleInfo?: {role_name: string, area_id: string}, error?: string}>}
  */
 export const validateCookieWithAccount = async (account) => {
@@ -442,7 +445,7 @@ export const validateCookieWithAccount = async (account) => {
     const resp = await postJsonWithAccount(
       "https://api.blablalink.com/api/ugc/direct/standalonesite/User/GetUserGamePlayerInfo",
       {},
-      account.id
+      account.game_uid
     );
     
     const areaId = resp?.data?.area_id;
@@ -460,7 +463,7 @@ export const validateCookieWithAccount = async (account) => {
     const basicResp = await postJsonWithAccount(
       "https://api.blablalink.com/api/game/proxy/Game/GetUserProfileBasicInfo",
       payload,
-      account.id
+      account.game_uid
     ).catch(() => null);
     
     const finalName = basicResp?.data?.basic_info?.nickname || roleName || "";
@@ -479,7 +482,7 @@ export const validateCookieWithAccount = async (account) => {
 
 /**
  * 获取前哨信息（并发模式）
- * @param {{id: string, cookie: string}} account - 账号对象
+ * @param {{game_uid: string, cookie: string}} account - 账号对象
  * @param {string} areaId - 区域 ID
  * @returns {Promise<{synchroLevel: number, outpostLevel: number}>}
  */
@@ -490,7 +493,7 @@ export const getOutpostInfoWithAccount = async (account, areaId) => {
     const resp = await postJsonWithAccount(
       "https://api.blablalink.com/api/game/proxy/Game/GetUserProfileOutpostInfo",
       { nikke_area_id: parseInt(areaId) },
-      account.id
+      account.game_uid
     );
     const info = resp?.data?.outpost_info || {};
     return {
@@ -505,7 +508,7 @@ export const getOutpostInfoWithAccount = async (account, areaId) => {
 
 /**
  * 获取主线进度（并发模式）
- * @param {{id: string, cookie: string}} account - 账号对象
+ * @param {{game_uid: string, cookie: string}} account - 账号对象
  * @param {string} areaId - 区域 ID
  * @param {object} catalogMapObj - 主线目录映射
  * @returns {Promise<{normal: string, hard: string}>}
@@ -522,7 +525,7 @@ export const getCampaignProgressWithAccount = async (account, areaId, catalogMap
     const resp = await postJsonWithAccount(
       "https://api.blablalink.com/api/game/proxy/Game/GetUserProfileBasicInfo",
       payload,
-      account.id
+      account.game_uid
     );
     
     const info = resp?.data?.basic_info || {};
@@ -541,7 +544,7 @@ export const getCampaignProgressWithAccount = async (account, areaId, catalogMap
 
 /**
  * 获取用户角色列表（并发模式）
- * @param {{id: string, cookie: string}} account - 账号对象
+ * @param {{game_uid: string, cookie: string}} account - 账号对象
  * @param {string} areaId - 区域 ID
  * @returns {Promise<Array>}
  */
@@ -555,7 +558,7 @@ export const getUserCharactersWithAccount = async (account, areaId) => {
         intl_open_id: intlOpenId,
         nikke_area_id: parseInt(areaId)
       },
-      account.id
+      account.game_uid
     );
     
     if (resp?.data?.characters) {
@@ -577,7 +580,7 @@ export const getUserCharactersWithAccount = async (account, areaId) => {
 
 /**
  * 获取角色详情（并发模式）
- * @param {{id: string, cookie: string}} account - 账号对象
+ * @param {{game_uid: string, cookie: string}} account - 账号对象
  * @param {string} areaId - 区域 ID
  * @param {Array<string>} nameCodes - 角色 name_code 列表
  * @returns {Promise<Array>}
@@ -600,7 +603,7 @@ export const getCharacterDetailsWithAccount = async (account, areaId, nameCodes)
         nikke_area_id: parseInt(areaId),
         name_codes: uniqueCodes
       },
-      account.id
+      account.game_uid
     );
 
     if (response?.data?.character_details) {

@@ -15,6 +15,17 @@ import {
   FormControlLabel,
   Select,
   MenuItem,
+  Avatar,
+  Menu,
+  ListItemIcon,
+  Divider,
+  Snackbar,
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
   Paper,
   CircularProgress,
   ToggleButtonGroup,
@@ -23,18 +34,37 @@ import {
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import SaveIcon from "@mui/icons-material/Save";
 import SettingsIcon from "@mui/icons-material/Settings";
+import LogoutIcon from "@mui/icons-material/Logout";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import MergeIcon from "@mui/icons-material/Merge";
 import JSZip from "jszip";
 import saveDictToExcel from "./excel.js";
 import { computeAELForDict } from "./ael.js";
 import TRANSLATIONS from "./translations";
-import { getAccounts, setAccounts, getSettings, setSettings, getCharacters, setCharacters } from "./storage";
+import { getAccounts, setAccounts, getSettings, setSettings, getCharacters, setCharacters, getAuth, setAuth, clearAuth } from "./storage";
+import { isAccountsEmpty, isCharactersEmpty, normalizeAccountsFromRemote, buildAccountsSignature, buildCharactersSignature } from "./cloudCompare.js";
 import { applyCookieStr, clearSiteCookies, getCurrentCookies } from "./cookie.js";
 import { loadBaseAccountDict, getRoleName, prefetchMainlineCatalog, validateCookieWithAccount, getOutpostInfoWithAccount, getCampaignProgressWithAccount, getUserCharactersWithAccount, getCharacterDetailsWithAccount } from "./api.js";
 import { mergeWorkbooks, mergeJsons } from "./merge.js";
-import { v4 as uuidv4 } from "uuid";
 import { registerCookieRules, unregisterAllRules } from "./requestInterceptor.js";
+
+const API_BASE_URL = "https://exia-backend.tigertan1998.workers.dev";
+const AVATAR_URL = "https://sg-cdn.blablalink.com/socialmedia/_58913bdbcfe6bf42a8d5e92a0483c9c9d7fc3dfa-1200x1200-ori_s_80_50_ori_q_80.webp";
+
+const fetchProfile = async (token) => {
+  const res = await fetch(`${API_BASE_URL}/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return null;
+  return res.json();
+};
+
+const parseGameUidFromCookie = (cookieStr) => {
+  if (!cookieStr) return "";
+  const match = cookieStr.match(/(?:^|;\s*)game_uid=([^;]*)/);
+  return match ? match[1] : "";
+};
+
 
 // ========== React 主组件 ==========
 export default function App() {
@@ -45,7 +75,8 @@ export default function App() {
   const [tab, setTab] = useState("crawler");
   const [saveAsZip, setSaveAsZip] = useState(false);
   const [exportJson, setExportJson] = useState(false);
-  const [autoSaveData, setAutoSaveData] = useState(false);
+  const [syncAccountSensitive, setSyncAccountSensitive] = useState(false);
+  const autoSaveData = true;
   const [activateTab, setActivateTab] = useState(false);
   const [server, setServer] = useState("global");
   const [sortFlag, setSortFlag] = useState("1");
@@ -54,7 +85,35 @@ export default function App() {
   const [collapseEquipDetails, setCollapseEquipDetails] = useState(false);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [cookieLoading, setCookieLoading] = useState(false);
   const addLog = (msg) => setLogs((prev) => [...prev, msg]);
+
+  const [authToken, setAuthToken] = useState(null);
+  const [authUsername, setAuthUsername] = useState(null);
+  const [authAvatarUrl, setAuthAvatarUrl] = useState(null);
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const [authMode, setAuthMode] = useState("login");
+  const [authForm, setAuthForm] = useState({ username: "", password: "" });
+  const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [authAnchorEl, setAuthAnchorEl] = useState(null);
+
+  const [notification, setNotification] = useState({
+    open: false,
+    message: "",
+    severity: "info",
+  });
+
+  const handleStatusChange = (message, severity = "info") => {
+    setNotification({
+      open: true,
+      message,
+      severity,
+    });
+  };
+
+  const handleCloseNotification = () => {
+    setNotification((prev) => ({ ...prev, open: false }));
+  };
   
   // ========== 初始化设置加载 ==========
   useEffect(() => {
@@ -66,7 +125,7 @@ export default function App() {
       setLang(s.lang || (navigator.language.startsWith("zh") ? "zh" : "en"));
       setSaveAsZip(Boolean(s.saveAsZip));
       setExportJson(Boolean(s.exportJson));
-      setAutoSaveData(Boolean(s.autoSaveData || s.cacheCookie)); // 兼容旧设置
+      setSyncAccountSensitive(Boolean(s.syncAccountSensitive));
       setActivateTab(Boolean(s.activateTab));
       setServer(s.server || "global");
       setSortFlag(s.sortFlag || "1");
@@ -75,6 +134,101 @@ export default function App() {
       setCollapseEquipDetails(chars?.options?.showEquipDetails === false);
     })();
   }, []);
+
+  useEffect(() => {
+    const handler = (changes, area) => {
+      if (area === "local" && changes.settings) {
+        const nextLang = changes.settings.newValue?.lang;
+        if (nextLang) setLang(nextLang);
+        if ("syncAccountSensitive" in (changes.settings.newValue || {})) {
+          setSyncAccountSensitive(Boolean(changes.settings.newValue?.syncAccountSensitive));
+        }
+      }
+    };
+    chrome.storage.onChanged.addListener(handler);
+    return () => chrome.storage.onChanged.removeListener(handler);
+  }, []);
+
+  useEffect(() => {
+    getAuth().then((auth) => {
+      if (auth?.token && auth?.username) {
+        setAuthToken(auth.token);
+        setAuthUsername(auth.username);
+        setAuthAvatarUrl(auth.avatar_url || null);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (authToken && authUsername) {
+      setAuth({ token: authToken, username: authUsername, avatar_url: authAvatarUrl });
+      return;
+    }
+    clearAuth();
+  }, [authToken, authUsername, authAvatarUrl]);
+
+  useEffect(() => {
+    if (!authToken || authAvatarUrl) return;
+    fetchProfile(authToken)
+      .then((profile) => {
+        if (profile?.avatar_url) {
+          setAuthAvatarUrl(profile.avatar_url);
+        }
+        if (profile?.username && !authUsername) {
+          setAuthUsername(profile.username);
+        }
+      })
+      .catch(() => {});
+  }, [authToken, authAvatarUrl, authUsername]);
+
+  useEffect(() => {
+    if (!authToken) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const [localAccounts, localCharacters, remoteAccountsResp, remoteCharactersResp] = await Promise.all([
+          getAccounts(),
+          getCharacters(),
+          fetch(`${API_BASE_URL}/accounts`, { headers: { Authorization: `Bearer ${authToken}` } }).then((r) => r.ok ? r.json() : null).catch(() => null),
+          fetch(`${API_BASE_URL}/characters`, { headers: { Authorization: `Bearer ${authToken}` } }).then((r) => r.ok ? r.json() : null).catch(() => null),
+        ]);
+
+        if (cancelled) return;
+
+        const remoteAccounts = normalizeAccountsFromRemote(remoteAccountsResp?.account_data);
+        const remoteCharacters = remoteCharactersResp?.character_data || null;
+
+        const localAccountsEmpty = isAccountsEmpty(localAccounts);
+        const remoteAccountsEmpty = isAccountsEmpty(remoteAccounts);
+        const localCharactersEmpty = isCharactersEmpty(localCharacters);
+        const remoteCharactersEmpty = isCharactersEmpty(remoteCharacters);
+
+        let mismatch = false;
+
+        if (!localAccountsEmpty && !remoteAccountsEmpty) {
+          const localSig = buildAccountsSignature(localAccounts);
+          const remoteSig = buildAccountsSignature(remoteAccounts);
+          if (localSig !== remoteSig) mismatch = true;
+        }
+
+        if (!localCharactersEmpty && !remoteCharactersEmpty) {
+          const localSig = buildCharactersSignature(localCharacters || {});
+          const remoteSig = buildCharactersSignature(remoteCharacters || {});
+          if (localSig !== remoteSig) mismatch = true;
+        }
+        if (mismatch) {
+          handleStatusChange(t("sync.conflictDesc") || "本地数据与云端数据不一致，请前往管理页处理。", "warning");
+        }
+      } catch (err) {
+        console.error("cloud compare failed", err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authToken, t]);
 
   const toggleEquipDetail = async (e) => {
     const collapse = e.target.checked;
@@ -92,7 +246,7 @@ export default function App() {
   
   // 持久化设置到存储
   const persistSettings = (upd) =>
-    setSettings({ lang, saveAsZip, exportJson, autoSaveData, activateTab, server, sortFlag, ...upd });
+    setSettings({ lang, saveAsZip, exportJson, syncAccountSensitive, activateTab, server, sortFlag, ...upd });
   
   // ========== UI 事件处理函数 ==========
   const handleTabChange = (event, newTab) => {
@@ -100,15 +254,118 @@ export default function App() {
       setTab(newTab);
     }
   };
-  const toggleLang = (e) => {
-    const newLang = e.target.checked ? "en" : "zh";
-    setLang(newLang);
-    persistSettings({ lang: newLang });
+  const authTitle = useMemo(() => {
+    return authMode === "login"
+      ? (t("auth.titleLogin") || "登录")
+      : (t("auth.titleRegister") || "注册");
+  }, [authMode, t]);
+
+  const openLoginDialog = () => {
+    setAuthMode("login");
+    setAuthForm({ username: "", password: "" });
+    setAuthDialogOpen(true);
   };
+
+  const openRegisterDialog = () => {
+    setAuthMode("register");
+    setAuthForm({ username: "", password: "" });
+    setAuthDialogOpen(true);
+  };
+
+  const closeAuthDialog = () => {
+    if (authSubmitting) return;
+    setAuthDialogOpen(false);
+  };
+
+  const handleAuthSubmit = async () => {
+    if (!authForm.username.trim() || !authForm.password.trim()) {
+      handleStatusChange(t("auth.required") || "请填写用户名和密码", "warning");
+      return;
+    }
+    setAuthSubmitting(true);
+    try {
+      const endpoint = authMode === "login" ? "/login" : "/register";
+      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: authForm.username.trim(),
+          password: authForm.password,
+        }),
+      });
+
+      if (!res.ok) {
+        const msg = authMode === "login"
+          ? (t("auth.failedLogin") || "登录失败")
+          : (t("auth.failedRegister") || "注册失败");
+        handleStatusChange(msg, "error");
+        return;
+      }
+
+      if (authMode === "register") {
+        handleStatusChange(t("auth.successRegister") || "注册成功，请登录", "success");
+        setAuthMode("login");
+        setAuthForm((prev) => ({ ...prev, password: "" }));
+        return;
+      }
+
+      const data = await res.json();
+      if (data?.token) {
+        setAuthToken(data.token);
+        setAuthUsername(data?.username || authForm.username.trim());
+        setAuthAvatarUrl(data?.avatar_url || null);
+        setAuthDialogOpen(false);
+        handleStatusChange(t("auth.successLogin") || "登录成功", "success");
+      } else {
+        handleStatusChange(t("auth.failedLogin") || "登录失败", "error");
+      }
+    } catch {
+      const msg = authMode === "login"
+        ? (t("auth.failedLogin") || "登录失败")
+        : (t("auth.failedRegister") || "注册失败");
+      handleStatusChange(msg, "error");
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
+  const handleLogout = () => {
+    setAuthToken(null);
+    setAuthUsername(null);
+    setAuthAvatarUrl(null);
+    handleStatusChange(t("auth.logoutSuccess") || "已退出", "success");
+  };
+
+  const handleAvatarClick = (event) => {
+    setAuthAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAuthAnchorEl(null);
+  };
+
+
+  const handleLogoutClick = () => {
+    handleMenuClose();
+    handleLogout();
+  };
+
   const toggleSaveZip = (e) => {
     const v = e.target.checked;
     setSaveAsZip(v);
     persistSettings({ saveAsZip: v });
+  };
+  const toggleExportJson = (e) => {
+    const v = e.target.checked;
+    setExportJson(v);
+    persistSettings({ exportJson: v });
+  };
+  const toggleSyncAccountSensitive = (e) => {
+    const v = e.target.checked;
+    setSyncAccountSensitive(v);
+    persistSettings({ syncAccountSensitive: v });
   };
   const changeServer = (e) => {
     const v = e.target.value;
@@ -157,31 +414,39 @@ export default function App() {
       
       const accounts = await getAccounts();
       
-      // 检查是否已存在相同game_uid或cookie的账号
+      // 检查是否已存在相同email/game_uid或cookie的账号
       let existingIndex = -1;
+      const emailLike = autoUsername && autoUsername.includes("@") ? autoUsername : "";
+      if (emailLike) {
+        existingIndex = accounts.findIndex(acc => acc.email === emailLike);
+      }
       if (gameUid) {
         // 优先按game_uid查找
-        existingIndex = accounts.findIndex(acc => acc.game_uid === gameUid);
+        if (existingIndex === -1) {
+          existingIndex = accounts.findIndex(acc => acc.game_uid === gameUid);
+        }
       }
       if (existingIndex === -1) {
         // 如果没有game_uid或找不到，则按cookie查找
         existingIndex = accounts.findIndex(acc => acc.cookie === cookieStr);
       }
       
+      const now = Date.now();
       if (existingIndex !== -1) {
         // 更新现有账号
-        accounts[existingIndex].username = autoUsername;
         accounts[existingIndex].cookie = cookieStr;
+        accounts[existingIndex].cookieUpdatedAt = now;
+        if (autoUsername) accounts[existingIndex].username = autoUsername;
         if (gameUid) accounts[existingIndex].game_uid = gameUid;
         addLog(`${t("accountUpdated")}: ${autoUsername}`);
       } else {
         // 添加新账号
         accounts.push({
-          id: uuidv4(),
           username: autoUsername,
           email: "",
           password: "",
           cookie: cookieStr,
+          cookieUpdatedAt: now,
           game_uid: gameUid,
           enabled: true,
         });
@@ -244,9 +509,17 @@ export default function App() {
   };
   
   // ========== 数据爬取主流程（并发模式） ==========
-  const handleStart = async () => {
+  const handleStart = async ({ onlyCookie = false } = {}) => {
     setLogs([]);
-    setLoading(true);
+    if (onlyCookie) {
+      setCookieLoading(true);
+    } else {
+      setLoading(true);
+    }
+
+    const shouldExportExcel = true;
+    const shouldExportJson = exportJson;
+    const shouldZip = saveAsZip && (shouldExportExcel || shouldExportJson);
     
     // 保存当前的cookie，以便运行完成后恢复
     let originalCookies = "";
@@ -260,20 +533,32 @@ export default function App() {
       originalCookies = await getCurrentCookies();
       
       // ========== 步骤0: 检查妮姬列表配置 ==========
-      const characters = await getCharacters();
-      const allElementsEmpty = Object.values(characters.elements || {}).every(
-        elementArray => !elementArray || elementArray.length === 0
-      );
-      
-      if (allElementsEmpty) {
-        addLog(t("emptyNikkeList"));
-        addLog(t("pleaseAddNikkes"));
-        return;
+      if (!onlyCookie) {
+        const characters = await getCharacters();
+        const allElementsEmpty = Object.values(characters.elements || {}).every(
+          elementArray => !elementArray || elementArray.length === 0
+        );
+        
+        if (allElementsEmpty) {
+          addLog(t("emptyNikkeList"));
+          addLog(t("pleaseAddNikkes"));
+          return;
+        }
       }
       
       // ========== 步骤1: 读取账号列表 ==========
       const accountsAll = await getAccounts();
-      const accounts = accountsAll.filter((a) => a.enabled !== false);
+      const normalizedAccounts = accountsAll.map((acc) => ({
+        ...acc,
+        game_uid: acc.game_uid || parseGameUidFromCookie(acc.cookie) || "",
+      }));
+      if (JSON.stringify(normalizedAccounts) !== JSON.stringify(accountsAll)) {
+        await setAccounts(normalizedAccounts);
+      }
+      let accounts = normalizedAccounts.filter((a) => a.enabled !== false);
+      if (onlyCookie) {
+        accounts = accounts.filter((a) => a.enabled !== false);
+      }
       if (!accounts.length) {
         addLog(t("emptyAccounts"));
         return;
@@ -291,57 +576,70 @@ export default function App() {
       }
 
       const zip = new JSZip();
+      let zipHasFiles = false;
       const excelMime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
       
-      // ========== 阶段1: 并发验证所有账号 Cookie ==========
-      addLog(`----------------------------`);
-      addLog(`[阶段1] 并发验证 Cookie...`);
-      
-      // 注册拦截规则
-      await registerCookieRules(accounts);
-      
+      // ========== 阶段1: 账号验证（仅非更新 Cookie 模式） ==========
       const validAccounts = [];   // Cookie有效的账号
       const invalidAccounts = []; // 需要重新登录的账号
       const noCredAccounts = [];  // 没有密码无法重登的账号
-      
-      // 分批并发验证
-      for (let batchStart = 0; batchStart < accounts.length; batchStart += BATCH_SIZE) {
-        const batch = accounts.slice(batchStart, batchStart + BATCH_SIZE);
+
+      if (!onlyCookie) {
+        addLog(`----------------------------`);
+        addLog(`[阶段1] 并发验证 Cookie...`);
         
-        // 批次内交错发起请求
-        const batchPromises = batch.map((acc, idx) => {
-          const delay = idx * STAGGER_DELAY;
-          return (async () => {
-            await new Promise(r => setTimeout(r, delay));
-            const result = await validateCookieWithAccount(acc);
-            return { acc, result };
-          })();
-        });
+        // 注册拦截规则
+        await registerCookieRules(accounts);
         
-        const batchResults = await Promise.all(batchPromises);
-        
-        for (const { acc, result } of batchResults) {
-          if (result.valid) {
-            validAccounts.push({ ...acc, roleInfo: result.roleInfo });
-            addLog(`✓ ${acc.username || acc.name || t("noName")} - Cookie 有效`);
-          } else {
-            if (acc.password) {
-              invalidAccounts.push(acc);
-              addLog(`✗ ${acc.username || acc.name || t("noName")} - Cookie 失效，待重登`);
+        // 分批并发验证
+        for (let batchStart = 0; batchStart < accounts.length; batchStart += BATCH_SIZE) {
+          const batch = accounts.slice(batchStart, batchStart + BATCH_SIZE);
+          
+          // 批次内交错发起请求
+          const batchPromises = batch.map((acc, idx) => {
+            const delay = idx * STAGGER_DELAY;
+            return (async () => {
+              await new Promise(r => setTimeout(r, delay));
+              const result = await validateCookieWithAccount(acc);
+              return { acc, result };
+            })();
+          });
+          
+          const batchResults = await Promise.all(batchPromises);
+          
+          for (const { acc, result } of batchResults) {
+            if (result.valid) {
+              validAccounts.push({ ...acc, roleInfo: result.roleInfo });
+              addLog(`✓ ${acc.username || acc.name || t("noName")} - Cookie 有效`);
             } else {
-              noCredAccounts.push({ acc, reason: result.error || "Cookie 失效且无密码" });
-              addLog(`✗ ${acc.username || acc.name || t("noName")} - ${result.error || "Cookie 失效"}，无密码跳过`);
+              if (acc.password) {
+                invalidAccounts.push(acc);
+                addLog(`✗ ${acc.username || acc.name || t("noName")} - Cookie 失效，待重登`);
+              } else {
+                noCredAccounts.push({ acc, reason: result.error || "Cookie 失效且无密码" });
+                addLog(`✗ ${acc.username || acc.name || t("noName")} - ${result.error || "Cookie 失效"}，无密码跳过`);
+              }
             }
           }
         }
+        
+        addLog(`验证完成: ${validAccounts.length} 有效, ${invalidAccounts.length} 待重登, ${noCredAccounts.length} 无法处理`);
+      } else {
+        // 仅更新 Cookie：跳过验证，直接按启用开关强制重登更新
+        accounts.forEach((acc) => {
+          if (acc.password) {
+            invalidAccounts.push(acc);
+          } else {
+            noCredAccounts.push({ acc, reason: "无密码，无法更新 Cookie" });
+            addLog(`✗ ${acc.username || acc.name || t("noName")} - 无密码跳过`);
+          }
+        });
       }
-      
-      addLog(`验证完成: ${validAccounts.length} 有效, ${invalidAccounts.length} 待重登, ${noCredAccounts.length} 无法处理`);
       
       // ========== 阶段2: 串行重新登录失效账号 ==========
       if (invalidAccounts.length > 0) {
         addLog(`----------------------------`);
-        addLog(`[阶段2] 串行重新登录 ${invalidAccounts.length} 个账号...`);
+        addLog(onlyCookie ? `串行更新 ${invalidAccounts.length} 个账号 Cookie...` : `[阶段2] 串行重新登录 ${invalidAccounts.length} 个账号...`);
         
         for (const acc of invalidAccounts) {
           addLog(`正在登录: ${acc.username || acc.name || acc.email || t("noName")}`);
@@ -356,6 +654,9 @@ export default function App() {
               .filter(c => c.domain.endsWith("blablalink.com"));
             const newCookieStr = cookieArrToStr(cks);
             acc.cookie = newCookieStr;
+            acc.cookieUpdatedAt = Date.now();
+            const gameUidCookie = cks.find(c => c.name === "game_uid");
+            if (gameUidCookie) acc.game_uid = gameUidCookie.value;
             
             // 验证新 Cookie
             await applyCookieStr(newCookieStr);
@@ -367,13 +668,35 @@ export default function App() {
               
               // 回写账号信息
               if (autoSaveData) {
-                const gameUidCookie = cks.find(c => c.name === "game_uid");
-                if (gameUidCookie) acc.game_uid = gameUidCookie.value;
                 if (roleInfo.role_name) acc.username = roleInfo.role_name;
                 
                 const all = await getAccounts();
-                const idx = all.findIndex(a => a.id === acc.id);
-                if (idx !== -1) all[idx] = acc;
+                const now = Date.now();
+                let existingIndex = -1;
+                if (acc.email) {
+                  existingIndex = all.findIndex((a) => a.email === acc.email);
+                }
+                if (existingIndex === -1 && acc.game_uid) {
+                  existingIndex = all.findIndex((a) => a.game_uid === acc.game_uid);
+                }
+                if (existingIndex === -1) {
+                  existingIndex = all.findIndex((a) => a.cookie === acc.cookie);
+                }
+                if (existingIndex !== -1) {
+                  all[existingIndex] = {
+                    ...all[existingIndex],
+                    cookie: acc.cookie,
+                    cookieUpdatedAt: now,
+                    username: acc.username || all[existingIndex].username,
+                    game_uid: acc.game_uid || all[existingIndex].game_uid,
+                  };
+                } else {
+                  all.push({
+                    ...acc,
+                    cookieUpdatedAt: now,
+                    enabled: acc.enabled !== false,
+                  });
+                }
                 await setAccounts(all);
               }
             } else {
@@ -389,6 +712,12 @@ export default function App() {
         // 更新拦截规则（包含新登录的账号）
         await registerCookieRules(validAccounts);
       }
+
+        if (onlyCookie) {
+          addLog(`----------------------------`);
+          addLog(t("cookieOnlyDone"));
+          return;
+        }
       
       if (validAccounts.length === 0) {
         addLog(`----------------------------`);
@@ -434,10 +763,10 @@ export default function App() {
           // 计算 AEL 分
           computeAELForDict(dict);
           
-          // 生成 Excel
-          const excelBuffer = await saveDictToExcel(dict, lang);
+          // 生成 Excel（可选）
+          const excelBuffer = shouldExportExcel ? await saveDictToExcel(dict, lang) : null;
           
-          return { success: true, accountName, dict, excelBuffer };
+          return { success: true, accountName, dict, excelBuffer, account: acc };
         } catch (err) {
           return { success: false, accountName, error: err.message };
         }
@@ -462,12 +791,13 @@ export default function App() {
           if (result.success) {
             successAccounts.push(result.accountName);
             addLog(`✓ ${result.accountName} - 数据爬取完成`);
-            
+
             // 导出文件
-            if (exportJson) {
+            if (shouldExportJson) {
               const jsonName = `${result.accountName}.json`;
-              if (saveAsZip) {
+              if (shouldZip) {
                 zip.file(jsonName, JSON.stringify(result.dict, null, 4));
+                zipHasFiles = true;
               } else {
                 const blob = new Blob([JSON.stringify(result.dict, null, 4)], { type: "application/json" });
                 const url = URL.createObjectURL(blob);
@@ -475,11 +805,14 @@ export default function App() {
               }
             }
             
-            if (saveAsZip) {
-              zip.file(`${result.accountName}.xlsx`, result.excelBuffer);
-            } else {
-              const url = URL.createObjectURL(new Blob([result.excelBuffer], { type: excelMime }));
-              chrome.downloads.download({ url, filename: `${result.accountName}.xlsx` }, () => URL.revokeObjectURL(url));
+            if (shouldExportExcel && result.excelBuffer) {
+              if (shouldZip) {
+                zip.file(`${result.accountName}.xlsx`, result.excelBuffer);
+                zipHasFiles = true;
+              } else {
+                const url = URL.createObjectURL(new Blob([result.excelBuffer], { type: excelMime }));
+                chrome.downloads.download({ url, filename: `${result.accountName}.xlsx` }, () => URL.revokeObjectURL(url));
+              }
             }
           } else {
             failedAccounts.push({ name: result.accountName, reason: result.error });
@@ -492,7 +825,7 @@ export default function App() {
       await unregisterAllRules();
       
       // 导出 ZIP
-      if (saveAsZip && successAccounts.length > 0) {
+      if (shouldZip && zipHasFiles) {
         const zipBlob = await zip.generateAsync({ type: "blob" });
         const url = URL.createObjectURL(zipBlob);
         chrome.downloads.download({ url, filename: "accounts.zip" }, () => URL.revokeObjectURL(url));
@@ -522,7 +855,11 @@ export default function App() {
         await clearSiteCookies();
         await applyCookieStr(originalCookies);
       }
-      setLoading(false);
+      if (onlyCookie) {
+        setCookieLoading(false);
+      } else {
+        setLoading(false);
+      }
     }
   };
   
@@ -709,6 +1046,7 @@ export default function App() {
   
   // 图标路径获取
   const iconUrl = useMemo(() => chrome.runtime.getURL("images/icon-128.png"), []);
+  const menuOpen = Boolean(authAnchorEl);
   
   /* ========== UI 界面渲染 ========== */
   return (
@@ -725,16 +1063,78 @@ export default function App() {
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             ExiaInvasion
           </Typography>
-          <Box display="flex" alignItems="center" sx={{ ml: 1, color: "white" }}>
-            <Typography variant="caption">中文</Typography>
-            <Switch
-              size="small"
-              color="default"
-              checked={lang === "en"}
-              onChange={toggleLang}
-              inputProps={{ "aria-label": t("langLabel") }}
-            />
-            <Typography variant="caption">EN</Typography>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            {authUsername ? (
+              <>
+                <Avatar
+                  src={authAvatarUrl || AVATAR_URL}
+                  alt={authUsername}
+                  onClick={handleAvatarClick}
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    cursor: "pointer",
+                    border: "2px solid rgba(255, 255, 255, 0.8)",
+                    transition: "transform 0.2s, box-shadow 0.2s",
+                    "&:hover": {
+                      transform: "scale(1.05)",
+                      boxShadow: "0 0 0 3px rgba(255, 255, 255, 0.3)",
+                    },
+                  }}
+                />
+                <Menu
+                  anchorEl={authAnchorEl}
+                  open={menuOpen}
+                  onClose={handleMenuClose}
+                  onClick={handleMenuClose}
+                  transformOrigin={{ horizontal: "right", vertical: "top" }}
+                  anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+                  slotProps={{
+                    paper: {
+                      elevation: 3,
+                      sx: {
+                        mt: 1,
+                        minWidth: 180,
+                        borderRadius: 2,
+                        overflow: "visible",
+                        "&::before": {
+                          content: '""',
+                          display: "block",
+                          position: "absolute",
+                          top: 0,
+                          right: 14,
+                          width: 10,
+                          height: 10,
+                          bgcolor: "background.paper",
+                          transform: "translateY(-50%) rotate(45deg)",
+                          zIndex: 0,
+                        },
+                      },
+                    },
+                  }}
+                >
+                  <Box sx={{ px: 2, py: 1.5 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                      {t("auth.greeting") || "出刀吧！"}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {authUsername}
+                    </Typography>
+                  </Box>
+                  <Divider />
+                  <MenuItem onClick={handleLogoutClick} sx={{ py: 1.5 }}>
+                    <ListItemIcon>
+                      <LogoutIcon fontSize="small" />
+                    </ListItemIcon>
+                    {t("auth.logout") || "退出"}
+                  </MenuItem>
+                </Menu>
+              </>
+            ) : (
+              <Button variant="outlined" color="inherit" onClick={openLoginDialog}>
+                {t("auth.login") || "登录"}
+              </Button>
+            )}
           </Box>
         </Toolbar>
       </AppBar>
@@ -778,31 +1178,15 @@ export default function App() {
                   label={t("saveAsZip")}
                 />
                 <FormControlLabel
-                  control={
-                    <Switch
-                      checked={autoSaveData}
-                      onChange={(e) => {
-                        setAutoSaveData(e.target.checked);
-                        persistSettings({ autoSaveData: e.target.checked });
-                      }}
-                    />
-                  }
-                  label={t("autoSaveData")}
-                />
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={exportJson}
-                      onChange={(e) => {
-                        setExportJson(e.target.checked);
-                        persistSettings({ exportJson: e.target.checked });
-                      }}
-                    />
-                  }
+                  control={<Switch checked={exportJson} onChange={toggleExportJson} />}
                   label={t("exportJson")}
                 />
                 <FormControlLabel
-                      control={<Switch checked={collapseEquipDetails} onChange={toggleEquipDetail} />}
+                  control={<Switch checked={syncAccountSensitive} onChange={toggleSyncAccountSensitive} />}
+                  label={t("syncAccountSensitive")}
+                />
+                <FormControlLabel
+                  control={<Switch checked={collapseEquipDetails} onChange={toggleEquipDetail} />}
                   label={t("equipDetail")}
                 />
                 <FormControlLabel
@@ -839,7 +1223,7 @@ export default function App() {
               <Button
                 variant="contained"
                 fullWidth
-                onClick={handleStart}
+                onClick={() => handleStart({ onlyCookie: false })}
                 startIcon={
                   loading ? (
                     <CircularProgress size={20} color="inherit" />
@@ -847,9 +1231,18 @@ export default function App() {
                     <PlayArrowIcon />
                   )
                 }
-                disabled={loading}
+                disabled={loading || cookieLoading}
               >
-                {t("start")}
+                {t("fetchCharacters")}
+              </Button>
+              <Button
+                variant="outlined"
+                fullWidth
+                onClick={() => handleStart({ onlyCookie: true })}
+                startIcon={cookieLoading ? <CircularProgress size={20} color="inherit" /> : null}
+                disabled={loading || cookieLoading}
+              >
+                {t("updateCookie")}
               </Button>
             </>
           )}
@@ -935,6 +1328,65 @@ export default function App() {
           </Paper>
         </Stack>
       </Container>
+
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={6000}
+        onClose={handleCloseNotification}
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
+      >
+        <Alert
+          onClose={handleCloseNotification}
+          severity={notification.severity}
+          sx={{ width: "100%" }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
+
+      <Dialog open={authDialogOpen} onClose={closeAuthDialog} maxWidth="xs" fullWidth>
+        <DialogTitle>{authTitle}</DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 3, overflow: "visible" }}>
+          <TextField
+            label={t("auth.username") || "用户名"}
+            value={authForm.username}
+            onChange={(e) => setAuthForm((prev) => ({ ...prev, username: e.target.value }))}
+            fullWidth
+            autoFocus
+          />
+          <TextField
+            label={t("auth.password") || "密码"}
+            type="password"
+            value={authForm.password}
+            onChange={(e) => setAuthForm((prev) => ({ ...prev, password: e.target.value }))}
+            fullWidth
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          {authMode === "login" ? (
+            <Button onClick={openRegisterDialog} disabled={authSubmitting}>
+              {t("auth.switchToRegister") || "去注册"}
+            </Button>
+          ) : (
+            <Button onClick={openLoginDialog} disabled={authSubmitting}>
+              {t("auth.switchToLogin") || "去登录"}
+            </Button>
+          )}
+          <Box sx={{ flex: 1 }} />
+          <Button onClick={closeAuthDialog} disabled={authSubmitting}>
+            {t("auth.cancel") || "取消"}
+          </Button>
+          <Button variant="contained" onClick={handleAuthSubmit} disabled={authSubmitting}>
+            {authSubmitting ? (
+              <CircularProgress size={18} color="inherit" />
+            ) : authMode === "login" ? (
+              t("auth.submitLogin") || "登录"
+            ) : (
+              t("auth.submitRegister") || "注册"
+            )}
+          </Button>
+        </DialogActions>
+      </Dialog>
       
     </>
   );

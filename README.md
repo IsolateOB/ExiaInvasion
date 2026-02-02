@@ -3,7 +3,7 @@
 	<h1>ExiaInvasion</h1>
 </div>
 <p align="center">
-    <a href="https://github.com/IsolateOB/ExiaInvasion/releases"><img src="https://img.shields.io/github/v/release/IsolateOB/ExiaInvasion?include_prereleases&style=for-the-badge" alt="GitHub release"></a>
+    <a href="https://github.com/IsolateOB/ExiaInvasion/releases/latest"><img src="https://img.shields.io/github/v/release/IsolateOB/ExiaInvasion?include_prereleases&style=for-the-badge" alt="GitHub release"></a>
     <a href="https://discord.gg/fRW7PbYZAB"><img src="https://img.shields.io/discord/1039859228640288770?label=Discord&logo=discord&logoColor=white&color=5865F2&style=for-the-badge" alt="Discord"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL3.0-blue.svg?style=for-the-badge" alt="GPL3.0"></a>
 </p>
