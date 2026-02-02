@@ -2,9 +2,9 @@
 // Excel表格生成模块
 import ExcelJS from "exceljs";
 import { computeAELScore, isUnowned, getEquipSumStats } from './ael.js';
-import TRANSLATIONS from './translations.js';
+import TRANSLATIONS from '../i18n/translations.js';
 import { getNikkeAvatarUrl } from './nikkeAvatar.js';
-import { fetchAndCacheNikkeDirectory, getCachedNikkeDirectory } from './api.js';
+import { fetchAndCacheNikkeDirectory, getCachedNikkeDirectory } from '../services/api.js';
 
 // 边框样式定义
 const mediumSide = { style: "medium", color: { argb: "FF000000" } };

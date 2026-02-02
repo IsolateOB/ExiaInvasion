@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-import { memo, useMemo, forwardRef } from "react";
+import { memo, useMemo, forwardRef, useCallback } from "react";
 import {
   Dialog,
   DialogTitle,
@@ -23,6 +23,132 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { Virtuoso } from "react-virtuoso";
+
+// 抽取列表项组件，避免每次渲染父组件都重新创建
+const NikkeListItem = memo(function NikkeListItem({
+  nikke,
+  isSelected,
+  alreadyAdded,
+  displayName,
+  avatarUrl,
+  secondaryText,
+  onSelect,
+  selectedLabel,
+  chooseLabel,
+}) {
+  return (
+    <ListItem
+      alignItems="stretch"
+      sx={{ py: 0.5 }}
+      secondaryAction={
+        <Button
+          variant="contained"
+          size="small"
+          onClick={() => onSelect(nikke)}
+          color={isSelected || alreadyAdded ? "success" : "primary"}
+          disabled={alreadyAdded}
+          sx={{ minWidth: 84 }}
+        >
+          {isSelected || alreadyAdded ? selectedLabel : chooseLabel}
+        </Button>
+      }
+    >
+      <ListItemAvatar sx={{ minWidth: 68, width: 68, alignSelf: "stretch", display: "flex", alignItems: "stretch" }}>
+        {avatarUrl ? (
+          <Box
+            component="img"
+            src={avatarUrl}
+            alt={displayName}
+            loading="lazy"
+            width={56}
+            height={56}
+            sx={{
+              height: "100%",
+              maxHeight: 56,
+              aspectRatio: "1 / 1",
+              borderRadius: "8px",
+              objectFit: "cover",
+            }}
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
+          />
+        ) : (
+          <Box
+            sx={{
+              height: "100%",
+              maxHeight: 56,
+              aspectRatio: "1 / 1",
+              borderRadius: "8px",
+              backgroundColor: "action.disabledBackground",
+            }}
+            title={displayName}
+          />
+        )}
+      </ListItemAvatar>
+      <ListItemText
+        primary={displayName}
+        secondary={secondaryText}
+        primaryTypographyProps={{ noWrap: true, variant: "body1" }}
+        secondaryTypographyProps={{ noWrap: true, variant: "caption" }}
+        sx={{ my: 0 }}
+      />
+    </ListItem>
+  );
+});
+
+// 选中/已有妮姬的头像缩略图
+const NikkeThumbnail = memo(function NikkeThumbnail({ nikke, name, avatarUrl, onRemove, removeLabel }) {
+  return (
+    <Box
+      sx={{
+        position: "relative",
+        width: 56,
+        height: 56,
+        borderRadius: "8px",
+        overflow: "hidden",
+        backgroundColor: "action.disabledBackground",
+      }}
+      title={name}
+    >
+      {avatarUrl ? (
+        <Box
+          component="img"
+          src={avatarUrl}
+          alt={name}
+          loading="lazy"
+          width={56}
+          height={56}
+          sx={{ width: "100%", height: "100%", objectFit: "cover" }}
+          onError={(e) => {
+            e.currentTarget.style.display = "none";
+          }}
+        />
+      ) : null}
+      <IconButton
+        size="small"
+        aria-label={removeLabel}
+        onClick={() => onRemove(nikke.id)}
+        sx={{
+          position: "absolute",
+          top: 2,
+          right: 2,
+          width: 18,
+          height: 18,
+          p: 0,
+          backgroundColor: "background.paper",
+          border: "1px solid",
+          borderColor: "divider",
+          "&:hover": {
+            backgroundColor: "background.paper",
+          },
+        }}
+      >
+        <CloseIcon sx={{ fontSize: 14 }} />
+      </IconButton>
+    </Box>
+  );
+});
 
 const CharacterFilterDialog = ({
   t,
@@ -55,6 +181,54 @@ const CharacterFilterDialog = ({
       Item: forwardRef((props, ref) => <div {...props} ref={ref} />),
     }),
     []
+  );
+
+  // 预计算选中ID集合，避免在 itemContent 中每次调用 .some()
+  const selectedNikkeIds = useMemo(
+    () => new Set(selectedNikkes.map((n) => n.id)),
+    [selectedNikkes]
+  );
+
+  // 缓存翻译字符串
+  const selectedLabel = t("selectedTag");
+  const chooseLabel = t("choose");
+  const removeLabel = t("remove") || "remove";
+
+  // 使用 useCallback 稳定 renderItem 函数引用
+  const renderItem = useCallback(
+    (index, nikke) => {
+      const isSelected = selectedNikkeIds.has(nikke.id);
+      const alreadyAdded = effectiveExistingElementIds.has(nikke.id);
+      const displayName = getDisplayName(nikke);
+      const avatarUrl = getNikkeAvatarUrl(nikke);
+      const secondaryText = `${getElementName(nikke.element)} | ${getBurstStageName(nikke.use_burst_skill)} | ${getClassName(nikke.class)} | ${getCorporationName(nikke.corporation)} | ${nikke.weapon_type}`;
+      return (
+        <NikkeListItem
+          nikke={nikke}
+          isSelected={isSelected}
+          alreadyAdded={alreadyAdded}
+          displayName={displayName}
+          avatarUrl={avatarUrl}
+          secondaryText={secondaryText}
+          onSelect={handleSelectNikke}
+          selectedLabel={selectedLabel}
+          chooseLabel={chooseLabel}
+        />
+      );
+    },
+    [
+      selectedNikkeIds,
+      effectiveExistingElementIds,
+      getDisplayName,
+      getNikkeAvatarUrl,
+      getElementName,
+      getBurstStageName,
+      getClassName,
+      getCorporationName,
+      handleSelectNikke,
+      selectedLabel,
+      chooseLabel,
+    ]
   );
 
   return (
@@ -202,71 +376,7 @@ const CharacterFilterDialog = ({
               data={filteredNikkes}
               components={listComponents}
               itemKey={(index, item) => item.id ?? index}
-              itemContent={(index, nikke) => {
-                const isSelected = selectedNikkes.some((item) => item.id === nikke.id);
-                const alreadyAdded = effectiveExistingElementIds.has(nikke.id);
-                const displayName = getDisplayName(nikke);
-                const avatarUrl = getNikkeAvatarUrl(nikke);
-                return (
-                  <ListItem
-                    alignItems="stretch"
-                    sx={{ py: 0.5 }}
-                    secondaryAction={
-                      <Button
-                        variant="contained"
-                        size="small"
-                        onClick={() => handleSelectNikke(nikke)}
-                        color={isSelected || alreadyAdded ? "success" : "primary"}
-                        disabled={alreadyAdded}
-                        sx={{ minWidth: 84 }}
-                      >
-                        {isSelected || alreadyAdded ? t("selectedTag") : t("choose")}
-                      </Button>
-                    }
-                  >
-                    <ListItemAvatar sx={{ minWidth: 68, width: 68, alignSelf: "stretch", display: "flex", alignItems: "stretch" }}>
-                      {avatarUrl ? (
-                        <Box
-                          component="img"
-                          src={avatarUrl}
-                          alt={displayName}
-                          loading="lazy"
-                          width={56}
-                          height={56}
-                          sx={{
-                            height: "100%",
-                            maxHeight: 56,
-                            aspectRatio: "1 / 1",
-                            borderRadius: "8px",
-                            objectFit: "cover",
-                          }}
-                          onError={(e) => {
-                            e.currentTarget.style.display = "none";
-                          }}
-                        />
-                      ) : (
-                        <Box
-                          sx={{
-                            height: "100%",
-                            maxHeight: 56,
-                            aspectRatio: "1 / 1",
-                            borderRadius: "8px",
-                            backgroundColor: "action.disabledBackground",
-                          }}
-                          title={displayName}
-                        />
-                      )}
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={displayName}
-                      secondary={`${getElementName(nikke.element)} | ${getBurstStageName(nikke.use_burst_skill)} | ${getClassName(nikke.class)} | ${getCorporationName(nikke.corporation)} | ${nikke.weapon_type}`}
-                      primaryTypographyProps={{ noWrap: true, variant: "body1" }}
-                      secondaryTypographyProps={{ noWrap: true, variant: "caption" }}
-                      sx={{ my: 0 }}
-                    />
-                  </ListItem>
-                );
-              }}
+              itemContent={renderItem}
             />
           ) : (
             <Typography color="textSecondary">{t("notFound")}</Typography>
@@ -282,117 +392,26 @@ const CharacterFilterDialog = ({
             <Typography color="textSecondary">{t("selectedEmpty")}</Typography>
           ) : (
             <Stack direction="row" spacing={0.75} flexWrap="wrap">
-              {effectiveExistingElementCharacters.map((nikke) => {
-                const name = getDisplayName(nikke);
-                const avatarUrl = getNikkeAvatarUrl(nikke);
-                return (
-                  <Box
-                    key={`existing-${nikke.id}`}
-                    sx={{
-                      position: "relative",
-                      width: 56,
-                      height: 56,
-                      borderRadius: "8px",
-                      overflow: "hidden",
-                      backgroundColor: "action.disabledBackground",
-                    }}
-                    title={name}
-                  >
-                    {avatarUrl ? (
-                        <Box
-                          component="img"
-                          src={avatarUrl}
-                          alt={name}
-                          loading="lazy"
-                          width={56}
-                          height={56}
-                          sx={{ width: "100%", height: "100%", objectFit: "cover" }}
-                          onError={(e) => {
-                            e.currentTarget.style.display = "none";
-                          }}
-                        />
-                    ) : null}
-
-                    <IconButton
-                      size="small"
-                      aria-label={t("remove") || "remove"}
-                      onClick={() => handleRemoveExistingNikke(nikke.id)}
-                      sx={{
-                        position: "absolute",
-                        top: 2,
-                        right: 2,
-                        width: 18,
-                        height: 18,
-                        p: 0,
-                        backgroundColor: "background.paper",
-                        border: "1px solid",
-                        borderColor: "divider",
-                        "&:hover": {
-                          backgroundColor: "background.paper",
-                        },
-                      }}
-                    >
-                      <CloseIcon sx={{ fontSize: 14 }} />
-                    </IconButton>
-                  </Box>
-                );
-              })}
-
-              {selectedNikkes.map((nikke) => {
-                const name = getDisplayName(nikke);
-                const avatarUrl = getNikkeAvatarUrl(nikke);
-                return (
-                  <Box
-                    key={`pending-${nikke.id}`}
-                    sx={{
-                      position: "relative",
-                      width: 56,
-                      height: 56,
-                      borderRadius: "8px",
-                      overflow: "hidden",
-                      backgroundColor: "action.disabledBackground",
-                    }}
-                    title={name}
-                  >
-                    {avatarUrl ? (
-                        <Box
-                          component="img"
-                          src={avatarUrl}
-                          alt={name}
-                          loading="lazy"
-                          width={56}
-                          height={56}
-                          sx={{ width: "100%", height: "100%", objectFit: "cover" }}
-                          onError={(e) => {
-                            e.currentTarget.style.display = "none";
-                          }}
-                        />
-                    ) : null}
-
-                    <IconButton
-                      size="small"
-                      aria-label={t("remove") || "remove"}
-                      onClick={() => handleRemoveSelectedNikke(nikke.id)}
-                      sx={{
-                        position: "absolute",
-                        top: 2,
-                        right: 2,
-                        width: 18,
-                        height: 18,
-                        p: 0,
-                        backgroundColor: "background.paper",
-                        border: "1px solid",
-                        borderColor: "divider",
-                        "&:hover": {
-                          backgroundColor: "background.paper",
-                        },
-                      }}
-                    >
-                      <CloseIcon sx={{ fontSize: 14 }} />
-                    </IconButton>
-                  </Box>
-                );
-              })}
+              {effectiveExistingElementCharacters.map((nikke) => (
+                <NikkeThumbnail
+                  key={`existing-${nikke.id}`}
+                  nikke={nikke}
+                  name={getDisplayName(nikke)}
+                  avatarUrl={getNikkeAvatarUrl(nikke)}
+                  onRemove={handleRemoveExistingNikke}
+                  removeLabel={removeLabel}
+                />
+              ))}
+              {selectedNikkes.map((nikke) => (
+                <NikkeThumbnail
+                  key={`pending-${nikke.id}`}
+                  nikke={nikke}
+                  name={getDisplayName(nikke)}
+                  avatarUrl={getNikkeAvatarUrl(nikke)}
+                  onRemove={handleRemoveSelectedNikke}
+                  removeLabel={removeLabel}
+                />
+              ))}
             </Stack>
           )}
         </Box>

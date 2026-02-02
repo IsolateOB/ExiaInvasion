@@ -742,4 +742,3 @@ export const fetchAndCacheNikkeDirectory = async () => {
 
 export const getCachedNikkeDirectory = async () =>
   new Promise((res) => chrome.storage.local.get(NIKKE_DIR_CACHE_KEY, (r) => res(r[NIKKE_DIR_CACHE_KEY] || [])));
-
