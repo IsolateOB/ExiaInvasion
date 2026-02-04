@@ -100,13 +100,14 @@ export function useCrawler({ t, lang, saveAsZip, exportJson, activateTab, server
         return list
           .map((acc) => ({
             game_uid: acc?.game_uid || acc?.gameUid || "",
+            game_openid: acc?.game_openid || acc?.gameOpenId || "",
             username: acc?.username || "",
             cookie: acc?.cookie || "",
             cookieUpdatedAt: acc?.cookieUpdatedAt ?? acc?.cookie_updated_at ?? null,
             ...(syncAccountEmail ? { email: acc?.email || "" } : {}),
             ...(syncAccountPassword ? { password: acc?.password || "" } : {}),
           }))
-          .filter((acc) => acc.game_uid || acc.cookie || acc.username);
+          .filter((acc) => acc.game_uid || acc.cookie);
       };
 
       const payload = updatedAccountTemplates.map((item) => ({

@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { fetchProfile } from "../utils.js";
+import { setAuth, clearAuth as clearAuthStorage } from "../../../services/storage.js";
 
 /**
  * 认证状态管理 Hook
@@ -20,6 +21,21 @@ export function useAuth({ t, showMessage }) {
   const [authUsername, setAuthUsername] = useState(null);
   const [authAvatarUrl, setAuthAvatarUrl] = useState(null);
   const [authAnchorEl, setAuthAnchorEl] = useState(null);
+
+  // 持久化 auth 状态到 storage
+  useEffect(() => {
+    if (authToken) {
+      setAuth({ token: authToken, username: authUsername, avatar_url: authAvatarUrl });
+    } else {
+      // 如果明确是 null，可能需要清除，但在初始化时如果不小心是 null 会误删。
+      // 只有显式登出时才清除。
+      // 这里我们可以只负责保存非空状态，
+      // 空状态由 handleLogout 清除。
+      // 不过考虑到 syncAuthFromWebsite 可能会把状态置空，如果 sync 发现未登录，确实应该清除。
+      // 暂时通过 syncAuthFromWebsite 中的逻辑处理状态同步，
+      // 这里只在有 token 时保存。
+    }
+  }, [authToken, authUsername, authAvatarUrl]);
 
   const requestWebsiteAuth = useCallback(async (tabId) => {
     try {
@@ -118,6 +134,11 @@ export function useAuth({ t, showMessage }) {
       setAuthToken(auth.token);
       setAuthUsername(auth.username || null);
       setAuthAvatarUrl(auth.avatar_url || null);
+      // 同时保存到 storage
+      setAuth({ token: auth.token, username: auth.username, avatar_url: auth.avatar_url });
+    } else {
+        // 如果同步回来是空的，且不是单纯因为通信失败，可能需要清除 storage
+        // 但为了安全起见（避免网络问题导致登出），这里暂不清除，除非明确收到登出信号
     }
 
     if (createdTabId && !openLogin) {
@@ -150,6 +171,7 @@ export function useAuth({ t, showMessage }) {
           setAuthToken(null);
           setAuthUsername(null);
           setAuthAvatarUrl(null);
+          clearAuthStorage(); // 清除 storage
           showMessage(t("auth.logoutSuccess") || "已退出", "info");
         }
       }
@@ -165,9 +187,13 @@ export function useAuth({ t, showMessage }) {
       .then((profile) => {
         if (profile?.avatar_url) {
           setAuthAvatarUrl(profile.avatar_url);
+          // 更新 storage
+          setAuth({ token: authToken, username: authUsername, avatar_url: profile.avatar_url });
         }
         if (profile?.username && !authUsername) {
           setAuthUsername(profile.username);
+           // 更新 storage
+          setAuth({ token: authToken, username: profile.username, avatar_url: authAvatarUrl });
         }
       })
       .catch(() => {});
@@ -182,6 +208,7 @@ export function useAuth({ t, showMessage }) {
     setAuthToken(null);
     setAuthUsername(null);
     setAuthAvatarUrl(null);
+    clearAuthStorage(); // 清除 storage
     clearWebsiteAuth().catch(() => {});
     showMessage(t("auth.logoutSuccess") || "已退出", "success");
   }, [t, showMessage, clearWebsiteAuth]);

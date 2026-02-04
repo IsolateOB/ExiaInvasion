@@ -13,6 +13,15 @@ export const parseGameUidFromCookie = (cookieStr) => {
 };
 
 /**
+ * 从 Cookie 字符串中解析 game_openid
+ */
+export const parseGameOpenIdFromCookie = (cookieStr) => {
+  if (!cookieStr) return "";
+  const match = cookieStr.match(/(?:^|;\s*)game_openid=([^;]*)/);
+  return match ? match[1] : "";
+};
+
+/**
  * 标准化时间戳（转为毫秒）
  */
 export const normalizeTimestamp = (value) => {

@@ -37,6 +37,7 @@ import {
 } from "./components/management/constants.js";
 import {
   parseGameUidFromCookie,
+  parseGameOpenIdFromCookie,
   normalizeTimestamp,
   getPriorityColor,
 } from "./components/management/utils.js";
@@ -383,10 +384,12 @@ const ManagementPage = () => {
       let list = r.accounts || [];
       const updated = list.map((acc) => {
         const nextGameUid = acc?.game_uid || acc?.gameUid || parseGameUidFromCookie(acc?.cookie);
+        const nextGameOpenId = acc?.game_openid || acc?.gameOpenId || parseGameOpenIdFromCookie(acc?.cookie);
         const { ...rest } = acc || {};
         return {
           ...rest,
           game_uid: nextGameUid || "",
+          game_openid: nextGameOpenId || "",
           cookieUpdatedAt: acc?.cookieUpdatedAt ?? acc?.cookie_updated_at ?? null,
         };
       });
