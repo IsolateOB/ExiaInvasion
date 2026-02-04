@@ -235,6 +235,8 @@ const TRANSLATIONS = {
     cookieValidForHours: "可用 {count} 小时",
     cookieStatusExpired: "已过期",
     cookieUnknown: "未知",
+    update: "更新",
+    updateAvailable: "有新版本：{version}",
   },
   en: {
     starting: "Running, please do not close the sidebar",
@@ -468,6 +470,8 @@ const TRANSLATIONS = {
     cookieValidForHours: "Valid for {count} hours",
     cookieStatusExpired: "Expired",
     cookieUnknown: "Unknown",
+    update: "Update",
+    updateAvailable: "New version: {version}",
   },
 };
 

@@ -7,3 +7,4 @@ export { useNotification } from "./useNotification.js";
 export { useCloudCheck } from "./useCloudCheck.js";
 export { useCrawler } from "./useCrawler.js";
 export { useMerge } from "./useMerge.js";
+export { useUpdateCheck } from "./useUpdateCheck.js";

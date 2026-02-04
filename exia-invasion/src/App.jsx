@@ -11,6 +11,7 @@ import {
   Alert,
   ToggleButtonGroup,
   ToggleButton,
+  Button
 } from "@mui/material";
 import TRANSLATIONS from "./i18n/translations.js";
 import {
@@ -20,6 +21,7 @@ import {
   useCloudCheck,
   useCrawler,
   useMerge,
+  useUpdateCheck,
   AppHeader,
   CrawlerTabContent,
   MergeTabContent,
@@ -50,6 +52,9 @@ export default function App() {
 
   // ========== 云同步检查 ==========
   useCloudCheck({ authToken: auth.authToken, t, showMessage });
+
+  // ========== 自动更新检查 ==========
+  const { updateAvailable, latestVersion, releaseUrl } = useUpdateCheck();
 
   // ========== 数据爬取 ==========
   const crawler = useCrawler({
@@ -145,6 +150,20 @@ export default function App() {
           >
             {displayLogs.join("\n")}
           </Paper>
+
+          {updateAvailable && (
+            <Alert
+              severity="error"
+              sx={{ bgcolor: 'rgba(211, 47, 47, 0.2)' }}
+              action={
+                <Button color="inherit" size="small" href={releaseUrl} target="_blank">
+                  {t("update")}
+                </Button>
+              }
+            >
+              {t("updateAvailable").replace("{version}", latestVersion)}
+            </Alert>
+          )}
         </Stack>
       </Container>
 
