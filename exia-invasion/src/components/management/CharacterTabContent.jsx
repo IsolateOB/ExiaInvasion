@@ -20,6 +20,7 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import FileUploadIcon from "@mui/icons-material/FileUpload";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
@@ -44,6 +45,7 @@ const CharacterTabContent = ({
   setIsRenaming,
   setRenameId,
   startRenameTemplate,
+  handleDuplicateTemplate,
   handleDeleteTemplate,
   handleCreateTemplate,
   triggerCharacterImport,
@@ -163,6 +165,11 @@ const CharacterTabContent = ({
                   <Tooltip title={t("templateRename")}>
                     <IconButton size="small" aria-label={t("templateRename")} onClick={(e) => { e.stopPropagation(); e.preventDefault(); startRenameTemplate(tpl.id); }}>
                       <EditIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title={t("copy") || "复制"}>
+                    <IconButton size="small" aria-label={t("copy") || "复制"} onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDuplicateTemplate(tpl.id); }}>
+                      <ContentCopyIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
                   <Tooltip title={tpl.id === defaultTemplateId ? (t("templateDefaultLocked") || "默认妮姬列表不可删除") : t("templateDelete")}>

@@ -22,14 +22,12 @@ const CrawlerTabContent = ({
   // 设置
   saveAsZip,
   exportJson,
-  syncAccountSensitive,
   collapseEquipDetails,
   activateTab,
   server,
   // 开关处理
   toggleSaveZip,
   toggleExportJson,
-  toggleSyncAccountSensitive,
   toggleEquipDetail,
   toggleActivateTab,
   changeServer,
@@ -66,10 +64,6 @@ const CrawlerTabContent = ({
         <FormControlLabel
           control={<Switch checked={exportJson} onChange={toggleExportJson} />}
           label={t("exportJson")}
-        />
-        <FormControlLabel
-          control={<Switch checked={syncAccountSensitive} onChange={toggleSyncAccountSensitive} />}
-          label={t("syncAccountSensitive")}
         />
         <FormControlLabel
           control={<Switch checked={collapseEquipDetails} onChange={toggleEquipDetail} />}

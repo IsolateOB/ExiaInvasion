@@ -11,7 +11,6 @@ export function useSettings() {
   const [lang, setLang] = useState("zh");
   const [saveAsZip, setSaveAsZip] = useState(false);
   const [exportJson, setExportJson] = useState(false);
-  const [syncAccountSensitive, setSyncAccountSensitive] = useState(false);
   const [activateTab, setActivateTab] = useState(false);
   const [server, setServer] = useState("global");
   const [sortFlag, setSortFlag] = useState("1");
@@ -27,7 +26,6 @@ export function useSettings() {
       setLang(s.lang || (navigator.language.startsWith("zh") ? "zh" : "en"));
       setSaveAsZip(Boolean(s.saveAsZip));
       setExportJson(Boolean(s.exportJson));
-      setSyncAccountSensitive(Boolean(s.syncAccountSensitive));
       setActivateTab(Boolean(s.activateTab));
       setServer(s.server || "global");
       setSortFlag(s.sortFlag || "1");
@@ -44,7 +42,7 @@ export function useSettings() {
         const nextLang = changes.settings.newValue?.lang;
         if (nextLang) setLang(nextLang);
         if ("syncAccountSensitive" in (changes.settings.newValue || {})) {
-          setSyncAccountSensitive(Boolean(changes.settings.newValue?.syncAccountSensitive));
+          // legacy flag ignored in UI
         }
       }
     };
@@ -54,8 +52,8 @@ export function useSettings() {
 
   // 持久化设置
   const persistSettings = useCallback((upd) => {
-    setSettings({ lang, saveAsZip, exportJson, syncAccountSensitive, activateTab, server, sortFlag, ...upd });
-  }, [lang, saveAsZip, exportJson, syncAccountSensitive, activateTab, server, sortFlag]);
+    setSettings({ lang, saveAsZip, exportJson, activateTab, server, sortFlag, ...upd });
+  }, [lang, saveAsZip, exportJson, activateTab, server, sortFlag]);
 
   // 切换装备详情折叠
   const toggleEquipDetail = useCallback(async (e) => {
@@ -86,12 +84,6 @@ export function useSettings() {
     persistSettings({ exportJson: v });
   }, [persistSettings]);
 
-  // 切换同步敏感信息
-  const toggleSyncAccountSensitive = useCallback((e) => {
-    const v = e.target.checked;
-    setSyncAccountSensitive(v);
-    persistSettings({ syncAccountSensitive: v });
-  }, [persistSettings]);
 
   // 切换激活标签页
   const toggleActivateTab = useCallback((e) => {
@@ -119,7 +111,6 @@ export function useSettings() {
     lang,
     saveAsZip,
     exportJson,
-    syncAccountSensitive,
     activateTab,
     server,
     sortFlag,
@@ -129,7 +120,6 @@ export function useSettings() {
     toggleEquipDetail,
     toggleSaveZip,
     toggleExportJson,
-    toggleSyncAccountSensitive,
     toggleActivateTab,
     changeServer,
     handleSortChange,

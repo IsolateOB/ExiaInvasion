@@ -21,7 +21,6 @@ import {
   useCrawler,
   useMerge,
   AppHeader,
-  AuthDialog,
   CrawlerTabContent,
   MergeTabContent,
 } from "./components/app";
@@ -105,13 +104,11 @@ export default function App() {
               t={t}
               saveAsZip={settings.saveAsZip}
               exportJson={settings.exportJson}
-              syncAccountSensitive={settings.syncAccountSensitive}
               collapseEquipDetails={settings.collapseEquipDetails}
               activateTab={settings.activateTab}
               server={settings.server}
               toggleSaveZip={settings.toggleSaveZip}
               toggleExportJson={settings.toggleExportJson}
-              toggleSyncAccountSensitive={settings.toggleSyncAccountSensitive}
               toggleEquipDetail={settings.toggleEquipDetail}
               toggleActivateTab={settings.toggleActivateTab}
               changeServer={settings.changeServer}
@@ -166,19 +163,6 @@ export default function App() {
         </Alert>
       </Snackbar>
 
-      <AuthDialog
-        t={t}
-        open={auth.authDialogOpen}
-        onClose={auth.closeAuthDialog}
-        authTitle={auth.authTitle}
-        authMode={auth.authMode}
-        authForm={auth.authForm}
-        setAuthForm={auth.setAuthForm}
-        authSubmitting={auth.authSubmitting}
-        onSubmit={auth.handleAuthSubmit}
-        openLoginDialog={auth.openLoginDialog}
-        openRegisterDialog={auth.openRegisterDialog}
-      />
     </>
   );
 }

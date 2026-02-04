@@ -124,6 +124,20 @@ export function useTemplateManagement({
     return `${t("template")}${n}`;
   }, [templates, t]);
 
+  const buildEmptyCharactersData = useCallback(() => ({
+    elements: {
+      Electronic: [],
+      Fire: [],
+      Wind: [],
+      Water: [],
+      Iron: [],
+      Utility: []
+    },
+    options: {
+      showEquipDetails: characters?.options?.showEquipDetails !== false
+    }
+  }), [characters]);
+
   const syncCharacterTemplateData = useCallback(async (templateId, data) => {
     if (!templateId) return;
     const currentTemplates = templatesRef.current;
@@ -147,18 +161,43 @@ export function useTemplateManagement({
   // 保存当前配置为模板
   const handleCreateTemplate = useCallback(async () => {
     const id = await getNextTemplateId();
+    const emptyData = buildEmptyCharactersData();
     const template = {
       id,
       name: generateNextDefaultName(),
-      data: characters,
+      data: emptyData,
       createdAt: Date.now()
     };
     await saveTemplate(template);
     await refreshTemplates();
     setSelectedTemplateId(id);
     await setCurrentTemplateId(id);
+    setCharactersData(emptyData);
+    await persistCharacters(emptyData);
     showMessage(t("templateSaved"), "success");
-  }, [characters, generateNextDefaultName, refreshTemplates, showMessage, t]);
+  }, [buildEmptyCharactersData, generateNextDefaultName, refreshTemplates, setCharactersData, showMessage, t]);
+
+  const handleDuplicateTemplate = useCallback(async (id) => {
+    if (!id) return;
+    const source = templates.find((item) => item.id === id);
+    if (!source) return;
+    const copyLabel = t("copy") || "复制";
+    const newId = await getNextTemplateId();
+    const copy = {
+      ...source,
+      id: newId,
+      name: `${source.name} ${copyLabel}`,
+      createdAt: Date.now(),
+      data: JSON.parse(JSON.stringify(source.data || {}))
+    };
+    await saveTemplate(copy);
+    await refreshTemplates();
+    setSelectedTemplateId(newId);
+    await setCurrentTemplateId(newId);
+    setCharactersData(copy.data);
+    await persistCharacters(copy.data);
+    showMessage(t("templateLoaded"), "success");
+  }, [templates, refreshTemplates, setCharactersData, showMessage, t]);
 
   // 删除模板
   const handleDeleteTemplate = useCallback(async (id) => {
@@ -291,15 +330,40 @@ export function useTemplateManagement({
     const template = {
       id,
       name: generateNextAccountDefaultName(),
-      data: accounts,
+      data: [],
       createdAt: Date.now()
     };
     await saveAccountTemplate(template);
     await refreshAccountTemplates();
     setSelectedAccountTemplateId(id);
     await setCurrentAccountTemplateId(id);
+    setAccounts([]);
+    await persist([]);
     showMessage(t("accountTemplateSaved"), "success");
-  }, [accounts, generateNextAccountDefaultName, refreshAccountTemplates, showMessage, t]);
+  }, [generateNextAccountDefaultName, persist, refreshAccountTemplates, setAccounts, showMessage, t]);
+
+  const handleDuplicateAccountTemplate = useCallback(async (id) => {
+    if (!id) return;
+    const source = accountTemplates.find((item) => item.id === id);
+    if (!source) return;
+    const copyLabel = t("copy") || "复制";
+    const newId = await getNextAccountTemplateId();
+    const dataCopy = Array.isArray(source.data) ? JSON.parse(JSON.stringify(source.data)) : [];
+    const copy = {
+      ...source,
+      id: newId,
+      name: `${source.name} ${copyLabel}`,
+      createdAt: Date.now(),
+      data: dataCopy
+    };
+    await saveAccountTemplate(copy);
+    await refreshAccountTemplates();
+    setSelectedAccountTemplateId(newId);
+    await setCurrentAccountTemplateId(newId);
+    setAccounts(dataCopy);
+    await persist(dataCopy);
+    showMessage(t("accountTemplateLoaded"), "success");
+  }, [accountTemplates, persist, refreshAccountTemplates, setAccounts, showMessage, t]);
 
   // 删除账号模板
   const handleDeleteAccountTemplate = useCallback(async (id) => {
@@ -309,14 +373,20 @@ export function useTemplateManagement({
       return;
     }
     await deleteAccountTemplate(id);
-    await refreshAccountTemplates();
+    const list = await getAccountTemplates();
+    const preferredId = selectedAccountTemplateId === id ? "" : selectedAccountTemplateId;
+    const { list: nextList, defaultId } = await applyAccountTemplatesWithDefault(list || [], preferredId || "");
     if (selectedAccountTemplateId === id) {
-      const fallbackId = defaultAccountTemplateId && defaultAccountTemplateId !== id ? defaultAccountTemplateId : "";
-      setSelectedAccountTemplateId(fallbackId);
-      await setCurrentAccountTemplateId(fallbackId);
+      const nextId = defaultId || nextList[0]?.id || "";
+      setSelectedAccountTemplateId(nextId);
+      await setCurrentAccountTemplateId(nextId);
+      const tpl = nextList.find((item) => item.id === nextId) || nextList[0];
+      if (tpl) {
+        await applyAccountTemplate(tpl);
+      }
     }
     showMessage(t("accountTemplateDeleted"), "success");
-  }, [defaultAccountTemplateId, refreshAccountTemplates, selectedAccountTemplateId, showMessage, t]);
+  }, [defaultAccountTemplateId, selectedAccountTemplateId, showMessage, t, applyAccountTemplatesWithDefault, applyAccountTemplate]);
 
   // 重命名账号模板
   const startRenameAccountTemplate = useCallback((id) => {
@@ -464,6 +534,7 @@ export function useTemplateManagement({
     refreshTemplates,
     syncCharacterTemplateData,
     handleCreateTemplate,
+    handleDuplicateTemplate,
     handleDeleteTemplate,
     startRenameTemplate,
     confirmRename,
@@ -474,6 +545,7 @@ export function useTemplateManagement({
     refreshAccountTemplates,
     syncAccountTemplateData,
     handleCreateAccountTemplate,
+    handleDuplicateAccountTemplate,
     handleDeleteAccountTemplate,
     startRenameAccountTemplate,
     confirmAccountRename,

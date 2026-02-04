@@ -10,6 +10,5 @@ export * from "./hooks/index.js";
 
 // Components
 export { default as AppHeader } from "./AppHeader.jsx";
-export { default as AuthDialog } from "./AuthDialog.jsx";
 export { default as CrawlerTabContent } from "./CrawlerTabContent.jsx";
 export { default as MergeTabContent } from "./MergeTabContent.jsx";

@@ -2,7 +2,7 @@
 // ========== 云同步 Hook ==========
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getAuth, clearAuth, getSyncMeta, setSyncMeta } from "../../../services/storage.js";
+import { getSyncMeta, setSyncMeta } from "../../../services/storage.js";
 import { buildAccountsSignature, buildCharactersSignature } from "../../../utils/cloudCompare.js";
 import { API_BASE_URL } from "../constants.js";
 import { normalizeTimestamp } from "../utils.js";
@@ -11,7 +11,8 @@ import { normalizeTimestamp } from "../utils.js";
  * 云同步 Hook
  * @param {Object} options
  * @param {Function} options.t - 翻译函数
- * @param {boolean} options.syncAccountSensitive - 是否同步敏感账号信息
+ * @param {boolean} options.syncAccountEmail - 是否同步账号邮箱
+ * @param {boolean} options.syncAccountPassword - 是否同步账号密码
  * @param {Array} options.accountTemplates - 账号模板列表
  * @param {Array} options.templates - 角色模板列表
  * @param {string} options.selectedAccountTemplateId - 当前选中的账号模板ID
@@ -26,7 +27,8 @@ import { normalizeTimestamp } from "../utils.js";
  */
 export function useCloudSync({
   t,
-  syncAccountSensitive,
+  syncAccountEmail,
+  syncAccountPassword,
   accountTemplates,
   templates,
   selectedAccountTemplateId,
@@ -65,10 +67,71 @@ export function useCloudSync({
   const cloudInitTokenRef = useRef(null);
   const accountTemplatesRef = useRef([]);
   const templatesRef = useRef([]);
+  const EXIA_WEB_ORIGIN = "https://exia.nikke.cc";
+  const EXIA_WEB_LOGIN_URL = `${EXIA_WEB_ORIGIN}/login`;
 
   // Keep refs in sync with state
   useEffect(() => { accountTemplatesRef.current = accountTemplates; }, [accountTemplates]);
   useEffect(() => { templatesRef.current = templates; }, [templates]);
+
+  const waitForTabComplete = useCallback((tabId) => new Promise((resolve) => {
+    const listener = (id, info) => {
+      if (id === tabId && info.status === "complete") {
+        chrome.tabs.onUpdated.removeListener(listener);
+        resolve();
+      }
+    };
+    chrome.tabs.onUpdated.addListener(listener);
+  }), []);
+
+  const requestWebsiteAuth = useCallback(async (tabId) => {
+    try {
+      const resp = await chrome.tabs.sendMessage(tabId, { type: "EXIA_AUTH_REQUEST" });
+      return resp?.auth || null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const syncAuthFromWebsite = useCallback(async () => {
+    const tabs = await chrome.tabs.query({ url: `${EXIA_WEB_ORIGIN}/*` });
+    let tabId = tabs?.[0]?.id;
+    let createdTabId;
+    if (!tabId) {
+      const tab = await chrome.tabs.create({ url: EXIA_WEB_ORIGIN, active: false });
+      tabId = tab.id;
+      createdTabId = tab.id;
+      if (tabId) await waitForTabComplete(tabId);
+    }
+    if (!tabId) return null;
+    const auth = await requestWebsiteAuth(tabId);
+    if (createdTabId) {
+      chrome.tabs.remove(createdTabId);
+    }
+    if (auth?.token) {
+      setAuthToken(auth.token);
+      return auth;
+    }
+    return null;
+  }, [EXIA_WEB_ORIGIN, requestWebsiteAuth, waitForTabComplete]);
+
+  const clearWebsiteAuth = useCallback(async () => {
+    const tabs = await chrome.tabs.query({ url: `${EXIA_WEB_ORIGIN}/*` });
+    let tabId = tabs?.[0]?.id;
+    let createdTabId;
+    if (!tabId) {
+      const tab = await chrome.tabs.create({ url: EXIA_WEB_LOGIN_URL, active: false });
+      tabId = tab.id;
+      createdTabId = tab.id;
+      if (tabId) await waitForTabComplete(tabId);
+    }
+    if (!tabId) return;
+    try {
+      await chrome.tabs.sendMessage(tabId, { type: "EXIA_AUTH_CLEAR" });
+    } finally {
+      if (createdTabId) chrome.tabs.remove(createdTabId);
+    }
+  }, [EXIA_WEB_LOGIN_URL, EXIA_WEB_ORIGIN, waitForTabComplete]);
 
   // ========== 辅助函数 ==========
   const normalizeListId = useCallback((id) => (id === undefined || id === null ? "" : String(id)), []);
@@ -81,15 +144,11 @@ export function useCloudSync({
         username: acc?.username || "",
         cookie: acc?.cookie || "",
         cookieUpdatedAt: acc?.cookieUpdatedAt ?? acc?.cookie_updated_at ?? null,
-        ...(syncAccountSensitive
-          ? {
-              email: acc?.email || "",
-              password: acc?.password || "",
-            }
-          : {}),
+        ...(syncAccountEmail ? { email: acc?.email || "" } : {}),
+        ...(syncAccountPassword ? { password: acc?.password || "" } : {}),
       }))
       .filter((acc) => acc.game_uid || acc.cookie || acc.username);
-  }, [syncAccountSensitive]);
+  }, [syncAccountEmail, syncAccountPassword]);
 
   const mergeCloudAccounts = useCallback((localList, remoteList) => {
     const local = Array.isArray(localList) ? [...localList] : [];
@@ -109,8 +168,8 @@ export function useCloudSync({
         local[idx] = {
           ...local[idx],
           username: remoteAcc?.username || local[idx]?.username || "",
-          email: remoteAcc?.email ?? local[idx]?.email ?? "",
-          password: remoteAcc?.password ?? local[idx]?.password ?? "",
+          email: syncAccountEmail ? (remoteAcc?.email ?? local[idx]?.email ?? "") : (local[idx]?.email ?? ""),
+          password: syncAccountPassword ? (remoteAcc?.password ?? local[idx]?.password ?? "") : (local[idx]?.password ?? ""),
           cookie: remoteAcc?.cookie || local[idx]?.cookie || "",
           cookieUpdatedAt: cookieUpdatedAt ?? local[idx]?.cookieUpdatedAt ?? null,
           game_uid: remoteAcc?.game_uid || remoteAcc?.gameUid || local[idx]?.game_uid || local[idx]?.gameUid || "",
@@ -122,7 +181,11 @@ export function useCloudSync({
     });
 
     return local;
-  }, []);
+  }, [syncAccountEmail, syncAccountPassword]);
+
+  const buildSensitiveSignature = useCallback((emailFlag, passwordFlag) => (
+    `${emailFlag ? 1 : 0}:${passwordFlag ? 1 : 0}`
+  ), []);
 
   const normalizeAccountLists = useCallback((lists) => {
     if (!Array.isArray(lists)) return [];
@@ -366,34 +429,22 @@ export function useCloudSync({
   }, [syncConflict, normalizeAccountLists, normalizeCharacterLists, mergeAccountLists, accountTemplates, selectedAccountTemplateId, selectedTemplateId, applyAccountTemplatesWithDefault, applyTemplatesWithDefault, setAccounts, persist, showMessage, t]);
 
   const handleConflictLogout = useCallback(async () => {
-    await clearAuth();
+    await clearWebsiteAuth();
     setAuthToken(null);
     setSyncConflict((prev) => ({ ...prev, open: false }));
     showMessage(t("sync.logout") || "退出登录", "info");
-  }, [showMessage, t]);
+  }, [showMessage, t, clearWebsiteAuth]);
 
   // ========== 初始化和监听 ==========
   useEffect(() => {
-    getAuth().then((auth) => {
-      if (auth?.token && auth?.username) {
-        setAuthToken(auth.token);
-      }
+    syncAuthFromWebsite().catch(() => {
+      // ignore sync errors
     });
     getSyncMeta().then((meta) => {
       setAccountsSyncAt(normalizeTimestamp(meta?.accountsLastSyncAt));
       setCharactersSyncAt(normalizeTimestamp(meta?.charactersLastSyncAt));
     });
     const authHandler = (changes, area) => {
-      if (area === "local" && changes.auth) {
-        const next = changes.auth.newValue;
-        if (next?.token && next?.username) {
-          setAuthToken(next.token);
-        } else {
-          setAuthToken(null);
-          cloudInitTokenRef.current = null;
-          setSyncConflict((prev) => ({ ...prev, open: false }));
-        }
-      }
       if (area === "local" && changes.syncMeta) {
         const next = changes.syncMeta.newValue || {};
         setAccountsSyncAt(normalizeTimestamp(next?.accountsLastSyncAt));
@@ -409,15 +460,36 @@ export function useCloudSync({
     };
     chrome.storage.onChanged.addListener(authHandler);
     return () => chrome.storage.onChanged.removeListener(authHandler);
-  }, []);
+  }, [syncAuthFromWebsite]);
+
+  useEffect(() => {
+    const handler = (msg) => {
+      if (msg?.type !== "EXIA_AUTH") return;
+      const payload = msg.payload || {};
+      if (payload.type === "auth:status") {
+        if (payload.loggedIn) {
+          syncAuthFromWebsite().catch(() => {
+            // ignore sync errors
+          });
+          return;
+        }
+        setAuthToken(null);
+        cloudInitTokenRef.current = null;
+        setSyncConflict((prev) => ({ ...prev, open: false }));
+      }
+    };
+    chrome.runtime.onMessage.addListener(handler);
+    return () => chrome.runtime.onMessage.removeListener(handler);
+  }, [syncAuthFromWebsite]);
 
   // 敏感信息同步变化时触发同步
   useEffect(() => {
     if (!authToken || !isInitializedRef.current) return;
     if (!accountTemplatesRef.current.length) return;
     if (!syncSensitiveInitRef.current) return;
-    if (prevSyncSensitiveRef.current === syncAccountSensitive) return;
-    prevSyncSensitiveRef.current = syncAccountSensitive;
+    const signature = buildSensitiveSignature(syncAccountEmail, syncAccountPassword);
+    if (prevSyncSensitiveRef.current === signature) return;
+    prevSyncSensitiveRef.current = signature;
     if (sensitiveSyncTimerRef.current) {
       clearTimeout(sensitiveSyncTimerRef.current);
     }
@@ -434,7 +506,7 @@ export function useCloudSync({
         setAccountsSyncing(false);
       }
     };
-  }, [authToken, syncAccountSensitive, syncAccountsNow]);
+  }, [authToken, syncAccountEmail, syncAccountPassword, syncAccountsNow, buildSensitiveSignature]);
 
   // 自动同步
   useEffect(() => {
@@ -475,9 +547,21 @@ export function useCloudSync({
   // 标记敏感信息设置已初始化（传入当前设置值以正确记录初始状态）
   const setSyncSensitiveInit = useCallback((value, currentSensitiveValue) => {
     syncSensitiveInitRef.current = value;
-    // 使用传入的当前值，避免闭包问题
-    prevSyncSensitiveRef.current = currentSensitiveValue !== undefined ? currentSensitiveValue : syncAccountSensitive;
-  }, [syncAccountSensitive]);
+    if (currentSensitiveValue && typeof currentSensitiveValue === "object") {
+      prevSyncSensitiveRef.current = buildSensitiveSignature(
+        Boolean(currentSensitiveValue.email),
+        Boolean(currentSensitiveValue.password)
+      );
+      return;
+    }
+    if (typeof currentSensitiveValue === "boolean") {
+      prevSyncSensitiveRef.current = buildSensitiveSignature(currentSensitiveValue, currentSensitiveValue);
+      return;
+    }
+    prevSyncSensitiveRef.current = currentSensitiveValue !== undefined
+      ? String(currentSensitiveValue)
+      : buildSensitiveSignature(syncAccountEmail, syncAccountPassword);
+  }, [buildSensitiveSignature, syncAccountEmail, syncAccountPassword]);
 
   return {
     // 状态

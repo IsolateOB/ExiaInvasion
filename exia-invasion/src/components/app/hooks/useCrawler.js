@@ -47,7 +47,9 @@ export function useCrawler({ t, lang, saveAsZip, exportJson, activateTab, server
 
       // 获取设置，检查是否同步敏感信息
       const settings = await getSettings();
-      const syncSensitive = Boolean(settings?.syncAccountSensitive);
+      const legacySensitive = Boolean(settings?.syncAccountSensitive);
+      const syncAccountEmail = settings?.syncAccountEmail ?? legacySensitive;
+      const syncAccountPassword = settings?.syncAccountPassword ?? legacySensitive;
 
       // 获取最新的 accounts 和 accountTemplates
       const [latestAccounts, accountTemplates, currentTemplateId] = await Promise.all([
@@ -101,13 +103,8 @@ export function useCrawler({ t, lang, saveAsZip, exportJson, activateTab, server
             username: acc?.username || "",
             cookie: acc?.cookie || "",
             cookieUpdatedAt: acc?.cookieUpdatedAt ?? acc?.cookie_updated_at ?? null,
-            enabled: acc?.enabled,
-            ...(syncSensitive
-              ? {
-                  email: acc?.email || "",
-                  password: acc?.password || "",
-                }
-              : {}),
+            ...(syncAccountEmail ? { email: acc?.email || "" } : {}),
+            ...(syncAccountPassword ? { password: acc?.password || "" } : {}),
           }))
           .filter((acc) => acc.game_uid || acc.cookie || acc.username);
       };
@@ -231,69 +228,10 @@ export function useCrawler({ t, lang, saveAsZip, exportJson, activateTab, server
 
   // ========== 登录并获取 Cookie ==========
   const loginAndGetCookie = useCallback(async (acc, serverFlag) => {
-    addLog(t("getCookie"));
-    
-    const tab = await chrome.tabs.create({
-      url: "https://www.blablalink.com/login",
-      active: activateTab,
-    });
-    
-    await new Promise((resolve) => {
-      const listener = (id, info) => {
-        if (id === tab.id && info.status === "complete") {
-          chrome.tabs.onUpdated.removeListener(listener);
-          resolve();
-        }
-      };
-      chrome.tabs.onUpdated.addListener(listener);
-    });
-    
-    await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: (loginInfo) => {
-        const { email, password, server } = loginInfo;
-        const click = (sel) => document.querySelector(sel)?.click();
-        click("#onetrust-accept-btn-handler");
-        if (server === "hmt") {
-          click("body div.w-full ul > li:nth-child(1)");
-        } else {
-          click("body div.w-full ul > li:nth-child(2)");
-        }
-        const waitFor = (sel, timeout = 5000) =>
-          new Promise((res) => {
-            const st = Date.now();
-            const timer = setInterval(() => {
-              if (document.querySelector(sel)) {
-                clearInterval(timer);
-                res(true);
-              } else if (Date.now() - st > timeout) {
-                clearInterval(timer);
-                res(false);
-              }
-            }, 100);
-          });
-        (async () => {
-          let ok = await waitFor("#loginPwdForm_account", 2000);
-          if (!ok) click(".pass-switchLogin__oper");
-          await waitFor("#loginPwdForm_account", 5000);
-          
-          const setVal = (sel, val) => {
-            const el = document.querySelector(sel);
-            if (el) {
-              el.value = val;
-              el.dispatchEvent(new Event("input", { bubbles: true }));
-            }
-          };
-          setVal("#loginPwdForm_account", email);
-          setVal("#loginPwdForm_password", password);
-          click('#loginPwdForm button[type="submit"]');
-        })();
-      },
-      args: [{ email: acc.email, password: acc.password, server: serverFlag }],
-    });
-    
-    await new Promise((resolve) => {
-      // 移除超时限制，允许用户充分时间处理验证码
+    const LOGIN_COOKIE_TIMEOUT_MS = 20000;
+    const LOGIN_COOKIE_MAX_ATTEMPTS = 2;
+
+    const waitForCookie = () => new Promise((resolve, reject) => {
       const onChanged = (chg) => {
         const c = chg.cookie;
         if (
@@ -301,14 +239,96 @@ export function useCrawler({ t, lang, saveAsZip, exportJson, activateTab, server
           c.domain.endsWith("blablalink.com") &&
           c.name === "game_token"
         ) {
-          chrome.cookies.onChanged.removeListener(onChanged);
+          cleanup();
           resolve();
         }
       };
+      const cleanup = () => {
+        chrome.cookies.onChanged.removeListener(onChanged);
+        if (timeoutId) clearTimeout(timeoutId);
+      };
+      const timeoutId = setTimeout(() => {
+        cleanup();
+        reject(new Error("COOKIE_TIMEOUT"));
+      }, LOGIN_COOKIE_TIMEOUT_MS);
       chrome.cookies.onChanged.addListener(onChanged);
     });
-    
-    chrome.tabs.remove(tab.id);
+
+    for (let attempt = 1; attempt <= LOGIN_COOKIE_MAX_ATTEMPTS; attempt += 1) {
+      addLog(t("getCookie"));
+      let tab;
+      try {
+        tab = await chrome.tabs.create({
+          url: "https://www.blablalink.com/login",
+          active: activateTab,
+        });
+        
+        await new Promise((resolve) => {
+          const listener = (id, info) => {
+            if (id === tab.id && info.status === "complete") {
+              chrome.tabs.onUpdated.removeListener(listener);
+              resolve();
+            }
+          };
+          chrome.tabs.onUpdated.addListener(listener);
+        });
+        
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: (loginInfo) => {
+            const { email, password, server } = loginInfo;
+            const click = (sel) => document.querySelector(sel)?.click();
+            click("#onetrust-accept-btn-handler");
+            if (server === "hmt") {
+              click("body div.w-full ul > li:nth-child(1)");
+            } else {
+              click("body div.w-full ul > li:nth-child(2)");
+            }
+            const waitFor = (sel, timeout = 5000) =>
+              new Promise((res) => {
+                const st = Date.now();
+                const timer = setInterval(() => {
+                  if (document.querySelector(sel)) {
+                    clearInterval(timer);
+                    res(true);
+                  } else if (Date.now() - st > timeout) {
+                    clearInterval(timer);
+                    res(false);
+                  }
+                }, 100);
+              });
+            (async () => {
+              let ok = await waitFor("#loginPwdForm_account", 2000);
+              if (!ok) click(".pass-switchLogin__oper");
+              await waitFor("#loginPwdForm_account", 5000);
+              
+              const setVal = (sel, val) => {
+                const el = document.querySelector(sel);
+                if (el) {
+                  el.value = val;
+                  el.dispatchEvent(new Event("input", { bubbles: true }));
+                }
+              };
+              setVal("#loginPwdForm_account", email);
+              setVal("#loginPwdForm_password", password);
+              click('#loginPwdForm button[type="submit"]');
+            })();
+          },
+          args: [{ email: acc.email, password: acc.password, server: serverFlag }],
+        });
+        
+        await waitForCookie();
+        if (tab?.id) chrome.tabs.remove(tab.id);
+        return;
+      } catch (err) {
+        if (tab?.id) chrome.tabs.remove(tab.id);
+        if (attempt < LOGIN_COOKIE_MAX_ATTEMPTS) {
+          addLog(`登录超时，重试 ${attempt + 1}/${LOGIN_COOKIE_MAX_ATTEMPTS}`);
+          continue;
+        }
+        throw err;
+      }
+    }
   }, [t, activateTab, addLog]);
 
   // ========== 填充角色详情 ==========

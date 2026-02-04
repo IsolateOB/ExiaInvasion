@@ -12,8 +12,8 @@ import {
 } from "@mui/material";
 import TRANSLATIONS from "./i18n/translations.js";
 import { fetchAndCacheNikkeDirectory, getCachedNikkeDirectory } from "./services/api.js";
-import { getAccounts, getCharacters, getSettings, setSettings } from "./services/storage.js";
-import { buildAccountsSignature } from "./utils/cloudCompare.js";
+import { getAccounts, getCharacters, getSettings, setSettings, setSyncMeta } from "./services/storage.js";
+import { buildAccountsSignature, normalizeAccountsFromRemote } from "./utils/cloudCompare.js";
 import { getNikkeAvatarUrl as buildNikkeAvatarUrl } from "./utils/nikkeAvatar.js";
 import ManagementHeader from "./components/management/ManagementHeader.jsx";
 import AccountTabContent from "./components/management/AccountTabContent.jsx";
@@ -50,7 +50,8 @@ import { useTemplateManagement } from "./components/management/hooks/useTemplate
 const ManagementPage = () => {
   /* ========== 语言设置同步 ========== */
   const [lang, setLang] = useState("zh");
-  const [syncAccountSensitive, setSyncAccountSensitive] = useState(false);
+  const [syncAccountEmail, setSyncAccountEmail] = useState(false);
+  const [syncAccountPassword, setSyncAccountPassword] = useState(false);
   const t = useCallback((k) => TRANSLATIONS[lang][k] || k, [lang]);
 
   // ========== 核心状态管理 ==========
@@ -94,7 +95,8 @@ const ManagementPage = () => {
 
   const cloudSync = useCloudSync({
     t,
-    syncAccountSensitive,
+    syncAccountEmail,
+    syncAccountPassword,
     accountTemplates: templateManagement.accountTemplates,
     templates: templateManagement.templates,
     selectedAccountTemplateId: templateManagement.selectedAccountTemplateId,
@@ -114,7 +116,8 @@ const ManagementPage = () => {
     syncAccountTemplateData: templateManagement.syncAccountTemplateData,
     selectedAccountTemplateId: templateManagement.selectedAccountTemplateId,
     showMessage,
-    syncAccountSensitive,
+    syncAccountEmail,
+    syncAccountPassword,
     authToken: cloudSync.authToken,
     buildUpdatedAccountTemplates: templateManagement.buildUpdatedAccountTemplates,
     syncAccountsNow: cloudSync.syncAccountsNow,
@@ -294,24 +297,52 @@ const ManagementPage = () => {
   useEffect(() => {
     chrome.storage.local.get("settings", (r) => {
       const nextLang = r.settings?.lang || "zh";
-      const nextSensitive = Boolean(r.settings?.syncAccountSensitive);
+      const legacySensitive = Boolean(r.settings?.syncAccountSensitive);
+      const nextEmail = r.settings?.syncAccountEmail ?? legacySensitive;
+      const nextPassword = r.settings?.syncAccountPassword ?? legacySensitive;
       setLang(nextLang);
-      setSyncAccountSensitive(nextSensitive);
-      // 传入当前敏感设置值，确保 prevSyncSensitiveRef 正确初始化
-      cloudSync.setSyncSensitiveInit(true, nextSensitive);
+      setSyncAccountEmail(Boolean(nextEmail));
+      setSyncAccountPassword(Boolean(nextPassword));
+        // 传入当前敏感设置值，确保 prevSyncSensitiveRef 正确初始化
+        cloudSync.setSyncSensitiveInit(true, { email: Boolean(nextEmail), password: Boolean(nextPassword) });
     });
     const handler = (c, area) => {
       if (area === "local" && c.settings) {
         const nextLang = c.settings.newValue?.lang || "zh";
-        const nextSensitive = Boolean(c.settings.newValue?.syncAccountSensitive);
+          const legacySensitive = Boolean(c.settings.newValue?.syncAccountSensitive);
+          const nextEmail = c.settings.newValue?.syncAccountEmail ?? legacySensitive;
+          const nextPassword = c.settings.newValue?.syncAccountPassword ?? legacySensitive;
         setLang(nextLang);
-        setSyncAccountSensitive(nextSensitive);
+          setSyncAccountEmail(Boolean(nextEmail));
+          setSyncAccountPassword(Boolean(nextPassword));
       }
     };
     chrome.storage.onChanged.addListener(handler);
     return () => chrome.storage.onChanged.removeListener(handler);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const persistSyncSettings = useCallback(async (nextEmail, nextPassword) => {
+    const current = await getSettings();
+    await setSettings({
+      ...current,
+      syncAccountEmail: Boolean(nextEmail),
+      syncAccountPassword: Boolean(nextPassword),
+      syncAccountSensitive: Boolean(nextEmail) || Boolean(nextPassword),
+    });
+  }, []);
+
+  const toggleSyncAccountEmail = useCallback((e) => {
+    const next = e.target.checked;
+    setSyncAccountEmail(next);
+    persistSyncSettings(next, syncAccountPassword);
+  }, [persistSyncSettings, syncAccountPassword]);
+
+  const toggleSyncAccountPassword = useCallback((e) => {
+    const next = e.target.checked;
+    setSyncAccountPassword(next);
+    persistSyncSettings(syncAccountEmail, next);
+  }, [persistSyncSettings, syncAccountEmail]);
 
   // 角色数据初始化
   useEffect(() => {
@@ -430,7 +461,6 @@ const ManagementPage = () => {
 
         if (cancelled) return;
 
-        const { normalizeAccountsFromRemote } = await import("./utils/cloudCompare.js");
         const remoteAccounts = normalizeAccountsFromRemote(remoteAccountsResp?.lists);
         const remoteAccountsUpdatedAt = normalizeTimestamp(remoteAccountsResp?.updated_at) || null;
         const remoteCharacters = remoteCharactersResp?.lists || null;
@@ -467,8 +497,6 @@ const ManagementPage = () => {
           remoteCharacters: null,
           remoteCharactersUpdatedAt: null,
         };
-
-        const { setSyncMeta } = await import("./services/storage.js");
 
         // Accounts sync
         if (!localAccountsEmpty && remoteAccountsEmpty) {
@@ -602,8 +630,13 @@ const ManagementPage = () => {
             setIsAccountRenaming={templateManagement.setIsAccountRenaming}
             setAccountRenameId={templateManagement.setAccountRenameId}
             startRenameAccountTemplate={templateManagement.startRenameAccountTemplate}
+            handleDuplicateAccountTemplate={templateManagement.handleDuplicateAccountTemplate}
             handleDeleteAccountTemplate={templateManagement.handleDeleteAccountTemplate}
             handleCreateAccountTemplate={templateManagement.handleCreateAccountTemplate}
+            syncAccountEmail={syncAccountEmail}
+            syncAccountPassword={syncAccountPassword}
+            toggleSyncAccountEmail={toggleSyncAccountEmail}
+            toggleSyncAccountPassword={toggleSyncAccountPassword}
             isAllEnabled={isAllEnabled}
             handleToggleAllEnabled={() => accountActions.handleToggleAllEnabled(isAllEnabled)}
             handleImportAccounts={accountActions.handleImportAccounts}
@@ -646,6 +679,7 @@ const ManagementPage = () => {
             setIsRenaming={templateManagement.setIsRenaming}
             setRenameId={templateManagement.setRenameId}
             startRenameTemplate={templateManagement.startRenameTemplate}
+            handleDuplicateTemplate={templateManagement.handleDuplicateTemplate}
             handleDeleteTemplate={templateManagement.handleDeleteTemplate}
             handleCreateTemplate={templateManagement.handleCreateTemplate}
             triggerCharacterImport={characterActions.triggerCharacterImport}

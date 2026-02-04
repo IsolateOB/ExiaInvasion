@@ -11,6 +11,7 @@ import {
   TableBody,
   TableRow,
   TableCell,
+  Divider,
   Switch,
   TextField,
   InputAdornment,
@@ -21,6 +22,7 @@ import {
 import SaveIcon from "@mui/icons-material/Save";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import AddIcon from "@mui/icons-material/Add";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import FileUploadIcon from "@mui/icons-material/FileUpload";
@@ -45,6 +47,7 @@ const AccountTabContent = ({
   setIsAccountRenaming,
   setAccountRenameId,
   startRenameAccountTemplate,
+  handleDuplicateAccountTemplate,
   handleDeleteAccountTemplate,
   handleCreateAccountTemplate,
   isAllEnabled,
@@ -70,6 +73,10 @@ const AccountTabContent = ({
   renderText,
   syncLabel,
   isSyncing,
+  syncAccountEmail,
+  syncAccountPassword,
+  toggleSyncAccountEmail,
+  toggleSyncAccountPassword,
   getCookieStatus,
 }) => (
   <>
@@ -152,6 +159,11 @@ const AccountTabContent = ({
                       <EditIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
+                  <Tooltip title={t("copy") || "复制"}>
+                    <IconButton size="small" aria-label={t("copy") || "复制"} onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDuplicateAccountTemplate(tpl.id); }}>
+                      <ContentCopyIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                   <Tooltip title={tpl.id === defaultAccountTemplateId ? (t("accountTemplateDefaultLocked") || "默认账号列表不可删除") : t("templateDelete")}>
                     <span>
                       <IconButton
@@ -181,9 +193,6 @@ const AccountTabContent = ({
           {t("accountTemplateCreate") || "新建"}
         </Button>
 
-        <Button size="small" variant="outlined" onClick={handleToggleAllEnabled} sx={{ minWidth: 80 }}>
-          {isAllEnabled ? t("deselectAll") : t("selectAll")}
-        </Button>
         <Button size="small" variant="outlined" startIcon={<FileDownloadIcon />} onClick={handleImportAccounts} sx={{ minWidth: 80 }}>
           {t("importAccounts")}
         </Button>
@@ -203,12 +212,48 @@ const AccountTabContent = ({
             {/* Drag handle header */}
           </TableCell>
           <TableCell width="5%">{t("no")}</TableCell>
-          <TableCell width="5%">{t("enabled")}</TableCell>
+          <TableCell width="5%" sx={{ minWidth: 160 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>{t("enabled")}</Typography>
+              <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+              <Typography variant="caption" color="text.secondary">{t("selectAll") || "全选"}</Typography>
+              <Switch
+                size="small"
+                checked={Boolean(isAllEnabled)}
+                onChange={handleToggleAllEnabled}
+                inputProps={{ "aria-label": t("selectAll") || "全选" }}
+              />
+            </Box>
+          </TableCell>
           <TableCell width="15%">{t("username")}</TableCell>
-          <TableCell width="20%">{t("email")}</TableCell>
-          <TableCell width="15%">{t("password")}</TableCell>
+          <TableCell width="20%">
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>{t("email")}</Typography>
+              <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+              <Typography variant="caption" color="text.secondary">{t("sync.cloud") || "云同步"}</Typography>
+              <Switch
+                size="small"
+                checked={Boolean(syncAccountEmail)}
+                onChange={toggleSyncAccountEmail}
+                inputProps={{ "aria-label": t("sync.cloud") || "云同步" }}
+              />
+            </Box>
+          </TableCell>
+          <TableCell width="15%" sx={{ minWidth: 180 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>{t("password")}</Typography>
+              <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+              <Typography variant="caption" color="text.secondary">{t("sync.cloud") || "云同步"}</Typography>
+              <Switch
+                size="small"
+                checked={Boolean(syncAccountPassword)}
+                onChange={toggleSyncAccountPassword}
+                inputProps={{ "aria-label": t("sync.cloud") || "云同步" }}
+              />
+            </Box>
+          </TableCell>
           <TableCell width="20%">{t("cookie")}</TableCell>
-          <TableCell align="right" width="10%">{t("actions")}</TableCell>
+          <TableCell align="right" width="10%"></TableCell>
         </TableRow>
       </TableHead>
 
