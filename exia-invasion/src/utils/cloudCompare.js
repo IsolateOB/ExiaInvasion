@@ -63,9 +63,7 @@ const normalizeCharactersForCompare = (data) => {
     const list = Array.isArray(elements[key]) ? elements[key] : [];
     // Only include non-empty arrays to ignore empty array differences
     if (list.length > 0) {
-      const normalizedList = list
-        .map(normalizeCharacterEntryForCompare)
-        .sort((a, b) => (Number(a?.id) || 0) - (Number(b?.id) || 0));
+      const normalizedList = list.map(normalizeCharacterEntryForCompare);
       normalizedElements[key] = normalizedList;
     }
   });

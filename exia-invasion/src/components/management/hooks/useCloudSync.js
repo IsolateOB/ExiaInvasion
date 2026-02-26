@@ -2,7 +2,7 @@
 // ========== 云同步 Hook ==========
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getSyncMeta, setSyncMeta } from "../../../services/storage.js";
+import { getSyncMeta, setSyncMeta, getAuth, setAuth as persistAuth, clearAuth as clearAuthStorage } from "../../../services/storage.js";
 import { buildAccountsSignature, buildCharactersSignature } from "../../../utils/cloudCompare.js";
 import { API_BASE_URL } from "../constants.js";
 import { normalizeTimestamp } from "../utils.js";
@@ -437,32 +437,52 @@ export function useCloudSync({
     showMessage(t("sync.logout") || "退出登录", "info");
   }, [showMessage, t, clearWebsiteAuth]);
 
+  // 持久化 authToken 到 storage（有 token 时保存，清空由显式登出处理）
+  useEffect(() => {
+    if (authToken) {
+      persistAuth({ token: authToken });
+    }
+  }, [authToken]);
+
   // ========== 初始化和监听 ==========
   useEffect(() => {
-    syncAuthFromWebsite().catch(() => {
-      // ignore sync errors
+    // 从持久化存储恢复登录态（不再自动打开隐藏标签页）
+    getAuth().then((saved) => {
+      if (saved?.token) {
+        setAuthToken(saved.token);
+      }
     });
     getSyncMeta().then((meta) => {
       setAccountsSyncAt(normalizeTimestamp(meta?.accountsLastSyncAt));
       setCharactersSyncAt(normalizeTimestamp(meta?.charactersLastSyncAt));
     });
-    const authHandler = (changes, area) => {
-      if (area === "local" && changes.syncMeta) {
-        const next = changes.syncMeta.newValue || {};
-        setAccountsSyncAt(normalizeTimestamp(next?.accountsLastSyncAt));
-        setCharactersSyncAt(normalizeTimestamp(next?.charactersLastSyncAt));
-        // 监听来自 popup 的同步状态
-        if (next?.accountsSyncing !== undefined) {
-          setAccountsSyncing(next.accountsSyncing);
+    const storageHandler = (changes, area) => {
+      if (area === "local") {
+        if (changes.syncMeta) {
+          const next = changes.syncMeta.newValue || {};
+          setAccountsSyncAt(normalizeTimestamp(next?.accountsLastSyncAt));
+          setCharactersSyncAt(normalizeTimestamp(next?.charactersLastSyncAt));
+          if (next?.accountsSyncing !== undefined) {
+            setAccountsSyncing(next.accountsSyncing);
+          }
+          if (next?.charactersSyncing !== undefined) {
+            setCharactersSyncing(next.charactersSyncing);
+          }
         }
-        if (next?.charactersSyncing !== undefined) {
-          setCharactersSyncing(next.charactersSyncing);
+        if (changes.auth) {
+          const authData = changes.auth.newValue;
+          if (authData?.token) {
+            setAuthToken(authData.token);
+          } else {
+            setAuthToken(null);
+            cloudInitTokenRef.current = null;
+          }
         }
       }
     };
-    chrome.storage.onChanged.addListener(authHandler);
-    return () => chrome.storage.onChanged.removeListener(authHandler);
-  }, [syncAuthFromWebsite]);
+    chrome.storage.onChanged.addListener(storageHandler);
+    return () => chrome.storage.onChanged.removeListener(storageHandler);
+  }, []);
 
   useEffect(() => {
     const handler = (msg) => {
@@ -470,13 +490,16 @@ export function useCloudSync({
       const payload = msg.payload || {};
       if (payload.type === "auth:status") {
         if (payload.loggedIn) {
+          // 网站发出登录信号，同步 token
           syncAuthFromWebsite().catch(() => {
             // ignore sync errors
           });
           return;
         }
+        // 网站明确发出退出信号，清除本地登录态
         setAuthToken(null);
         cloudInitTokenRef.current = null;
+        clearAuthStorage();
         setSyncConflict((prev) => ({ ...prev, open: false }));
       }
     };

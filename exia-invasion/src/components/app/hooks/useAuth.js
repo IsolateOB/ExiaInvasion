@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { fetchProfile } from "../utils.js";
-import { setAuth, clearAuth as clearAuthStorage } from "../../../services/storage.js";
+import { getAuth, setAuth, clearAuth as clearAuthStorage } from "../../../services/storage.js";
 
 /**
  * 认证状态管理 Hook
@@ -22,18 +22,10 @@ export function useAuth({ t, showMessage }) {
   const [authAvatarUrl, setAuthAvatarUrl] = useState(null);
   const [authAnchorEl, setAuthAnchorEl] = useState(null);
 
-  // 持久化 auth 状态到 storage
+  // 持久化 auth 状态到 storage（仅在有 token 时保存）
   useEffect(() => {
     if (authToken) {
       setAuth({ token: authToken, username: authUsername, avatar_url: authAvatarUrl });
-    } else {
-      // 如果明确是 null，可能需要清除，但在初始化时如果不小心是 null 会误删。
-      // 只有显式登出时才清除。
-      // 这里我们可以只负责保存非空状态，
-      // 空状态由 handleLogout 清除。
-      // 不过考虑到 syncAuthFromWebsite 可能会把状态置空，如果 sync 发现未登录，确实应该清除。
-      // 暂时通过 syncAuthFromWebsite 中的逻辑处理状态同步，
-      // 这里只在有 token 时保存。
     }
   }, [authToken, authUsername, authAvatarUrl]);
 
@@ -109,6 +101,9 @@ export function useAuth({ t, showMessage }) {
       });
       tabId = tab.id;
       createdTabId = tab.id;
+    } else if (openLogin) {
+      // 标签页已存在，激活并导航到登录页
+      await chrome.tabs.update(tabId, { url: EXIA_WEB_LOGIN_URL, active: true });
     }
 
     if (tabId) {
@@ -116,6 +111,10 @@ export function useAuth({ t, showMessage }) {
     }
 
     if (!tabId) return null;
+
+    // 如果是手动打开登录页，不需要立即读取 auth
+    // 用户登录后网站会通过 EXIA_AUTH 消息通知插件
+    if (openLogin) return null;
 
     // Try to request auth, with retries if communication fails
     let result = { success: false, auth: null };
@@ -125,9 +124,6 @@ export function useAuth({ t, showMessage }) {
       await new Promise((r) => setTimeout(r, 500));
     }
     
-    // If we created a tab and still failed, maybe it needs more time? 
-    // But we already waited for complete.
-    
     const auth = result.success ? result.auth : null;
 
     if (auth?.token) {
@@ -136,24 +132,25 @@ export function useAuth({ t, showMessage }) {
       setAuthAvatarUrl(auth.avatar_url || null);
       // 同时保存到 storage
       setAuth({ token: auth.token, username: auth.username, avatar_url: auth.avatar_url });
-    } else {
-        // 如果同步回来是空的，且不是单纯因为通信失败，可能需要清除 storage
-        // 但为了安全起见（避免网络问题导致登出），这里暂不清除，除非明确收到登出信号
     }
 
-    if (createdTabId && !openLogin) {
+    if (createdTabId) {
       chrome.tabs.remove(createdTabId);
     }
 
     return auth || null;
   }, [EXIA_WEB_LOGIN_URL, EXIA_WEB_ORIGIN, requestWebsiteAuth, waitForTabComplete]);
 
-  // 启动时尝试从网站读取登录态
+  // 启动时从持久化存储恢复登录态（不再自动打开隐藏标签页）
   useEffect(() => {
-    syncAuthFromWebsite().catch(() => {
-      // ignore sync errors
+    getAuth().then((saved) => {
+      if (saved?.token) {
+        setAuthToken(saved.token);
+        setAuthUsername(saved.username || null);
+        setAuthAvatarUrl(saved.avatar_url || null);
+      }
     });
-  }, [syncAuthFromWebsite]);
+  }, []);
 
   // 网站与插件登录态双向同步（事件驱动，仅同步登录状态）
   useEffect(() => {
@@ -167,6 +164,7 @@ export function useAuth({ t, showMessage }) {
           });
           return;
         }
+        // 网站明确发出退出信号，清除本地登录态
         if (authToken) {
           setAuthToken(null);
           setAuthUsername(null);
@@ -199,10 +197,11 @@ export function useAuth({ t, showMessage }) {
       .catch(() => {});
   }, [authToken, authAvatarUrl, authUsername]);
 
-  const openLoginDialog = useCallback(async () => {
-    await syncAuthFromWebsite({ openLogin: true });
-    showMessage(t("auth.login") || "登录", "info");
-  }, [showMessage, syncAuthFromWebsite, t]);
+  const openLoginDialog = useCallback(() => {
+    // 仅打开/激活登录页面，不等待结果
+    // 用户在网页上登录后，content script 会发送 EXIA_AUTH 消息自动同步
+    syncAuthFromWebsite({ openLogin: true }).catch(() => {});
+  }, [syncAuthFromWebsite]);
 
   const handleLogout = useCallback(() => {
     setAuthToken(null);
@@ -244,3 +243,4 @@ export function useAuth({ t, showMessage }) {
 }
 
 export default useAuth;
+

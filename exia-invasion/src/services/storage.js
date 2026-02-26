@@ -16,10 +16,13 @@ export const getSettings = () =>
     chrome.storage.local.get(SETTINGS_KEY, (r) => res(r[SETTINGS_KEY] || {}))
   );
 
-// 保存设置数据
+// 保存设置数据（合并更新）
 export const setSettings = (obj) =>
   new Promise((res) =>
-    chrome.storage.local.set({ [SETTINGS_KEY]: obj }, () => res())
+    chrome.storage.local.get(SETTINGS_KEY, (r) => {
+      const current = r[SETTINGS_KEY] || {};
+      chrome.storage.local.set({ [SETTINGS_KEY]: { ...current, ...obj } }, () => res());
+    })
   );
 
 // 获取登录态
