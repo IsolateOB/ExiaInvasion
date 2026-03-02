@@ -2,7 +2,7 @@
 // ========== ExiaInvasion 管理页面组件 ==========
 // 主要功能：账户管理、角色数据管理、装备统计配置等
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Container,
   Tabs,
@@ -12,7 +12,7 @@ import {
 } from "@mui/material";
 import TRANSLATIONS from "./i18n/translations.js";
 import { fetchAndCacheNikkeDirectory, getCachedNikkeDirectory } from "./services/api.js";
-import { getAccounts, getCharacters, getSettings, setSettings, setSyncMeta } from "./services/storage.js";
+import { getAccounts, getCharacters, getSettings, setSettings, setSyncMeta, getAccountTemplates, getTemplates, getCurrentAccountTemplateId, getCurrentTemplateId, setCharacters as persistCharacters } from "./services/storage.js";
 import { buildAccountsSignature, normalizeAccountsFromRemote } from "./utils/cloudCompare.js";
 import { getNikkeAvatarUrl as buildNikkeAvatarUrl } from "./utils/nikkeAvatar.js";
 import ManagementHeader from "./components/management/ManagementHeader.jsx";
@@ -83,6 +83,11 @@ const ManagementPage = () => {
   const persist = useCallback((data) =>
     new Promise((ok) => chrome.storage.local.set({ accounts: data }, ok)), []);
 
+  const accountActionsRef = useRef(null);
+  const resetEditingState = useCallback((len) => {
+    accountActionsRef.current?.initEditingState(len, false);
+  }, []);
+
   // ========== 使用自定义 Hooks ==========
   const templateManagement = useTemplateManagement({
     t,
@@ -92,6 +97,7 @@ const ManagementPage = () => {
     setAccounts,
     persist,
     showMessage,
+    onAccountTemplateApplied: resetEditingState,
   });
 
   const cloudSync = useCloudSync({
@@ -103,10 +109,13 @@ const ManagementPage = () => {
     selectedAccountTemplateId: templateManagement.selectedAccountTemplateId,
     selectedTemplateId: templateManagement.selectedTemplateId,
     setAccounts,
+    setCharactersData,
     applyAccountTemplatesWithDefault: templateManagement.applyAccountTemplatesWithDefault,
     applyTemplatesWithDefault: templateManagement.applyTemplatesWithDefault,
     persist,
+    persistCharacters,
     showMessage,
+    onAccountsOverridden: resetEditingState,
   });
 
   const accountActions = useAccountActions({
@@ -132,6 +141,8 @@ const ManagementPage = () => {
     nikkeList,
     showMessage,
   });
+
+  accountActionsRef.current = accountActions;
 
   // ========== 派生值 ==========
   const isAllEnabled = useMemo(() => accounts.every(acc => acc.enabled !== false), [accounts]);
@@ -453,10 +464,10 @@ const ManagementPage = () => {
           remoteAccountsResp,
           remoteCharactersResp,
         ] = await Promise.all([
-          Promise.resolve(templateManagement.accountTemplates),
-          Promise.resolve(templateManagement.templates),
-          Promise.resolve(templateManagement.selectedAccountTemplateId),
-          Promise.resolve(templateManagement.selectedTemplateId),
+          getAccountTemplates(),
+          getTemplates(),
+          getCurrentAccountTemplateId(),
+          getCurrentTemplateId(),
           getAccounts(),
           cloudSync.fetchCloudData("/accounts", authToken).catch(() => null),
           cloudSync.fetchCloudData("/characters", authToken).catch(() => null),
@@ -514,6 +525,7 @@ const ManagementPage = () => {
           if (applied?.data) {
             setAccounts(applied.data);
             await persist(applied.data);
+            accountActionsRef.current?.initEditingState(applied.data.length, false);
           }
           if (remoteAccountsUpdatedAt) {
             await setSyncMeta({ accountsLastSyncAt: remoteAccountsUpdatedAt });
@@ -526,6 +538,7 @@ const ManagementPage = () => {
           if (applied?.data) {
             setAccounts(applied.data);
             await persist(applied.data);
+            accountActionsRef.current?.initEditingState(applied.data.length, false);
           }
           if (remoteAccountsUpdatedAt) {
             await setSyncMeta({ accountsLastSyncAt: remoteAccountsUpdatedAt });

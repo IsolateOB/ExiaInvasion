@@ -23,6 +23,8 @@ import { normalizeTimestamp } from "../utils.js";
  * @param {Function} options.applyAccountTemplatesWithDefault - 应用账号模板并设置默认值
  * @param {Function} options.applyTemplatesWithDefault - 应用角色模板并设置默认值
  * @param {Function} options.persist - 持久化账号数据
+ * @param {Function} options.setCharactersData - 设置角色数据
+ * @param {Function} options.persistCharacters - 持久化角色数据
  * @param {Function} options.showMessage - 显示消息提示
  */
 export function useCloudSync({
@@ -34,10 +36,13 @@ export function useCloudSync({
   selectedAccountTemplateId,
   selectedTemplateId,
   setAccounts,
+  setCharactersData,
   applyAccountTemplatesWithDefault,
   applyTemplatesWithDefault,
   persist,
+  persistCharacters,
   showMessage,
+  onAccountsOverridden,
 }) {
   const [authToken, setAuthToken] = useState(null);
   const [accountsSyncAt, setAccountsSyncAt] = useState(null);
@@ -410,6 +415,7 @@ export function useCloudSync({
         if (applied?.data) {
           setAccounts(applied.data);
           await persist(applied.data);
+          if (onAccountsOverridden) onAccountsOverridden(applied.data.length);
         }
         if (syncConflict.remoteAccountsUpdatedAt) {
           await setSyncMeta({ accountsLastSyncAt: syncConflict.remoteAccountsUpdatedAt });
@@ -417,7 +423,17 @@ export function useCloudSync({
       }
       if (syncConflict.hasCharacters && syncConflict.remoteCharacters) {
         const remoteLists = normalizeCharacterLists(syncConflict.remoteCharacters);
-        await applyTemplatesWithDefault(remoteLists, selectedTemplateId || "");
+        const { list: appliedTemplates, defaultId } = await applyTemplatesWithDefault(remoteLists, selectedTemplateId || "");
+        
+        const appliedId = selectedTemplateId || defaultId || "";
+        const applied = appliedTemplates.find((item) => item.id === appliedId) || appliedTemplates[0];
+        if (applied?.data) {
+          setCharactersData(applied.data);
+          if (persistCharacters) {
+            await persistCharacters(applied.data);
+          }
+        }
+        
         if (syncConflict.remoteCharactersUpdatedAt) {
           await setSyncMeta({ charactersLastSyncAt: syncConflict.remoteCharactersUpdatedAt });
         }
@@ -428,7 +444,7 @@ export function useCloudSync({
       console.error(error);
       showMessage(t("importError") || "导入失败", "error");
     }
-  }, [syncConflict, normalizeAccountLists, normalizeCharacterLists, mergeAccountLists, accountTemplates, selectedAccountTemplateId, selectedTemplateId, applyAccountTemplatesWithDefault, applyTemplatesWithDefault, setAccounts, persist, showMessage, t]);
+  }, [syncConflict, normalizeAccountLists, normalizeCharacterLists, mergeAccountLists, accountTemplates, selectedAccountTemplateId, selectedTemplateId, applyAccountTemplatesWithDefault, applyTemplatesWithDefault, setAccounts, setCharactersData, persist, persistCharacters, showMessage, t, onAccountsOverridden]);
 
   const handleConflictLogout = useCallback(async () => {
     await clearWebsiteAuth();

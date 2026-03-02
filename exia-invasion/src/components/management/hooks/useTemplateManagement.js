@@ -40,6 +40,7 @@ export function useTemplateManagement({
   setAccounts,
   persist,
   showMessage,
+  onAccountTemplateApplied,
 }) {
   // 角色模板状态
   const [templates, setTemplates] = useState([]);
@@ -322,7 +323,8 @@ export function useTemplateManagement({
     const data = tpl.data;
     setAccounts(data);
     await persist(data);
-  }, [setAccounts, persist]);
+    if (onAccountTemplateApplied) onAccountTemplateApplied(data.length);
+  }, [setAccounts, persist, onAccountTemplateApplied]);
 
   // 保存当前账号为模板
   const handleCreateAccountTemplate = useCallback(async () => {
