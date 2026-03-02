@@ -279,12 +279,11 @@ export function useCrawler({ t, lang, saveAsZip, exportJson, activateTab, server
           func: (loginInfo) => {
             const { email, password, server } = loginInfo;
             const click = (sel) => document.querySelector(sel)?.click();
+            const clickXPath = (xpath) => {
+              const node = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+              if (node) node.click();
+            };
             click("#onetrust-accept-btn-handler");
-            if (server === "hmt") {
-              click("body div.w-full ul > li:nth-child(1)");
-            } else {
-              click("body div.w-full ul > li:nth-child(2)");
-            }
             const waitFor = (sel, timeout = 5000) =>
               new Promise((res) => {
                 const st = Date.now();
@@ -299,6 +298,30 @@ export function useCrawler({ t, lang, saveAsZip, exportJson, activateTab, server
                 }, 100);
               });
             (async () => {
+              // 等待网页自身的初始逻辑（如有自动弹窗）稳定下来，避免竞争冲突致使弹窗被秒关
+              await new Promise(r => setTimeout(r, 1000));
+              
+              const targetXPath = server === "hmt" 
+                ? '//li[.//div[contains(text(), "HK/MC/TW")]]' 
+                : '//li[.//div[contains(text(), "JP/KR/NA/SEA/Global")]]';
+              const dropdownXPath = '//div[contains(@class, "common-btns") and .//span[text()="Select Region"]]';
+              
+              const isVisible = (xp) => {
+                const node = document.evaluate(xp, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                return node && !!node.offsetParent;
+              };
+              
+              // 如果此后选项依然不可见，说明需要手动点开
+              if (!isVisible(targetXPath)) {
+                clickXPath(dropdownXPath);
+                await new Promise(r => setTimeout(r, 1000)); // 等待展开动画
+              }
+              
+              clickXPath(targetXPath);
+              
+              // 等待地区切换触发的重新渲染
+              await new Promise(r => setTimeout(r, 1000));
+
               let ok = await waitFor("#loginPwdForm_account", 2000);
               if (!ok) click(".pass-switchLogin__oper");
               await waitFor("#loginPwdForm_account", 5000);
