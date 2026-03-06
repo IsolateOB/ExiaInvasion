@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // ========== 管理页面常量定义 ==========
 
-export const API_BASE_URL = "https://exia-backend.tigertan1998.workers.dev";
+export const API_BASE_URL = "https://backend.nikke-exia.com";
 
 // 默认账户行数据结构
 export const defaultRow = () => ({
