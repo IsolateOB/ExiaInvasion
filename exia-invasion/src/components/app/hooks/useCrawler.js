@@ -5,6 +5,7 @@ import { useState, useCallback } from "react";
 import JSZip from "jszip";
 import saveDictToExcel from "../../../utils/excel.js";
 import { computeAELForDict } from "../../../utils/ael.js";
+import { createUniqueExportFileName } from "../../../utils/exportFilenames.js";
 import { getAccounts, setAccounts, getCharacters, getSettings, getAuth, setSyncMeta, getAccountTemplates, getCurrentAccountTemplateId, saveAccountTemplate } from "../../../services/storage.js";
 import { applyCookieStr, clearSiteCookies, getCurrentCookies } from "../../../services/cookie.js";
 import { loadBaseAccountDict, getRoleName, prefetchMainlineCatalog, validateCookieWithAccount, getOutpostInfoWithAccount, getCampaignProgressWithAccount, getUserCharactersWithAccount, getCharacterDetailsWithAccount } from "../../../services/api.js";
@@ -503,6 +504,7 @@ export function useCrawler({ t, lang, saveAsZip, exportJson, activateTab, server
 
       const zip = new JSZip();
       let zipHasFiles = false;
+      const usedExportNames = new Set();
       const excelMime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
       
       // ========== 阶段1: 账号验证 ==========
@@ -721,8 +723,17 @@ export function useCrawler({ t, lang, saveAsZip, exportJson, activateTab, server
             addLog(`✓ ${result.accountName} - 数据爬取完成`);
 
             // 导出文件
+            const exportGameUid = result.account?.game_uid
+              || result.account?.gameUid
+              || parseGameUidFromCookie(result.account?.cookie || "");
+
             if (shouldExportJson) {
-              const jsonName = `${result.accountName}.json`;
+              const jsonName = createUniqueExportFileName({
+                accountName: result.accountName,
+                gameUid: exportGameUid,
+                extension: "json",
+                usedNames: usedExportNames,
+              });
               if (shouldZip) {
                 zip.file(jsonName, JSON.stringify(result.dict, null, 4));
                 zipHasFiles = true;
@@ -735,11 +746,23 @@ export function useCrawler({ t, lang, saveAsZip, exportJson, activateTab, server
             
             if (shouldExportExcel && result.excelBuffer) {
               if (shouldZip) {
-                zip.file(`${result.accountName}.xlsx`, result.excelBuffer);
+                const excelName = createUniqueExportFileName({
+                  accountName: result.accountName,
+                  gameUid: exportGameUid,
+                  extension: "xlsx",
+                  usedNames: usedExportNames,
+                });
+                zip.file(excelName, result.excelBuffer);
                 zipHasFiles = true;
               } else {
+                const excelName = createUniqueExportFileName({
+                  accountName: result.accountName,
+                  gameUid: exportGameUid,
+                  extension: "xlsx",
+                  usedNames: usedExportNames,
+                });
                 const url = URL.createObjectURL(new Blob([result.excelBuffer], { type: excelMime }));
-                chrome.downloads.download({ url, filename: `${result.accountName}.xlsx` }, () => URL.revokeObjectURL(url));
+                chrome.downloads.download({ url, filename: excelName }, () => URL.revokeObjectURL(url));
               }
             }
           } else {

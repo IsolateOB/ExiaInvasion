@@ -1,10 +1,8 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+﻿// SPDX-License-Identifier: GPL-3.0-or-later
 import { memo } from "react";
 import {
   Box,
   Typography,
-  Select,
-  MenuItem,
   Button,
   Table,
   TableHead,
@@ -32,6 +30,7 @@ import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
+import InteractiveSelector from "../common/InteractiveSelector";
 
 const AccountTabContent = ({
   t,
@@ -98,90 +97,114 @@ const AccountTabContent = ({
       </Box>
 
       <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
-        <Select
-          size="small"
-          value={selectedAccountTemplateId || ""}
-          onChange={(e) => handleAccountTemplateChange(e.target.value)}
-          sx={{ minWidth: 200, width: 240 }}
-          renderValue={(val) => {
-            const id = String(val || "");
-            const item = accountTemplates.find((tp) => tp.id === id);
-            const name = item?.name || "";
-            const display = name;
+        <InteractiveSelector
+          width={240}
+          minWidth={200}
+          menuMinWidth={240}
+          value={(() => {
+            const item = accountTemplates.find((tp) => tp.id === (selectedAccountTemplateId || ""));
+            const display = item?.name || "";
             return (
               <Typography noWrap title={display} sx={{ maxWidth: "100%" }}>
                 {display}
               </Typography>
             );
-          }}
-          MenuProps={{ PaperProps: { style: { maxHeight: 300 } } }}
+          })()}
         >
-          {accountTemplates.map((tpl) => (
-            <MenuItem key={tpl.id} value={tpl.id} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              {isAccountRenaming && accountRenameId === tpl.id ? (
-                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, width: "100%" }} onClick={(e) => e.stopPropagation()}>
-                  <TextField
-                    size="small"
-                    placeholder={t("accountTemplateInputName")}
-                    value={accountRenameValue}
-                    onChange={(e) => setAccountRenameValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.stopPropagation();
-                        confirmAccountRename();
-                      }
-                      if (e.key === "Escape") {
-                        e.stopPropagation();
-                        setIsAccountRenaming(false);
-                        setAccountRenameId("");
-                        setAccountRenameValue("");
-                      }
-                    }}
-                    autoFocus
-                    sx={{ flex: 1, minWidth: 0 }}
-                  />
-                  <IconButton size="small" color="primary" aria-label={t("confirm")} onClick={(e) => { e.stopPropagation(); confirmAccountRename(); }}>
-                    <CheckIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton size="small" aria-label={t("cancel")} onClick={(e) => { e.stopPropagation(); setIsAccountRenaming(false); setAccountRenameId(""); setAccountRenameValue(""); }}>
-                    <CloseIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-              ) : (
-                <>
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography variant="body2" noWrap title={tpl.name}>
-                      {tpl.name}
-                    </Typography>
-                  </Box>
-                  <Tooltip title={t("templateRename")}>
-                    <IconButton size="small" aria-label={t("templateRename")} onClick={(e) => { e.stopPropagation(); e.preventDefault(); startRenameAccountTemplate(tpl.id); }}>
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title={t("copy") || "复制"}>
-                    <IconButton size="small" aria-label={t("copy") || "复制"} onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDuplicateAccountTemplate(tpl.id); }}>
-                      <ContentCopyIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title={tpl.id === defaultAccountTemplateId ? (t("accountTemplateDefaultLocked") || "默认账号列表不可删除") : t("templateDelete")}>
-                    <span>
-                      <IconButton
+          {({ close }) =>
+            accountTemplates.map((tpl) => {
+              const isSelected = tpl.id === selectedAccountTemplateId;
+              const isRenamingCurrentTemplate = isAccountRenaming && accountRenameId === tpl.id;
+
+              return (
+                <Box
+                  key={tpl.id}
+                  role="option"
+                  aria-selected={isSelected}
+                  onClick={isRenamingCurrentTemplate ? undefined : () => {
+                    handleAccountTemplateChange(tpl.id);
+                    close();
+                  }}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    px: 1.5,
+                    py: 0.75,
+                    cursor: isRenamingCurrentTemplate ? "default" : "pointer",
+                    bgcolor: isSelected ? "action.selected" : "transparent",
+                    "&:hover": isRenamingCurrentTemplate ? undefined : {
+                      bgcolor: "action.hover",
+                    },
+                  }}
+                >
+                  {isRenamingCurrentTemplate ? (
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, width: "100%" }} onClick={(event) => event.stopPropagation()}>
+                      <TextField
                         size="small"
-                        color="error"
-                        aria-label={t("templateDelete")}
-                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); handleDeleteAccountTemplate(tpl.id); }}
-                        disabled={tpl.id === defaultAccountTemplateId}
-                      >
-                        <DeleteIcon fontSize="small" />
+                        placeholder={t("accountTemplateInputName")}
+                        value={accountRenameValue}
+                        onChange={(event) => setAccountRenameValue(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.stopPropagation();
+                            confirmAccountRename();
+                            close();
+                          }
+                          if (event.key === "Escape") {
+                            event.stopPropagation();
+                            setIsAccountRenaming(false);
+                            setAccountRenameId("");
+                            setAccountRenameValue("");
+                          }
+                        }}
+                        autoFocus
+                        sx={{ flex: 1, minWidth: 0 }}
+                      />
+                      <IconButton size="small" color="primary" aria-label={t("confirm")} onClick={(event) => { event.stopPropagation(); confirmAccountRename(); close(); }}>
+                        <CheckIcon fontSize="small" />
                       </IconButton>
-                    </span>
-                  </Tooltip>
-                </>
-              )}
-            </MenuItem>
-          ))}
-        </Select>
+                      <IconButton size="small" aria-label={t("cancel")} onClick={(event) => { event.stopPropagation(); setIsAccountRenaming(false); setAccountRenameId(""); setAccountRenameValue(""); }}>
+                        <CloseIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  ) : (
+                    <>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="body2" noWrap title={tpl.name}>
+                          {tpl.name}
+                        </Typography>
+                      </Box>
+                      <Tooltip title={t("templateRename")}>
+                        <IconButton size="small" aria-label={t("templateRename")} onClick={(event) => { event.stopPropagation(); startRenameAccountTemplate(tpl.id); }}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title={t("copy") || "澶嶅埗"}>
+                        <IconButton size="small" aria-label={t("copy") || "澶嶅埗"} onClick={(event) => { event.stopPropagation(); handleDuplicateAccountTemplate(tpl.id); close(); }}>
+                          <ContentCopyIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title={tpl.id === defaultAccountTemplateId ? (t("accountTemplateDefaultLocked") || "榛樿璐﹀彿鍒楄〃涓嶅彲鍒犻櫎") : t("templateDelete")}>
+                        <span>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            aria-label={t("templateDelete")}
+                            onClick={(event) => { event.stopPropagation(); handleDeleteAccountTemplate(tpl.id); close(); }}
+                            disabled={tpl.id === defaultAccountTemplateId}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </>
+                  )}
+                </Box>
+              );
+            })
+          }
+        </InteractiveSelector>
 
         <Button
           variant="contained"
@@ -190,7 +213,7 @@ const AccountTabContent = ({
           onClick={handleCreateAccountTemplate}
           disabled={accountTemplates.length >= 200}
         >
-          {t("accountTemplateCreate") || "新建"}
+          {t("accountTemplateCreate") || "鏂板缓"}
         </Button>
 
         <Button size="small" variant="outlined" startIcon={<FileDownloadIcon />} onClick={handleImportAccounts} sx={{ minWidth: 80 }}>
@@ -355,7 +378,7 @@ const AccountTabContent = ({
                     }}
                   />
                 ) : row.password ? (
-                  "••••••"
+                  "••••••••"
                 ) : (
                   "—"
                 )}
@@ -428,3 +451,4 @@ const AccountTabContent = ({
 );
 
 export default memo(AccountTabContent);
+

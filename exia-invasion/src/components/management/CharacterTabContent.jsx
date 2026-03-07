@@ -1,11 +1,9 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+﻿// SPDX-License-Identifier: GPL-3.0-or-later
 import { memo, forwardRef } from "react";
 import {
   Box,
   Typography,
   Button,
-  Select,
-  MenuItem,
   TableContainer,
   Table,
   TableHead,
@@ -29,6 +27,7 @@ import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
 import { IconButton, TextField } from "@mui/material";
 import { TableVirtuoso } from "react-virtuoso";
+import InteractiveSelector from "../common/InteractiveSelector";
 
 
 const VirtuosoScroller = forwardRef((props, ref) => (
@@ -195,145 +194,165 @@ const CharacterTabContent = ({
             justifyContent: "flex-end",
           }}
         >
-          <Select
-            size="small"
-            value={selectedTemplateId || ""}
-            onChange={(e) => handleTemplateChange(e.target.value)}
-            sx={{ minWidth: 200, width: 240 }}
-            renderValue={(val) => {
-              const id = String(val || "");
-              const item = templates.find((tp) => tp.id === id);
-              const name = item?.name || "";
-              const display = name;
+          <InteractiveSelector
+            width={240}
+            minWidth={200}
+            menuMinWidth={240}
+            value={(() => {
+              const item = templates.find((tp) => tp.id === (selectedTemplateId || ""));
+              const display = item?.name || "";
               return (
                 <Typography noWrap title={display} sx={{ maxWidth: "100%" }}>
                   {display}
                 </Typography>
               );
-            }}
-            MenuProps={{ PaperProps: { style: { maxHeight: 300 } } }}
+            })()}
           >
-            {templates.map((tpl) => (
-              <MenuItem
-                key={tpl.id}
-                value={tpl.id}
-                sx={{ display: "flex", alignItems: "center", gap: 1 }}
-              >
-                {isRenaming && renameId === tpl.id ? (
+            {({ close }) =>
+              templates.map((tpl) => {
+                const isSelected = tpl.id === selectedTemplateId;
+                const isRenamingCurrentTemplate = isRenaming && renameId === tpl.id;
+
+                return (
                   <Box
+                    key={tpl.id}
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={isRenamingCurrentTemplate ? undefined : () => {
+                      handleTemplateChange(tpl.id);
+                      close();
+                    }}
                     sx={{
                       display: "flex",
                       alignItems: "center",
-                      gap: 0.5,
-                      width: "100%",
+                      gap: 1,
+                      px: 1.5,
+                      py: 0.75,
+                      cursor: isRenamingCurrentTemplate ? "default" : "pointer",
+                      bgcolor: isSelected ? "action.selected" : "transparent",
+                      "&:hover": isRenamingCurrentTemplate ? undefined : {
+                        bgcolor: "action.hover",
+                      },
                     }}
-                    onClick={(e) => e.stopPropagation()}
                   >
-                    <TextField
-                      size="small"
-                      placeholder={t("templateInputName")}
-                      value={renameValue}
-                      onChange={(e) => setRenameValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.stopPropagation();
-                          confirmRename();
-                        }
-                        if (e.key === "Escape") {
-                          e.stopPropagation();
-                          setIsRenaming(false);
-                          setRenameId("");
-                          setRenameValue("");
-                        }
-                      }}
-                      autoFocus
-                      sx={{ flex: 1, minWidth: 0 }}
-                    />
-                    <IconButton
-                      size="small"
-                      color="primary"
-                      aria-label={t("confirm")}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        confirmRename();
-                      }}
-                    >
-                      <CheckIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      aria-label={t("cancel")}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setIsRenaming(false);
-                        setRenameId("");
-                        setRenameValue("");
-                      }}
-                    >
-                      <CloseIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                ) : (
-                  <>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography variant="body2" noWrap title={tpl.name}>
-                        {tpl.name}
-                      </Typography>
-                    </Box>
-                    <Tooltip title={t("templateRename")}>
-                      <IconButton
-                        size="small"
-                        aria-label={t("templateRename")}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          startRenameTemplate(tpl.id);
+                    {isRenamingCurrentTemplate ? (
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 0.5,
+                          width: "100%",
                         }}
+                        onClick={(event) => event.stopPropagation()}
                       >
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title={t("copy") || "复制"}>
-                      <IconButton
-                        size="small"
-                        aria-label={t("copy") || "复制"}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          handleDuplicateTemplate(tpl.id);
-                        }}
-                      >
-                        <ContentCopyIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip
-                      title={
-                        tpl.id === defaultTemplateId
-                          ? t("templateDefaultLocked") || "默认妮姬列表不可删除"
-                          : t("templateDelete")
-                      }
-                    >
-                      <span>
+                        <TextField
+                          size="small"
+                          placeholder={t("templateInputName")}
+                          value={renameValue}
+                          onChange={(event) => setRenameValue(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              event.stopPropagation();
+                              confirmRename();
+                              close();
+                            }
+                            if (event.key === "Escape") {
+                              event.stopPropagation();
+                              setIsRenaming(false);
+                              setRenameId("");
+                              setRenameValue("");
+                            }
+                          }}
+                          autoFocus
+                          sx={{ flex: 1, minWidth: 0 }}
+                        />
                         <IconButton
                           size="small"
-                          color="error"
-                          aria-label={t("templateDelete")}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            handleDeleteTemplate(tpl.id);
+                          color="primary"
+                          aria-label={t("confirm")}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            confirmRename();
+                            close();
                           }}
-                          disabled={tpl.id === defaultTemplateId}
                         >
-                          <DeleteIcon fontSize="small" />
+                          <CheckIcon fontSize="small" />
                         </IconButton>
-                      </span>
-                    </Tooltip>
-                  </>
-                )}
-              </MenuItem>
-            ))}
-          </Select>
+                        <IconButton
+                          size="small"
+                          aria-label={t("cancel")}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setIsRenaming(false);
+                            setRenameId("");
+                            setRenameValue("");
+                          }}
+                        >
+                          <CloseIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    ) : (
+                      <>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography variant="body2" noWrap title={tpl.name}>
+                            {tpl.name}
+                          </Typography>
+                        </Box>
+                        <Tooltip title={t("templateRename")}>
+                          <IconButton
+                            size="small"
+                            aria-label={t("templateRename")}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              startRenameTemplate(tpl.id);
+                            }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={t("copy") || "澶嶅埗"}>
+                          <IconButton
+                            size="small"
+                            aria-label={t("copy") || "澶嶅埗"}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleDuplicateTemplate(tpl.id);
+                              close();
+                            }}
+                          >
+                            <ContentCopyIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip
+                          title={
+                            tpl.id === defaultTemplateId
+                              ? t("templateDefaultLocked") || "榛樿濡К鍒楄〃涓嶅彲鍒犻櫎"
+                              : t("templateDelete")
+                          }
+                        >
+                          <span>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              aria-label={t("templateDelete")}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleDeleteTemplate(tpl.id);
+                                close();
+                              }}
+                              disabled={tpl.id === defaultTemplateId}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </span>
+                        </Tooltip>
+                      </>
+                    )}
+                  </Box>
+                );
+              })
+            }
+          </InteractiveSelector>
 
           <Button
             variant="contained"
@@ -342,7 +361,7 @@ const CharacterTabContent = ({
             onClick={handleCreateTemplate}
             disabled={templates.length >= 200}
           >
-            {t("templateCreate") || "新建"}
+            {t("templateCreate") || "鏂板缓"}
           </Button>
 
           <Button
@@ -453,17 +472,17 @@ const CharacterTabContent = ({
                           title={
                             lang === "zh" ? (
                               <Box component="span">
-                                攻优突破分(AEL)
+                                鏀讳紭绐佺牬鍒?AEL)
                                 <br />
-                                AEL = (1 + 0.9 × 攻击词条) × (1 + 10% +
-                                优越词条) × (1 + 3% × 极限突破 + 2% × 核心强化)
+                                AEL = (1 + 0.9 脳 鏀诲嚮璇嶆潯) 脳 (1 + 10% +
+                                浼樿秺璇嶆潯) 脳 (1 + 3% 脳 鏋侀檺绐佺牬 + 2% 脳 鏍稿績寮哄寲)
                               </Box>
                             ) : (
                               <Box component="span">
                                 Attack Element Limit Break Score (AEL)
                                 <br />
-                                AEL = (1 + 0.9 × ATK%) × (1 + 10% + Elem%) × (1
-                                + 3% × Limit Break + 2% × Core Refinement)
+                                AEL = (1 + 0.9 脳 ATK%) 脳 (1 + 10% + Elem%) 脳 (1
+                                + 3% 脳 Limit Break + 2% 脳 Core Refinement)
                               </Box>
                             )
                           }
@@ -807,3 +826,4 @@ const CharacterTabContent = ({
 };
 
 export default memo(CharacterTabContent);
+
