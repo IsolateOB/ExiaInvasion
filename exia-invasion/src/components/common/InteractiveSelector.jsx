@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import { useCallback, useId, useMemo, useState } from "react";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
-import { Box, ButtonBase, Popover } from "@mui/material";
+import { Box, ButtonBase, ClickAwayListener, Paper, Popper } from "@mui/material";
 
 const resolveChildren = (children, args) =>
   typeof children === "function" ? children(args) : children;
@@ -25,7 +25,9 @@ const InteractiveSelector = ({
   const handleOpen = useCallback(
     (event) => {
       if (disabled) return;
-      setAnchorEl(event.currentTarget);
+      setAnchorEl((currentAnchor) =>
+        currentAnchor === event.currentTarget ? null : event.currentTarget,
+      );
     },
     [disabled],
   );
@@ -90,37 +92,46 @@ const InteractiveSelector = ({
         />
       </ButtonBase>
 
-      <Popover
+      <Popper
         open={isOpen}
         anchorEl={anchorEl}
-        onClose={handleClose}
-        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
-        transformOrigin={{ vertical: "top", horizontal: "left" }}
-        slotProps={{
-          paper: {
-            sx: {
+        placement="bottom-start"
+        sx={{
+          zIndex: (theme) => theme.zIndex.modal + 1,
+        }}
+      >
+        <ClickAwayListener onClickAway={handleClose}>
+          <Paper
+            sx={{
               mt: 0.5,
               minWidth: resolvedMenuMinWidth,
               maxWidth: "min(92vw, 420px)",
               borderRadius: 1,
               overflow: "hidden",
-            },
-          },
-        }}
-      >
-        <Box
-          id={listboxId}
-          role="listbox"
-          sx={{
-            maxHeight: menuMaxHeight,
-            overflowY: "auto",
-            py: 0.5,
-            ...menuSx,
-          }}
-        >
-          {resolveChildren(children, { close: handleClose, isOpen })}
-        </Box>
-      </Popover>
+            }}
+          >
+            <Box
+              id={listboxId}
+              role="listbox"
+              tabIndex={-1}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  handleClose();
+                }
+              }}
+              sx={{
+                maxHeight: menuMaxHeight,
+                overflowY: "auto",
+                py: 0.5,
+                ...menuSx,
+              }}
+            >
+              {resolveChildren(children, { close: handleClose, isOpen })}
+            </Box>
+          </Paper>
+        </ClickAwayListener>
+      </Popper>
     </>
   );
 };
