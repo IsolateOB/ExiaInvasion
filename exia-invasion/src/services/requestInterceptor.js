@@ -55,8 +55,13 @@ export const registerCookieRules = async (accounts) => {
   if (rules.length === 0) return;
   
   try {
+    // 防御性移除同 ID 规则，避免并发/异常中断后再次注册时报 "id 不唯一"
+    const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
+    const existingRuleIds = existingRules.map(rule => rule.id);
+    const removeRuleIds = [...new Set([...existingRuleIds, ...newRuleIds])];
+
     await chrome.declarativeNetRequest.updateDynamicRules({
-      removeRuleIds: [],
+      removeRuleIds,
       addRules: rules
     });
     registeredRuleIds = newRuleIds;
