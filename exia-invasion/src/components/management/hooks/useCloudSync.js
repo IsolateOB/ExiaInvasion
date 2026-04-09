@@ -448,7 +448,9 @@ export function useCloudSync({
 
   const handleConflictLogout = useCallback(async () => {
     await clearWebsiteAuth();
+    await clearAuthStorage();
     setAuthToken(null);
+    cloudInitTokenRef.current = null;
     setSyncConflict((prev) => ({ ...prev, open: false }));
     showMessage(t("sync.logout") || "退出登录", "info");
   }, [showMessage, t, clearWebsiteAuth]);

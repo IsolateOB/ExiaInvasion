@@ -470,7 +470,7 @@ export function useTemplateManagement({
   useEffect(() => {
     const handler = (changes, area) => {
       if (area === "local" && changes.accountTemplates) {
-        const next = changes.accountTemplates.newValue || [];
+        const next = Array.isArray(changes.accountTemplates.newValue) ? changes.accountTemplates.newValue : [];
         // 更新状态
         setAccountTemplates(next);
         // 如果当前选中的模板被更新了，也更新 accounts

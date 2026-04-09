@@ -22,6 +22,27 @@ export const parseGameOpenIdFromCookie = (cookieStr) => {
 };
 
 /**
+ * 标准化账号列表，避免异常存储结构在管理页初始化时直接触发白屏
+ */
+export const normalizeStoredAccounts = (value) => {
+  if (!Array.isArray(value)) return [];
+  return value.map((account) => {
+    const nextAccount = account && typeof account === "object" ? account : {};
+    const cookie = nextAccount.cookie || "";
+    return {
+      ...nextAccount,
+      username: nextAccount.username || "",
+      email: nextAccount.email || "",
+      password: nextAccount.password || "",
+      cookie,
+      game_uid: nextAccount.game_uid || nextAccount.gameUid || parseGameUidFromCookie(cookie),
+      game_openid: nextAccount.game_openid || nextAccount.gameOpenId || parseGameOpenIdFromCookie(cookie),
+      cookieUpdatedAt: nextAccount.cookieUpdatedAt ?? nextAccount.cookie_updated_at ?? null,
+    };
+  });
+};
+
+/**
  * 标准化时间戳（转为毫秒）
  */
 export const normalizeTimestamp = (value) => {

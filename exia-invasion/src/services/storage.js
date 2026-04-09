@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // 本地存储管理模块
 
+import { normalizeStoredAccounts } from "../components/management/utils.js";
+
 const SETTINGS_KEY  = "settings";   // 设置存储键
 const ACCOUNTS_KEY  = "accounts";   // 账号存储键
 const CHARACTERS_KEY = "characters"; // 角色存储键
@@ -61,13 +63,13 @@ export const setSyncMeta = (obj) =>
 // 获取账号列表
 export const getAccounts = () =>
   new Promise((res) =>
-    chrome.storage.local.get(ACCOUNTS_KEY, (r) => res(r[ACCOUNTS_KEY] || []))
+    chrome.storage.local.get(ACCOUNTS_KEY, (r) => res(normalizeStoredAccounts(r[ACCOUNTS_KEY])))
   );
 
 // 保存账号列表
 export const setAccounts = (arr) =>
   new Promise((res) =>
-    chrome.storage.local.set({ [ACCOUNTS_KEY]: arr }, () => res())
+    chrome.storage.local.set({ [ACCOUNTS_KEY]: normalizeStoredAccounts(arr) }, () => res())
   );
 
 // 获取角色数据

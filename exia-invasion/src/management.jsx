@@ -36,10 +36,9 @@ import {
   corporationTranslationKeys,
 } from "./components/management/constants.js";
 import {
-  parseGameUidFromCookie,
-  parseGameOpenIdFromCookie,
   normalizeTimestamp,
   getPriorityColor,
+  normalizeStoredAccounts,
 } from "./components/management/utils.js";
 import { useCloudSync } from "./components/management/hooks/useCloudSync.js";
 import { useAccountActions } from "./components/management/hooks/useAccountActions.js";
@@ -145,7 +144,10 @@ const ManagementPage = () => {
   accountActionsRef.current = accountActions;
 
   // ========== 派生值 ==========
-  const isAllEnabled = useMemo(() => accounts.every(acc => acc.enabled !== false), [accounts]);
+  const isAllEnabled = useMemo(
+    () => (Array.isArray(accounts) ? accounts.every((acc) => acc.enabled !== false) : true),
+    [accounts]
+  );
 
   const nikkeResourceIdMap = useMemo(() => {
     const map = new Map();
@@ -391,23 +393,14 @@ const ManagementPage = () => {
 
   // 账号数据初始化（只在首次渲染时执行）
   useEffect(() => {
-    chrome.storage.local.get("accounts", async (r) => {
-      let list = r.accounts || [];
-      const updated = list.map((acc) => {
-        const nextGameUid = acc?.game_uid || acc?.gameUid || parseGameUidFromCookie(acc?.cookie);
-        const nextGameOpenId = acc?.game_openid || acc?.gameOpenId || parseGameOpenIdFromCookie(acc?.cookie);
-        const { ...rest } = acc || {};
-        return {
-          ...rest,
-          game_uid: nextGameUid || "",
-          game_openid: nextGameOpenId || "",
-          cookieUpdatedAt: acc?.cookieUpdatedAt ?? acc?.cookie_updated_at ?? null,
-        };
-      });
-      if (JSON.stringify(updated) !== JSON.stringify(list)) {
-        await new Promise(res => chrome.storage.local.set({ accounts: updated }, res));
+    (async () => {
+      const rawAccounts = await new Promise((resolve) =>
+        chrome.storage.local.get("accounts", (result) => resolve(result.accounts))
+      );
+      const list = normalizeStoredAccounts(rawAccounts);
+      if (JSON.stringify(list) !== JSON.stringify(rawAccounts || [])) {
+        await persist(list);
       }
-      list = updated;
 
       if (list.length === 0) {
         setAccounts([defaultRow()]);
@@ -416,7 +409,7 @@ const ManagementPage = () => {
         setAccounts(list);
         accountActions.initEditingState(list.length, false);
       }
-    });
+    })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -424,8 +417,8 @@ const ManagementPage = () => {
   useEffect(() => {
     const handler = (changes, area) => {
       if (area === "local" && changes.accounts) {
-        const prev = changes.accounts.oldValue || [];
-        const next = changes.accounts.newValue || [];
+        const prev = normalizeStoredAccounts(changes.accounts.oldValue);
+        const next = normalizeStoredAccounts(changes.accounts.newValue);
         setAccounts(next);
         // 注意：不调用 initEditingState，避免用户正在编辑时被重置
 
