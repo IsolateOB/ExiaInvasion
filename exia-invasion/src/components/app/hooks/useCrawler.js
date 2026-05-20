@@ -6,12 +6,12 @@ import JSZip from "jszip";
 import saveDictToExcel from "../../../utils/excel.js";
 import { computeAELForDict } from "../../../utils/ael.js";
 import { createUniqueExportFileName } from "../../../utils/exportFilenames.js";
-import { getAccounts, setAccounts, getCharacters, getSettings, getAuth, setSyncMeta, getAccountTemplates, getCurrentAccountTemplateId, saveAccountTemplate } from "../../../services/storage.js";
+import { getAccounts, setAccounts, getCharacters } from "../../../services/storage.js";
 import { applyCookieStr, clearSiteCookies, getCurrentCookies } from "../../../services/cookie.js";
 import { loadBaseAccountDict, getRoleName, prefetchMainlineCatalog, validateCookieWithAccount, getOutpostInfoWithAccount, getCampaignProgressWithAccount, getUserCharactersWithAccount, getCharacterDetailsWithAccount } from "../../../services/api.js";
 import { registerCookieRules, unregisterAllRules } from "../../../services/requestInterceptor.js";
 import { parseGameUidFromCookie, cookieArrToStr } from "../utils.js";
-import { BATCH_SIZE, STAGGER_DELAY, API_BASE_URL } from "../constants.js";
+import { BATCH_SIZE, STAGGER_DELAY } from "../constants.js";
 
 const AUTO_SAVE_DATA = true;
 
@@ -32,128 +32,6 @@ export function useCrawler({ t, lang, saveAsZip, exportJson, activateTab, server
 
   const addLog = useCallback((msg) => setLogs((prev) => [...prev, msg]), []);
   const clearLogs = useCallback(() => setLogs([]), []);
-
-  // ========== 云同步功能 ==========
-  const syncAccountsToCloud = useCallback(async (addLogFn) => {
-    try {
-      // 获取认证信息
-      const auth = await getAuth();
-      if (!auth?.token) {
-        addLogFn(t("sync.notLoggedIn") || "未登录，跳过云同步");
-        return false;
-      }
-
-      // 通知管理页开始同步
-      await setSyncMeta({ accountsSyncing: true });
-
-      // 获取设置，检查是否同步敏感信息
-      const settings = await getSettings();
-      const legacySensitive = Boolean(settings?.syncAccountSensitive);
-      const syncAccountEmail = settings?.syncAccountEmail ?? legacySensitive;
-      const syncAccountPassword = settings?.syncAccountPassword ?? legacySensitive;
-
-      // 获取最新的 accounts 和 accountTemplates
-      const [latestAccounts, accountTemplates, currentTemplateId] = await Promise.all([
-        getAccounts(),
-        getAccountTemplates(),
-        getCurrentAccountTemplateId(),
-      ]);
-
-      // 如果有当前模板，先更新模板数据以确保包含最新的 accounts
-      let updatedAccountTemplates = accountTemplates || [];
-      if (currentTemplateId && latestAccounts.length > 0) {
-        const templateIndex = updatedAccountTemplates.findIndex((t) => t.id === currentTemplateId);
-        if (templateIndex >= 0) {
-          // 更新模板数据
-          const updatedTemplate = {
-            ...updatedAccountTemplates[templateIndex],
-            data: latestAccounts,
-          };
-          updatedAccountTemplates = [
-            ...updatedAccountTemplates.slice(0, templateIndex),
-            updatedTemplate,
-            ...updatedAccountTemplates.slice(templateIndex + 1),
-          ];
-          // 保存更新后的模板到 storage
-          await saveAccountTemplate(updatedTemplate);
-        } else if (updatedAccountTemplates.length === 0) {
-          // 如果没有模板但有账号，创建默认模板
-          updatedAccountTemplates = [{
-            id: currentTemplateId || "1",
-            name: "默认账号列表",
-            data: latestAccounts,
-          }];
-          await saveAccountTemplate(updatedAccountTemplates[0]);
-        }
-      } else if (updatedAccountTemplates.length === 0 && latestAccounts.length > 0) {
-        // 如果没有模板但有账号，创建默认模板
-        updatedAccountTemplates = [{
-          id: "1",
-          name: "默认账号列表",
-          data: latestAccounts,
-        }];
-        await saveAccountTemplate(updatedAccountTemplates[0]);
-      }
-      
-      // 构建上传数据
-      const sanitizeAccounts = (list) => {
-        if (!Array.isArray(list)) return [];
-        return list
-          .map((acc) => ({
-            game_uid: acc?.game_uid || acc?.gameUid || "",
-            game_openid: acc?.game_openid || acc?.gameOpenId || "",
-            username: acc?.username || "",
-            cookie: acc?.cookie || "",
-            cookieUpdatedAt: acc?.cookieUpdatedAt ?? acc?.cookie_updated_at ?? null,
-            ...(syncAccountEmail ? { email: acc?.email || "" } : {}),
-            ...(syncAccountPassword ? { password: acc?.password || "" } : {}),
-          }))
-          .filter((acc) => acc.game_uid || acc.cookie);
-      };
-
-      const payload = updatedAccountTemplates.map((item) => ({
-        id: String(item?.id ?? ""),
-        name: item?.name || "",
-        data: sanitizeAccounts(item?.data || item?.accounts || []),
-      })).filter((item) => item.id || item.name);
-
-      if (payload.length === 0) {
-        await setSyncMeta({ accountsSyncing: false });
-        addLogFn(t("sync.success") || "云同步完成" + " (无数据)");
-        return true;
-      }
-
-      addLogFn(t("sync.uploading") || "正在同步到云端...");
-
-      const res = await fetch(`${API_BASE_URL}/accounts`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${auth.token}`,
-        },
-        body: JSON.stringify({ lists: payload }),
-      });
-
-      if (!res.ok) {
-        await setSyncMeta({ accountsSyncing: false });
-        throw new Error(`Cloud sync failed: ${res.status}`);
-      }
-
-      const uploadResp = await res.json();
-      const updatedAt = uploadResp?.updated_at ? new Date(uploadResp.updated_at).getTime() : Date.now();
-      
-      // 更新同步元数据，管理页会通过 storage.onChanged 监听到
-      await setSyncMeta({ accountsLastSyncAt: updatedAt, accountsSyncing: false });
-      
-      addLogFn(`${t("sync.success") || "云同步完成"} ✓`);
-      return true;
-    } catch (error) {
-      console.error("Cloud sync failed:", error);
-      await setSyncMeta({ accountsSyncing: false }).catch(() => {});
-      addLogFn(`${t("sync.failed") || "云同步失败"}: ${error.message}`);
-      return false;
-    }
-  }, [t]);
 
   // ========== Cookie 保存功能 ==========
   const handleSaveCookie = useCallback(async () => {
@@ -644,9 +522,6 @@ export function useCrawler({ t, lang, saveAsZip, exportJson, activateTab, server
         addLog(`----------------------------`);
         addLog(t("cookieOnlyDone"));
         
-        // Cookie 更新完成后触发云同步
-        addLog(`----------------------------`);
-        await syncAccountsToCloud(addLog);
         return;
       }
       
@@ -794,10 +669,6 @@ export function useCrawler({ t, lang, saveAsZip, exportJson, activateTab, server
         });
       }
       
-      // 数据爬取完成后触发云同步
-      addLog(`----------------------------`);
-      await syncAccountsToCloud(addLog);
-      
       addLog(t("done"));
     } catch (e) {
       setLogs((l) => [...l, `[异常] ${e}`]);
@@ -816,7 +687,7 @@ export function useCrawler({ t, lang, saveAsZip, exportJson, activateTab, server
         setLoading(false);
       }
     }
-  }, [t, lang, saveAsZip, exportJson, server, clearLogs, addLog, loginAndGetCookie, addCharacterDetailsToDictWithAccount, syncAccountsToCloud]);
+  }, [t, lang, saveAsZip, exportJson, server, clearLogs, addLog, loginAndGetCookie, addCharacterDetailsToDictWithAccount]);
 
   return {
     logs,

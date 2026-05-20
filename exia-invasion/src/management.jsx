@@ -12,8 +12,8 @@ import {
 } from "@mui/material";
 import TRANSLATIONS from "./i18n/translations.js";
 import { fetchAndCacheNikkeDirectory, getCachedNikkeDirectory } from "./services/api.js";
-import { getAccounts, getCharacters, getSettings, setSettings, setSyncMeta, getAccountTemplates, getTemplates, getCurrentAccountTemplateId, getCurrentTemplateId, setCharacters as persistCharacters } from "./services/storage.js";
-import { buildAccountsSignature, normalizeAccountsFromRemote } from "./utils/cloudCompare.js";
+import { getCharacters, getSettings, setSettings, setCharacters as persistCharacters } from "./services/storage.js";
+import { buildAccountsSignature } from "./utils/cloudCompare.js";
 import { getNikkeAvatarUrl as buildNikkeAvatarUrl } from "./utils/nikkeAvatar.js";
 import ManagementHeader from "./components/management/ManagementHeader.jsx";
 import AccountTabContent from "./components/management/AccountTabContent.jsx";
@@ -125,12 +125,6 @@ const ManagementPage = () => {
     syncAccountTemplateData: templateManagement.syncAccountTemplateData,
     selectedAccountTemplateId: templateManagement.selectedAccountTemplateId,
     showMessage,
-    syncAccountEmail,
-    syncAccountPassword,
-    authToken: cloudSync.authToken,
-    buildUpdatedAccountTemplates: templateManagement.buildUpdatedAccountTemplates,
-    syncAccountsNow: cloudSync.syncAccountsNow,
-    accountTemplatesRef: templateManagement.accountTemplatesRef,
   });
 
   const characterActions = useCharacterActions({
@@ -317,8 +311,6 @@ const ManagementPage = () => {
       setLang(nextLang);
       setSyncAccountEmail(Boolean(nextEmail));
       setSyncAccountPassword(Boolean(nextPassword));
-        // 传入当前敏感设置值，确保 prevSyncSensitiveRef 正确初始化
-        cloudSync.setSyncSensitiveInit(true, { email: Boolean(nextEmail), password: Boolean(nextPassword) });
     });
     const handler = (c, area) => {
       if (area === "local" && c.settings) {
@@ -333,7 +325,6 @@ const ManagementPage = () => {
     };
     chrome.storage.onChanged.addListener(handler);
     return () => chrome.storage.onChanged.removeListener(handler);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const persistSyncSettings = useCallback(async (nextEmail, nextPassword) => {
@@ -436,176 +427,6 @@ const ManagementPage = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 云同步初始化（仅在 authToken 变化时触发）
-  useEffect(() => {
-    const authToken = cloudSync.authToken;
-    if (!authToken) return;
-    if (cloudSync.cloudInitTokenRef.current === authToken) return;
-    cloudSync.cloudInitTokenRef.current = authToken;
-    let cancelled = false;
-
-    cloudSync.setSyncConflict((prev) => ({ ...prev, open: false }));
-
-    (async () => {
-      try {
-        const [
-          localAccountTemplates,
-          localCharacterTemplates,
-          storedAccountTemplateId,
-          storedTemplateId,
-          localAccounts,
-          remoteAccountsResp,
-          remoteCharactersResp,
-        ] = await Promise.all([
-          getAccountTemplates(),
-          getTemplates(),
-          getCurrentAccountTemplateId(),
-          getCurrentTemplateId(),
-          getAccounts(),
-          cloudSync.fetchCloudData("/accounts", authToken).catch(() => null),
-          cloudSync.fetchCloudData("/characters", authToken).catch(() => null),
-        ]);
-
-        if (cancelled) return;
-
-        const remoteAccounts = normalizeAccountsFromRemote(remoteAccountsResp?.lists);
-        const remoteAccountsUpdatedAt = normalizeTimestamp(remoteAccountsResp?.updated_at) || null;
-        const remoteCharacters = remoteCharactersResp?.lists || null;
-        const remoteCharactersUpdatedAt = normalizeTimestamp(remoteCharactersResp?.updated_at) || null;
-
-        const localAccountLists = localAccountTemplates || [];
-        const localCharacterLists = localCharacterTemplates || [];
-        const remoteAccountLists = cloudSync.normalizeAccountLists(remoteAccounts);
-        const remoteCharacterLists = cloudSync.normalizeCharacterLists(remoteCharacters);
-
-        const localAccountsList = Array.isArray(localAccounts) ? localAccounts : [];
-        const hasLocalAccounts = localAccountsList.length > 0;
-        const fallbackAccountListId = storedAccountTemplateId || remoteAccountLists[0]?.id || "1";
-        const fallbackAccountListName = `${t("accountTemplate")}${1}`;
-        const effectiveLocalAccountLists = localAccountLists.length
-          ? localAccountLists
-          : (hasLocalAccounts
-            ? [{ id: String(fallbackAccountListId), name: fallbackAccountListName, data: localAccountsList }]
-            : []);
-
-        const localAccountsEmpty = !effectiveLocalAccountLists.length;
-        const remoteAccountsEmpty = !remoteAccountLists.length;
-        const localCharactersEmpty = !localCharacterLists.length;
-        const remoteCharactersEmpty = !remoteCharacterLists.length;
-
-        let nextConflict = {
-          open: false,
-          hasAccounts: false,
-          localAccounts: null,
-          remoteAccounts: null,
-          remoteAccountsUpdatedAt: null,
-          hasCharacters: false,
-          localCharacters: null,
-          remoteCharacters: null,
-          remoteCharactersUpdatedAt: null,
-        };
-
-        // Accounts sync
-        if (!localAccountsEmpty && remoteAccountsEmpty) {
-          const uploadResp = await cloudSync.uploadCloudData("/accounts", authToken, { lists: cloudSync.buildCloudAccountLists(effectiveLocalAccountLists) });
-          const updatedAt = normalizeTimestamp(uploadResp?.updated_at) || Date.now();
-          await setSyncMeta({ accountsLastSyncAt: updatedAt });
-        } else if (localAccountLists.length === 0 && hasLocalAccounts && !remoteAccountsEmpty) {
-          const mergedAccountLists = cloudSync.mergeAccountLists(effectiveLocalAccountLists, remoteAccountLists);
-          await templateManagement.applyAccountTemplatesWithDefault(mergedAccountLists, storedAccountTemplateId || "");
-          const appliedId = storedAccountTemplateId || mergedAccountLists[0]?.id || "";
-          const applied = mergedAccountLists.find((item) => item.id === appliedId) || mergedAccountLists[0];
-          if (applied?.data) {
-            setAccounts(applied.data);
-            await persist(applied.data);
-            accountActionsRef.current?.initEditingState(applied.data.length, false);
-          }
-          if (remoteAccountsUpdatedAt) {
-            await setSyncMeta({ accountsLastSyncAt: remoteAccountsUpdatedAt });
-          }
-        } else if (localAccountsEmpty && !remoteAccountsEmpty) {
-          const mergedAccountLists = cloudSync.mergeAccountLists(effectiveLocalAccountLists, remoteAccountLists);
-          await templateManagement.applyAccountTemplatesWithDefault(mergedAccountLists, storedAccountTemplateId || "");
-          const appliedId = storedAccountTemplateId || mergedAccountLists[0]?.id || "";
-          const applied = mergedAccountLists.find((item) => item.id === appliedId) || mergedAccountLists[0];
-          if (applied?.data) {
-            setAccounts(applied.data);
-            await persist(applied.data);
-            accountActionsRef.current?.initEditingState(applied.data.length, false);
-          }
-          if (remoteAccountsUpdatedAt) {
-            await setSyncMeta({ accountsLastSyncAt: remoteAccountsUpdatedAt });
-          }
-        } else if (!localAccountsEmpty && !remoteAccountsEmpty) {
-          const localSig = cloudSync.buildAccountListsSignature(effectiveLocalAccountLists);
-          const remoteSig = cloudSync.buildAccountListsSignature(remoteAccountLists);
-          if (localSig !== remoteSig) {
-            nextConflict = {
-              ...nextConflict,
-              open: true,
-              hasAccounts: true,
-              localAccounts: effectiveLocalAccountLists,
-              remoteAccounts: remoteAccountLists,
-              remoteAccountsUpdatedAt,
-            };
-          } else if (remoteAccountsUpdatedAt) {
-            await setSyncMeta({ accountsLastSyncAt: remoteAccountsUpdatedAt });
-          }
-        }
-
-        // Characters sync
-        if (!localCharactersEmpty && remoteCharactersEmpty) {
-          const uploadResp = await cloudSync.uploadCloudData("/characters", authToken, { lists: cloudSync.normalizeCharacterLists(localCharacterLists) });
-          const updatedAt = normalizeTimestamp(uploadResp?.updated_at) || Date.now();
-          await setSyncMeta({ charactersLastSyncAt: updatedAt });
-        } else if (localCharactersEmpty && !remoteCharactersEmpty) {
-          await templateManagement.applyTemplatesWithDefault(remoteCharacterLists, storedTemplateId || "");
-          if (remoteCharactersUpdatedAt) {
-            await setSyncMeta({ charactersLastSyncAt: remoteCharactersUpdatedAt });
-          }
-        } else if (!localCharactersEmpty && !remoteCharactersEmpty) {
-          const localSig = cloudSync.buildCharacterListsSignature(localCharacterLists);
-          const remoteSig = cloudSync.buildCharacterListsSignature(remoteCharacterLists);
-          if (localSig !== remoteSig) {
-            nextConflict = {
-              ...nextConflict,
-              open: true,
-              hasCharacters: true,
-              localCharacters: localCharacterLists,
-              remoteCharacters: remoteCharacterLists,
-              remoteCharactersUpdatedAt,
-            };
-          } else if (remoteCharactersUpdatedAt) {
-            await setSyncMeta({ charactersLastSyncAt: remoteCharactersUpdatedAt });
-          }
-        }
-
-        if (nextConflict.open) {
-          cloudSync.setSyncConflict((prev) => ({ ...prev, ...nextConflict, open: true }));
-        }
-
-        if (!cloudSync.lastSyncedAccountsSigRef.current) {
-          cloudSync.lastSyncedAccountsSigRef.current = cloudSync.buildAccountListsSignature(effectiveLocalAccountLists);
-        }
-        if (!cloudSync.lastSyncedCharactersSigRef.current) {
-          cloudSync.lastSyncedCharactersSigRef.current = cloudSync.buildCharacterListsSignature(localCharacterLists);
-        }
-
-        cloudSync.setAccountsSyncing(false);
-        cloudSync.setCharactersSyncing(false);
-
-        cloudSync.isInitializedRef.current = true;
-      } catch (error) {
-        console.error("cloud sync failed", error);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cloudSync.authToken]);
-
   // ========== 计算标签 ==========
   const selectionLabelTemplate = t("selectedCharactersLabel") || "Selected {count}";
   const selectionLabel = selectionLabelTemplate.replace("{count}", String(characterActions.totalSelectionCount));
@@ -627,6 +448,8 @@ const ManagementPage = () => {
             t={t}
             syncLabel={accountsSyncLabel}
             isSyncing={cloudSync.accountsSyncing}
+            onUploadCloud={cloudSync.handleManualUploadAccounts}
+            onDownloadCloud={cloudSync.handleManualDownloadAccounts}
             accountTemplates={templateManagement.accountTemplates}
             defaultAccountTemplateId={templateManagement.defaultAccountTemplateId}
             selectedAccountTemplateId={templateManagement.selectedAccountTemplateId}
@@ -676,6 +499,8 @@ const ManagementPage = () => {
             lang={lang}
             syncLabel={charactersSyncLabel}
             isSyncing={cloudSync.charactersSyncing}
+            onUploadCloud={cloudSync.handleManualUploadCharacters}
+            onDownloadCloud={cloudSync.handleManualDownloadCharacters}
             templates={templateManagement.templates}
             defaultTemplateId={templateManagement.defaultTemplateId}
             selectedTemplateId={templateManagement.selectedTemplateId}

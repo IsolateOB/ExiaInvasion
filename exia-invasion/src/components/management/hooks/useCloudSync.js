@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getSyncMeta, setSyncMeta, getAuth, setAuth as persistAuth, clearAuth as clearAuthStorage } from "../../../services/storage.js";
 import { buildAccountsSignature, buildCharactersSignature } from "../../../utils/cloudCompare.js";
+import { getManualCloudConfirmationKind } from "../../../utils/manualCloudSync.js";
 import { API_BASE_URL } from "../constants.js";
 import { normalizeTimestamp } from "../utils.js";
 
@@ -47,6 +48,8 @@ export function useCloudSync({
   const [authToken, setAuthToken] = useState(null);
   const [accountsSyncAt, setAccountsSyncAt] = useState(null);
   const [charactersSyncAt, setCharactersSyncAt] = useState(null);
+  const [accountsLocalUpdatedAt, setAccountsLocalUpdatedAt] = useState(null);
+  const [charactersLocalUpdatedAt, setCharactersLocalUpdatedAt] = useState(null);
   const [accountsSyncing, setAccountsSyncing] = useState(false);
   const [charactersSyncing, setCharactersSyncing] = useState(false);
   const [syncConflict, setSyncConflict] = useState({
@@ -61,15 +64,14 @@ export function useCloudSync({
     remoteCharactersUpdatedAt: null,
   });
 
-  const syncTimerRef = useRef(null);
-  const sensitiveSyncTimerRef = useRef(null);
-  const forceAccountsSyncingRef = useRef(false);
-  const syncSensitiveInitRef = useRef(false);
-  const prevSyncSensitiveRef = useRef(null);
   const lastSyncedAccountsSigRef = useRef(null);
   const lastSyncedCharactersSigRef = useRef(null);
-  const isInitializedRef = useRef(false);
-  const cloudInitTokenRef = useRef(null);
+  const observedAccountsSigRef = useRef(null);
+  const observedCharactersSigRef = useRef(null);
+  const observedAccountsReadyRef = useRef(false);
+  const observedCharactersReadyRef = useRef(false);
+  const suppressNextAccountsLocalChangeRef = useRef(false);
+  const suppressNextCharactersLocalChangeRef = useRef(false);
   const accountTemplatesRef = useRef([]);
   const templatesRef = useRef([]);
   const EXIA_WEB_ORIGIN = "https://exia.nikke.cc";
@@ -190,10 +192,6 @@ export function useCloudSync({
     return local;
   }, [syncAccountEmail, syncAccountPassword]);
 
-  const buildSensitiveSignature = useCallback((emailFlag, passwordFlag) => (
-    `${emailFlag ? 1 : 0}:${passwordFlag ? 1 : 0}`
-  ), []);
-
   const normalizeAccountLists = useCallback((lists) => {
     if (!Array.isArray(lists)) return [];
     return lists
@@ -259,6 +257,44 @@ export function useCloudSync({
     return JSON.stringify(normalized);
   }, [normalizeCharacterLists]);
 
+  useEffect(() => {
+    if (!Array.isArray(accountTemplates) || !accountTemplates.length) return;
+    const signature = buildAccountListsSignature(accountTemplates);
+    if (!observedAccountsReadyRef.current) {
+      observedAccountsReadyRef.current = true;
+      observedAccountsSigRef.current = signature;
+      return;
+    }
+    if (signature === observedAccountsSigRef.current) return;
+    observedAccountsSigRef.current = signature;
+    if (suppressNextAccountsLocalChangeRef.current) {
+      suppressNextAccountsLocalChangeRef.current = false;
+      return;
+    }
+    const changedAt = Date.now();
+    setAccountsLocalUpdatedAt(changedAt);
+    setSyncMeta({ accountsLocalUpdatedAt: changedAt }).catch(() => {});
+  }, [accountTemplates, buildAccountListsSignature]);
+
+  useEffect(() => {
+    if (!Array.isArray(templates) || !templates.length) return;
+    const signature = buildCharacterListsSignature(templates);
+    if (!observedCharactersReadyRef.current) {
+      observedCharactersReadyRef.current = true;
+      observedCharactersSigRef.current = signature;
+      return;
+    }
+    if (signature === observedCharactersSigRef.current) return;
+    observedCharactersSigRef.current = signature;
+    if (suppressNextCharactersLocalChangeRef.current) {
+      suppressNextCharactersLocalChangeRef.current = false;
+      return;
+    }
+    const changedAt = Date.now();
+    setCharactersLocalUpdatedAt(changedAt);
+    setSyncMeta({ charactersLocalUpdatedAt: changedAt }).catch(() => {});
+  }, [templates, buildCharacterListsSignature]);
+
   // ========== API 调用 ==========
   const fetchCloudData = useCallback(async (path, token) => {
     const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -288,8 +324,9 @@ export function useCloudSync({
     const payload = buildCloudAccountLists(lists);
     const uploadResp = await uploadCloudData("/accounts", authToken, { lists: payload });
     const updatedAt = normalizeTimestamp(uploadResp?.updated_at) || Date.now();
-    await setSyncMeta({ accountsLastSyncAt: updatedAt });
+    await setSyncMeta({ accountsLastSyncAt: updatedAt, accountsLocalUpdatedAt: updatedAt });
     setAccountsSyncAt(updatedAt);
+    setAccountsLocalUpdatedAt(updatedAt);
   }, [authToken, buildCloudAccountLists, uploadCloudData]);
 
   const syncCharactersToCloud = useCallback(async (lists) => {
@@ -301,8 +338,9 @@ export function useCloudSync({
     }));
     const uploadResp = await uploadCloudData("/characters", authToken, { lists: payload });
     const updatedAt = normalizeTimestamp(uploadResp?.updated_at) || Date.now();
-    await setSyncMeta({ charactersLastSyncAt: updatedAt });
+    await setSyncMeta({ charactersLastSyncAt: updatedAt, charactersLocalUpdatedAt: updatedAt });
     setCharactersSyncAt(updatedAt);
+    setCharactersLocalUpdatedAt(updatedAt);
   }, [authToken, normalizeCharacterLists, uploadCloudData]);
 
   const syncAccountsNow = useCallback(async (lists) => {
@@ -313,74 +351,153 @@ export function useCloudSync({
       await syncAccountsToCloud(payloadLists);
       lastSyncedAccountsSigRef.current = buildAccountListsSignature(payloadLists);
     } finally {
-      forceAccountsSyncingRef.current = false;
       setAccountsSyncing(false);
     }
   }, [authToken, buildAccountListsSignature, syncAccountsToCloud]);
 
-  const flushPendingSync = useCallback(async ({ useKeepalive = false } = {}) => {
-    if (!authToken) return;
+  const tr = useCallback((key, fallback) => {
+    const value = t(key);
+    return value && value !== key ? value : fallback;
+  }, [t]);
 
-    const currentAccountTemplates = accountTemplatesRef.current;
-    const currentTemplates = templatesRef.current;
+  const confirmManualCloudAction = useCallback((action, remoteUpdatedAt, localUpdatedAt) => {
+    const kind = getManualCloudConfirmationKind({ action, remoteUpdatedAt, localUpdatedAt });
+    if (!kind) return true;
+    const message = kind === "cloud-newer"
+      ? tr("sync.confirmCloudNewer", "云端数据比本地记录更新，继续上传会覆盖云端。是否继续？")
+      : tr("sync.confirmCloudOlder", "云端数据比本地记录更旧，继续下载会覆盖本地较新的记录。是否继续？");
+    return window.confirm(message);
+  }, [tr]);
 
-    const accountsSig = buildAccountListsSignature(currentAccountTemplates);
-    const charactersSig = buildCharacterListsSignature(currentTemplates);
-
-    const shouldSyncAccounts = accountsSig !== lastSyncedAccountsSigRef.current;
-    const shouldSyncCharacters = charactersSig !== lastSyncedCharactersSigRef.current;
-
-    if (!shouldSyncAccounts && !shouldSyncCharacters) return;
-
-    try {
-      if (shouldSyncAccounts) {
-        if (useKeepalive) {
-          fetch(`${API_BASE_URL}/accounts`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${authToken}`,
-            },
-            body: JSON.stringify({ lists: normalizeAccountLists(currentAccountTemplates).map((item) => ({
-              id: item.id,
-              name: item.name,
-              data: sanitizeAccountsForCloud(item.data || []),
-            })) }),
-            keepalive: true,
-          }).catch(() => {});
-        } else {
-          await syncAccountsToCloud(currentAccountTemplates);
-        }
-        lastSyncedAccountsSigRef.current = accountsSig;
-      }
-
-      if (shouldSyncCharacters) {
-        if (useKeepalive) {
-          fetch(`${API_BASE_URL}/characters`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${authToken}`,
-            },
-            body: JSON.stringify({ lists: normalizeCharacterLists(currentTemplates).map((item) => ({
-              id: item.id,
-              name: item.name,
-              data: item.data,
-            })) }),
-            keepalive: true,
-          }).catch(() => {});
-        } else {
-          await syncCharactersToCloud(currentTemplates);
-        }
-        lastSyncedCharactersSigRef.current = charactersSig;
-      }
-    } catch (error) {
-      console.error("Cloud auto-sync failed:", error);
-    } finally {
-      setAccountsSyncing(buildAccountListsSignature(currentAccountTemplates) !== lastSyncedAccountsSigRef.current);
-      setCharactersSyncing(buildCharacterListsSignature(currentTemplates) !== lastSyncedCharactersSigRef.current);
+  const handleManualUploadAccounts = useCallback(async () => {
+    if (!authToken) {
+      showMessage(tr("sync.notLoggedIn", "未登录，跳过云同步"), "warning");
+      return;
     }
-  }, [authToken, syncAccountsToCloud, syncCharactersToCloud, normalizeAccountLists, normalizeCharacterLists, buildAccountListsSignature, buildCharacterListsSignature, sanitizeAccountsForCloud]);
+
+    setAccountsSyncing(true);
+    try {
+      const remoteResp = await fetchCloudData("/accounts", authToken);
+      const remoteUpdatedAt = normalizeTimestamp(remoteResp?.updated_at);
+      if (!confirmManualCloudAction("upload", remoteUpdatedAt, accountsLocalUpdatedAt || accountsSyncAt)) return;
+
+      const currentLists = accountTemplatesRef.current;
+      await syncAccountsToCloud(currentLists);
+      lastSyncedAccountsSigRef.current = buildAccountListsSignature(currentLists);
+      showMessage(tr("sync.uploadSuccess", "已上传到云端"), "success");
+    } catch (error) {
+      console.error(error);
+      showMessage(tr("sync.failed", "云同步失败"), "error");
+    } finally {
+      setAccountsSyncing(false);
+    }
+  }, [authToken, accountsLocalUpdatedAt, accountsSyncAt, fetchCloudData, confirmManualCloudAction, syncAccountsToCloud, buildAccountListsSignature, showMessage, tr]);
+
+  const handleManualUploadCharacters = useCallback(async () => {
+    if (!authToken) {
+      showMessage(tr("sync.notLoggedIn", "未登录，跳过云同步"), "warning");
+      return;
+    }
+
+    setCharactersSyncing(true);
+    try {
+      const remoteResp = await fetchCloudData("/characters", authToken);
+      const remoteUpdatedAt = normalizeTimestamp(remoteResp?.updated_at);
+      if (!confirmManualCloudAction("upload", remoteUpdatedAt, charactersLocalUpdatedAt || charactersSyncAt)) return;
+
+      const currentLists = templatesRef.current;
+      await syncCharactersToCloud(currentLists);
+      lastSyncedCharactersSigRef.current = buildCharacterListsSignature(currentLists);
+      showMessage(tr("sync.uploadSuccess", "已上传到云端"), "success");
+    } catch (error) {
+      console.error(error);
+      showMessage(tr("sync.failed", "云同步失败"), "error");
+    } finally {
+      setCharactersSyncing(false);
+    }
+  }, [authToken, charactersLocalUpdatedAt, charactersSyncAt, fetchCloudData, confirmManualCloudAction, syncCharactersToCloud, buildCharacterListsSignature, showMessage, tr]);
+
+  const handleManualDownloadAccounts = useCallback(async () => {
+    if (!authToken) {
+      showMessage(tr("sync.notLoggedIn", "未登录，跳过云同步"), "warning");
+      return;
+    }
+
+    setAccountsSyncing(true);
+    try {
+      const remoteResp = await fetchCloudData("/accounts", authToken);
+      const remoteUpdatedAt = normalizeTimestamp(remoteResp?.updated_at);
+      const remoteLists = normalizeAccountLists(remoteResp?.lists);
+      if (!remoteLists.length) {
+        showMessage(tr("sync.noCloudData", "云端暂无数据"), "warning");
+        return;
+      }
+      if (!confirmManualCloudAction("download", remoteUpdatedAt, accountsLocalUpdatedAt || accountsSyncAt)) return;
+
+      const mergedLists = mergeAccountLists(accountTemplatesRef.current, remoteLists);
+      suppressNextAccountsLocalChangeRef.current = true;
+      const { list: appliedLists, defaultId } = await applyAccountTemplatesWithDefault(mergedLists, selectedAccountTemplateId || "");
+      const appliedId = selectedAccountTemplateId || defaultId || "";
+      const applied = appliedLists.find((item) => item.id === appliedId) || appliedLists[0];
+      if (applied?.data) {
+        setAccounts(applied.data);
+        await persist(applied.data);
+        if (onAccountsOverridden) onAccountsOverridden(applied.data.length);
+      }
+      const updatedAt = remoteUpdatedAt || Date.now();
+      await setSyncMeta({ accountsLastSyncAt: updatedAt, accountsLocalUpdatedAt: updatedAt });
+      setAccountsSyncAt(updatedAt);
+      setAccountsLocalUpdatedAt(updatedAt);
+      lastSyncedAccountsSigRef.current = buildAccountListsSignature(appliedLists);
+      showMessage(tr("sync.downloadSuccess", "已从云端下载"), "success");
+    } catch (error) {
+      console.error(error);
+      showMessage(tr("sync.failed", "云同步失败"), "error");
+    } finally {
+      setAccountsSyncing(false);
+    }
+  }, [authToken, accountsLocalUpdatedAt, accountsSyncAt, fetchCloudData, normalizeAccountLists, confirmManualCloudAction, mergeAccountLists, selectedAccountTemplateId, applyAccountTemplatesWithDefault, setAccounts, persist, onAccountsOverridden, buildAccountListsSignature, showMessage, tr]);
+
+  const handleManualDownloadCharacters = useCallback(async () => {
+    if (!authToken) {
+      showMessage(tr("sync.notLoggedIn", "未登录，跳过云同步"), "warning");
+      return;
+    }
+
+    setCharactersSyncing(true);
+    try {
+      const remoteResp = await fetchCloudData("/characters", authToken);
+      const remoteUpdatedAt = normalizeTimestamp(remoteResp?.updated_at);
+      const remoteLists = normalizeCharacterLists(remoteResp?.lists);
+      if (!remoteLists.length) {
+        showMessage(tr("sync.noCloudData", "云端暂无数据"), "warning");
+        return;
+      }
+      if (!confirmManualCloudAction("download", remoteUpdatedAt, charactersLocalUpdatedAt || charactersSyncAt)) return;
+
+      suppressNextCharactersLocalChangeRef.current = true;
+      const { list: appliedTemplates, defaultId } = await applyTemplatesWithDefault(remoteLists, selectedTemplateId || "");
+      const appliedId = selectedTemplateId || defaultId || "";
+      const applied = appliedTemplates.find((item) => item.id === appliedId) || appliedTemplates[0];
+      if (applied?.data) {
+        setCharactersData(applied.data);
+        if (persistCharacters) {
+          await persistCharacters(applied.data);
+        }
+      }
+      const updatedAt = remoteUpdatedAt || Date.now();
+      await setSyncMeta({ charactersLastSyncAt: updatedAt, charactersLocalUpdatedAt: updatedAt });
+      setCharactersSyncAt(updatedAt);
+      setCharactersLocalUpdatedAt(updatedAt);
+      lastSyncedCharactersSigRef.current = buildCharacterListsSignature(appliedTemplates);
+      showMessage(tr("sync.downloadSuccess", "已从云端下载"), "success");
+    } catch (error) {
+      console.error(error);
+      showMessage(tr("sync.failed", "云同步失败"), "error");
+    } finally {
+      setCharactersSyncing(false);
+    }
+  }, [authToken, charactersLocalUpdatedAt, charactersSyncAt, fetchCloudData, normalizeCharacterLists, confirmManualCloudAction, selectedTemplateId, applyTemplatesWithDefault, setCharactersData, persistCharacters, buildCharacterListsSignature, showMessage, tr]);
 
   // ========== 冲突处理 ==========
   const handleConflictUseLocal = useCallback(async () => {
@@ -389,12 +506,16 @@ export function useCloudSync({
       if (syncConflict.hasAccounts && syncConflict.localAccounts) {
         const uploadResp = await uploadCloudData("/accounts", authToken, { lists: buildCloudAccountLists(syncConflict.localAccounts) });
         const updatedAt = normalizeTimestamp(uploadResp?.updated_at) || Date.now();
-        await setSyncMeta({ accountsLastSyncAt: updatedAt });
+        await setSyncMeta({ accountsLastSyncAt: updatedAt, accountsLocalUpdatedAt: updatedAt });
+        setAccountsSyncAt(updatedAt);
+        setAccountsLocalUpdatedAt(updatedAt);
       }
       if (syncConflict.hasCharacters && syncConflict.localCharacters) {
         const uploadResp = await uploadCloudData("/characters", authToken, { lists: normalizeCharacterLists(syncConflict.localCharacters) });
         const updatedAt = normalizeTimestamp(uploadResp?.updated_at) || Date.now();
-        await setSyncMeta({ charactersLastSyncAt: updatedAt });
+        await setSyncMeta({ charactersLastSyncAt: updatedAt, charactersLocalUpdatedAt: updatedAt });
+        setCharactersSyncAt(updatedAt);
+        setCharactersLocalUpdatedAt(updatedAt);
       }
       setSyncConflict((prev) => ({ ...prev, open: false }));
       showMessage(t("sync.useLocal") || "本地上传到云", "success");
@@ -418,7 +539,9 @@ export function useCloudSync({
           if (onAccountsOverridden) onAccountsOverridden(applied.data.length);
         }
         if (syncConflict.remoteAccountsUpdatedAt) {
-          await setSyncMeta({ accountsLastSyncAt: syncConflict.remoteAccountsUpdatedAt });
+          await setSyncMeta({ accountsLastSyncAt: syncConflict.remoteAccountsUpdatedAt, accountsLocalUpdatedAt: syncConflict.remoteAccountsUpdatedAt });
+          setAccountsSyncAt(syncConflict.remoteAccountsUpdatedAt);
+          setAccountsLocalUpdatedAt(syncConflict.remoteAccountsUpdatedAt);
         }
       }
       if (syncConflict.hasCharacters && syncConflict.remoteCharacters) {
@@ -435,7 +558,9 @@ export function useCloudSync({
         }
         
         if (syncConflict.remoteCharactersUpdatedAt) {
-          await setSyncMeta({ charactersLastSyncAt: syncConflict.remoteCharactersUpdatedAt });
+          await setSyncMeta({ charactersLastSyncAt: syncConflict.remoteCharactersUpdatedAt, charactersLocalUpdatedAt: syncConflict.remoteCharactersUpdatedAt });
+          setCharactersSyncAt(syncConflict.remoteCharactersUpdatedAt);
+          setCharactersLocalUpdatedAt(syncConflict.remoteCharactersUpdatedAt);
         }
       }
       setSyncConflict((prev) => ({ ...prev, open: false }));
@@ -450,7 +575,6 @@ export function useCloudSync({
     await clearWebsiteAuth();
     await clearAuthStorage();
     setAuthToken(null);
-    cloudInitTokenRef.current = null;
     setSyncConflict((prev) => ({ ...prev, open: false }));
     showMessage(t("sync.logout") || "退出登录", "info");
   }, [showMessage, t, clearWebsiteAuth]);
@@ -473,6 +597,8 @@ export function useCloudSync({
     getSyncMeta().then((meta) => {
       setAccountsSyncAt(normalizeTimestamp(meta?.accountsLastSyncAt));
       setCharactersSyncAt(normalizeTimestamp(meta?.charactersLastSyncAt));
+      setAccountsLocalUpdatedAt(normalizeTimestamp(meta?.accountsLocalUpdatedAt));
+      setCharactersLocalUpdatedAt(normalizeTimestamp(meta?.charactersLocalUpdatedAt));
     });
     const storageHandler = (changes, area) => {
       if (area === "local") {
@@ -480,6 +606,8 @@ export function useCloudSync({
           const next = changes.syncMeta.newValue || {};
           setAccountsSyncAt(normalizeTimestamp(next?.accountsLastSyncAt));
           setCharactersSyncAt(normalizeTimestamp(next?.charactersLastSyncAt));
+          setAccountsLocalUpdatedAt(normalizeTimestamp(next?.accountsLocalUpdatedAt));
+          setCharactersLocalUpdatedAt(normalizeTimestamp(next?.charactersLocalUpdatedAt));
           if (next?.accountsSyncing !== undefined) {
             setAccountsSyncing(next.accountsSyncing);
           }
@@ -493,7 +621,6 @@ export function useCloudSync({
             setAuthToken(authData.token);
           } else {
             setAuthToken(null);
-            cloudInitTokenRef.current = null;
           }
         }
       }
@@ -516,7 +643,6 @@ export function useCloudSync({
         }
         // 网站明确发出退出信号，清除本地登录态
         setAuthToken(null);
-        cloudInitTokenRef.current = null;
         clearAuthStorage();
         setSyncConflict((prev) => ({ ...prev, open: false }));
       }
@@ -524,87 +650,6 @@ export function useCloudSync({
     chrome.runtime.onMessage.addListener(handler);
     return () => chrome.runtime.onMessage.removeListener(handler);
   }, [syncAuthFromWebsite]);
-
-  // 敏感信息同步变化时触发同步
-  useEffect(() => {
-    if (!authToken || !isInitializedRef.current) return;
-    if (!accountTemplatesRef.current.length) return;
-    if (!syncSensitiveInitRef.current) return;
-    const signature = buildSensitiveSignature(syncAccountEmail, syncAccountPassword);
-    if (prevSyncSensitiveRef.current === signature) return;
-    prevSyncSensitiveRef.current = signature;
-    if (sensitiveSyncTimerRef.current) {
-      clearTimeout(sensitiveSyncTimerRef.current);
-    }
-    forceAccountsSyncingRef.current = true;
-    setAccountsSyncing(true);
-    sensitiveSyncTimerRef.current = setTimeout(() => {
-      syncAccountsNow(accountTemplatesRef.current);
-    }, 3000);
-    return () => {
-      if (sensitiveSyncTimerRef.current) {
-        clearTimeout(sensitiveSyncTimerRef.current);
-      }
-      if (!forceAccountsSyncingRef.current) {
-        setAccountsSyncing(false);
-      }
-    };
-  }, [authToken, syncAccountEmail, syncAccountPassword, syncAccountsNow, buildSensitiveSignature]);
-
-  // 自动同步
-  useEffect(() => {
-    if (!authToken || !isInitializedRef.current) return;
-
-    if (syncTimerRef.current) {
-      clearTimeout(syncTimerRef.current);
-    }
-
-    const accountsDirty = buildAccountListsSignature(accountTemplates) !== lastSyncedAccountsSigRef.current;
-    const charactersDirty = buildCharacterListsSignature(templates) !== lastSyncedCharactersSigRef.current;
-    setAccountsSyncing(forceAccountsSyncingRef.current || accountsDirty);
-    setCharactersSyncing(charactersDirty);
-
-    if (!accountsDirty && !charactersDirty) return;
-
-    syncTimerRef.current = setTimeout(() => {
-      flushPendingSync().catch(() => {});
-    }, 3000);
-
-    return () => {
-      if (syncTimerRef.current) {
-        clearTimeout(syncTimerRef.current);
-      }
-    };
-  }, [accountTemplates, templates, authToken, flushPendingSync, buildAccountListsSignature, buildCharacterListsSignature]);
-
-  // 页面卸载时同步
-  useEffect(() => {
-    if (!authToken) return;
-    const handleBeforeUnload = () => {
-      flushPendingSync({ useKeepalive: true }).catch(() => {});
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [authToken, flushPendingSync]);
-
-  // 标记敏感信息设置已初始化（传入当前设置值以正确记录初始状态）
-  const setSyncSensitiveInit = useCallback((value, currentSensitiveValue) => {
-    syncSensitiveInitRef.current = value;
-    if (currentSensitiveValue && typeof currentSensitiveValue === "object") {
-      prevSyncSensitiveRef.current = buildSensitiveSignature(
-        Boolean(currentSensitiveValue.email),
-        Boolean(currentSensitiveValue.password)
-      );
-      return;
-    }
-    if (typeof currentSensitiveValue === "boolean") {
-      prevSyncSensitiveRef.current = buildSensitiveSignature(currentSensitiveValue, currentSensitiveValue);
-      return;
-    }
-    prevSyncSensitiveRef.current = currentSensitiveValue !== undefined
-      ? String(currentSensitiveValue)
-      : buildSensitiveSignature(syncAccountEmail, syncAccountPassword);
-  }, [buildSensitiveSignature, syncAccountEmail, syncAccountPassword]);
 
   return {
     // 状态
@@ -614,11 +659,8 @@ export function useCloudSync({
     accountsSyncing,
     charactersSyncing,
     syncConflict,
-    isInitializedRef,
-    cloudInitTokenRef,
     lastSyncedAccountsSigRef,
     lastSyncedCharactersSigRef,
-    forceAccountsSyncingRef,
 
     // 辅助函数
     sanitizeAccountsForCloud,
@@ -635,7 +677,10 @@ export function useCloudSync({
     syncAccountsToCloud,
     syncCharactersToCloud,
     syncAccountsNow,
-    flushPendingSync,
+    handleManualUploadAccounts,
+    handleManualDownloadAccounts,
+    handleManualUploadCharacters,
+    handleManualDownloadCharacters,
 
     // 冲突处理
     setSyncConflict,
@@ -647,7 +692,6 @@ export function useCloudSync({
     setAuthToken,
     setAccountsSyncing,
     setCharactersSyncing,
-    setSyncSensitiveInit,
   };
 }
 

@@ -18,7 +18,6 @@ import {
   useAuth,
   useSettings,
   useNotification,
-  useCloudCheck,
   useCrawler,
   useMerge,
   useUpdateCheck,
@@ -51,7 +50,6 @@ export default function App() {
   const auth = useAuth({ t, showMessage });
 
   // ========== 云同步检查 ==========
-  useCloudCheck({ authToken: auth.authToken, t, showMessage });
 
   // ========== 自动更新检查 ==========
   const { updateAvailable, latestVersion, releaseUrl } = useUpdateCheck();

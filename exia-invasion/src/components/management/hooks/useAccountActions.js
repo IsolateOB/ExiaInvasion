@@ -16,12 +16,6 @@ import { parseGameUidFromCookie, downloadFile, selectFile, getCellString } from 
  * @param {Function} options.syncAccountTemplateData - 同步账号模板数据
  * @param {string} options.selectedAccountTemplateId - 当前选中的账号模板ID
  * @param {Function} options.showMessage - 显示消息提示
- * @param {boolean} options.syncAccountEmail - 是否同步账号邮箱
- * @param {boolean} options.syncAccountPassword - 是否同步账号密码
- * @param {string} options.authToken - 认证令牌
- * @param {Function} options.buildUpdatedAccountTemplates - 构建更新后的账号模板
- * @param {Function} options.syncAccountsNow - 立即同步账号
- * @param {Object} options.accountTemplatesRef - 账号模板引用
  */
 export function useAccountActions({
   t,
@@ -31,12 +25,6 @@ export function useAccountActions({
   syncAccountTemplateData,
   selectedAccountTemplateId,
   showMessage,
-  syncAccountEmail,
-  syncAccountPassword,
-  authToken,
-  buildUpdatedAccountTemplates,
-  syncAccountsNow,
-  accountTemplatesRef,
 }) {
   const [editing, setEditing] = useState([]);
   const [showPwds, setShowPwds] = useState([]);
@@ -84,12 +72,7 @@ export function useAccountActions({
     setEditing((prev) => prev.map((e, i) => (i === idx ? false : e)));
     await persist(next);
     await syncAccountTemplateData(selectedAccountTemplateId, next);
-    const shouldSyncSensitive = Boolean(syncAccountEmail) || Boolean(syncAccountPassword);
-    if (shouldSyncSensitive && authToken && buildUpdatedAccountTemplates && syncAccountsNow && accountTemplatesRef) {
-      const nextTemplates = buildUpdatedAccountTemplates(accountTemplatesRef.current, selectedAccountTemplateId, next);
-      await syncAccountsNow(nextTemplates);
-    }
-  }, [accounts, setAccounts, persist, syncAccountTemplateData, selectedAccountTemplateId, syncAccountEmail, syncAccountPassword, authToken, buildUpdatedAccountTemplates, syncAccountsNow, accountTemplatesRef]);
+  }, [accounts, setAccounts, persist, syncAccountTemplateData, selectedAccountTemplateId]);
 
   // 删除指定行
   const deleteRow = useCallback(async (idx) => {

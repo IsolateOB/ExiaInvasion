@@ -25,6 +25,8 @@ import AddIcon from "@mui/icons-material/Add";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import FileUploadIcon from "@mui/icons-material/FileUpload";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import CloudDownloadIcon from "@mui/icons-material/CloudDownload";
 import DeleteSweepIcon from "@mui/icons-material/DeleteSweep";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
@@ -72,6 +74,8 @@ const AccountTabContent = ({
   renderText,
   syncLabel,
   isSyncing,
+  onUploadCloud,
+  onDownloadCloud,
   syncAccountEmail,
   syncAccountPassword,
   toggleSyncAccountEmail,
@@ -214,6 +218,13 @@ const AccountTabContent = ({
           disabled={accountTemplates.length >= 200}
         >
           {t("accountTemplateCreate") || "鏂板缓"}
+        </Button>
+
+        <Button size="small" variant="outlined" startIcon={<CloudUploadIcon />} onClick={onUploadCloud} disabled={isSyncing} sx={{ minWidth: 96 }}>
+          {t("sync.upload") || "上传到云"}
+        </Button>
+        <Button size="small" variant="outlined" startIcon={<CloudDownloadIcon />} onClick={onDownloadCloud} disabled={isSyncing} sx={{ minWidth: 96 }}>
+          {t("sync.download") || "从云下载"}
         </Button>
 
         <Button size="small" variant="outlined" startIcon={<FileDownloadIcon />} onClick={handleImportAccounts} sx={{ minWidth: 80 }}>

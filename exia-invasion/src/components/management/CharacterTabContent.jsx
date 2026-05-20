@@ -26,6 +26,8 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import FileUploadIcon from "@mui/icons-material/FileUpload";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import CloudDownloadIcon from "@mui/icons-material/CloudDownload";
 import DeleteSweepIcon from "@mui/icons-material/DeleteSweep";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
@@ -147,6 +149,8 @@ const CharacterTabContent = ({
   onCharDragEnd,
   syncLabel,
   isSyncing,
+  onUploadCloud,
+  onDownloadCloud,
 }) => {
   const toggleMinWidth =
     typeof nikkeToggleMinWidthPx === "number" ? nikkeToggleMinWidthPx : 56;
@@ -365,6 +369,27 @@ const CharacterTabContent = ({
             disabled={templates.length >= 200}
           >
             {t("templateCreate") || "鏂板缓"}
+          </Button>
+
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<CloudUploadIcon />}
+            onClick={onUploadCloud}
+            disabled={isSyncing}
+            sx={{ minWidth: 96 }}
+          >
+            {t("sync.upload") || "上传到云"}
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<CloudDownloadIcon />}
+            onClick={onDownloadCloud}
+            disabled={isSyncing}
+            sx={{ minWidth: 96 }}
+          >
+            {t("sync.download") || "从云下载"}
           </Button>
 
           <Button
